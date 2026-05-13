@@ -1,0 +1,13 @@
+version: "3.9"
+
+# =============================================================================
+# ElektraLog — Local Development Override
+# Only starts postgres directly (no app build needed for local dev)
+# Usage: docker-compose up -d postgres
+# =============================================================================
+
+services:
+  postgres:
+    # Expose postgres on all interfaces for local dev tools (DBeaver, psql, etc.)
+    ports:
+      - "${POSTGRES_PORT}:5432"
