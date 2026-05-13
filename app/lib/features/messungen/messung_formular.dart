@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../core/models/messung.dart';
 import '../../core/providers/messungen_provider.dart';
@@ -349,27 +348,24 @@ class _Vde07010702FormState
 
   Future<void> _save() async {
     setState(() => _isSaving = true);
-    final messung = Messung()
-      ..uuid = const Uuid().v4()
-      ..komponenteUuid = widget.komponenteUuid
-      ..norm = 'vde_0701_0702'
-      ..pruefungDatum = DateTime.now()
-      ..prueferName = _prueferCtrl.text.trim().isEmpty
+    final messung = Messung(
+      komponenteUuid: widget.komponenteUuid,
+      norm: 'vde_0701_0702',
+      pruefungDatum: DateTime.now(),
+      prueferName: _prueferCtrl.text.trim().isEmpty
           ? null
-          : _prueferCtrl.text.trim()
-      ..ergebnis = _ergebnis
-      ..bemerkung = _bemerkungCtrl.text.trim().isEmpty
+          : _prueferCtrl.text.trim(),
+      ergebnis: _ergebnis,
+      bemerkung: _bemerkungCtrl.text.trim().isEmpty
           ? null
-          : _bemerkungCtrl.text.trim()
-      ..erstelltAm = DateTime.now()
-      ..messwertJson = jsonEncode({
+          : _bemerkungCtrl.text.trim(),
+      messwertJson: jsonEncode({
         'schutzklasse': _schutzklasse,
         'schutzleiterwiderstand_ohm':
             double.tryParse(_schutzleiterCtrl.text.replaceAll(',', '.')),
         'isolationswiderstand_mohm': _messbereichsendwert
             ? null
-            : double.tryParse(
-                _isolationCtrl.text.replaceAll(',', '.')),
+            : double.tryParse(_isolationCtrl.text.replaceAll(',', '.')),
         'messbereichsendwert': _messbereichsendwert,
         'ableitstrom_ma':
             double.tryParse(_ableitstromCtrl.text.replaceAll(',', '.')),
@@ -378,7 +374,8 @@ class _Vde07010702FormState
             : double.tryParse(
                 _beruehrungCtrl.text.replaceAll(',', '.')),
         'funktionspruefung': _funktionspruefung,
-      });
+      }),
+    );
 
     await ref.read(messungenRepositoryProvider).save(messung);
     if (mounted) widget.onSaved();
@@ -545,20 +542,18 @@ class _DguvV3FormState extends ConsumerState<_DguvV3Form> {
 
   Future<void> _save() async {
     setState(() => _isSaving = true);
-    final messung = Messung()
-      ..uuid = const Uuid().v4()
-      ..komponenteUuid = widget.komponenteUuid
-      ..norm = 'dguv_v3'
-      ..pruefungDatum = DateTime.now()
-      ..prueferName = _prueferCtrl.text.trim().isEmpty
+    final messung = Messung(
+      komponenteUuid: widget.komponenteUuid,
+      norm: 'dguv_v3',
+      pruefungDatum: DateTime.now(),
+      prueferName: _prueferCtrl.text.trim().isEmpty
           ? null
-          : _prueferCtrl.text.trim()
-      ..ergebnis = _ergebnis
-      ..bemerkung = _bemerkungCtrl.text.trim().isEmpty
+          : _prueferCtrl.text.trim(),
+      ergebnis: _ergebnis,
+      bemerkung: _bemerkungCtrl.text.trim().isEmpty
           ? null
-          : _bemerkungCtrl.text.trim()
-      ..erstelltAm = DateTime.now()
-      ..messwertJson = jsonEncode({
+          : _bemerkungCtrl.text.trim(),
+      messwertJson: jsonEncode({
         'schutzleiterwiderstand_ohm':
             double.tryParse(_schutzleiterCtrl.text.replaceAll(',', '.')),
         'isolationswiderstand_mohm':
@@ -567,7 +562,8 @@ class _DguvV3FormState extends ConsumerState<_DguvV3Form> {
             double.tryParse(_ableitstromCtrl.text.replaceAll(',', '.')),
         'funktionspruefung': _funktionspruefung,
         'naechste_pruefung': _naechstePruefung?.toIso8601String(),
-      });
+      }),
+    );
 
     await ref.read(messungenRepositoryProvider).save(messung);
     if (mounted) widget.onSaved();
@@ -737,20 +733,18 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
 
   Future<void> _save() async {
     setState(() => _isSaving = true);
-    final messung = Messung()
-      ..uuid = const Uuid().v4()
-      ..komponenteUuid = widget.komponenteUuid
-      ..norm = 'vde_0100'
-      ..pruefungDatum = DateTime.now()
-      ..prueferName = _prueferCtrl.text.trim().isEmpty
+    final messung = Messung(
+      komponenteUuid: widget.komponenteUuid,
+      norm: 'vde_0100',
+      pruefungDatum: DateTime.now(),
+      prueferName: _prueferCtrl.text.trim().isEmpty
           ? null
-          : _prueferCtrl.text.trim()
-      ..ergebnis = _ergebnis
-      ..bemerkung = _bemerkungCtrl.text.trim().isEmpty
+          : _prueferCtrl.text.trim(),
+      ergebnis: _ergebnis,
+      bemerkung: _bemerkungCtrl.text.trim().isEmpty
           ? null
-          : _bemerkungCtrl.text.trim()
-      ..erstelltAm = DateTime.now()
-      ..messwertJson = jsonEncode({
+          : _bemerkungCtrl.text.trim(),
+      messwertJson: jsonEncode({
         'schleifenimpedanz_ohm': double.tryParse(
             _schleifenimpedanzCtrl.text.replaceAll(',', '.')),
         'isolationswiderstand_mohm':
@@ -765,7 +759,8 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
         'erdungswiderstand_ohm': _erdungCtrl.text.isEmpty
             ? null
             : double.tryParse(_erdungCtrl.text.replaceAll(',', '.')),
-      });
+      }),
+    );
 
     await ref.read(messungenRepositoryProvider).save(messung);
     if (mounted) widget.onSaved();

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../core/models/verteiler_komponente.dart';
 import '../../core/providers/komponenten_provider.dart';
@@ -295,23 +294,12 @@ class _KomponenteFormularState
     setState(() => _isSaving = true);
 
     final existing = widget.existingKomponente;
-    final k = existing ?? VerteilerKomponente();
-
-    if (existing == null) {
-      k.uuid = const Uuid().v4();
-      k.verteilerUuid = widget.verteilerUuid;
-      k.parentUuid = widget.parentUuid;
-      k.erstelltAm = DateTime.now();
-    }
-
-    k.typ = _typ;
-    k.bezeichnung = _bezeichnungCtrl.text.trim();
+    final bezeichnung = _bezeichnungCtrl.text.trim();
 
     final eigenschaften = <String, dynamic>{};
     if (_nennstromCtrl.text.isNotEmpty) {
       eigenschaften['nennstrom'] =
-          double.tryParse(_nennstromCtrl.text) ??
-              _nennstromCtrl.text;
+          double.tryParse(_nennstromCtrl.text) ?? _nennstromCtrl.text;
     }
     if (_poleCtrl.text.isNotEmpty) {
       eigenschaften['pole'] = int.tryParse(_poleCtrl.text);
@@ -328,9 +316,30 @@ class _KomponenteFormularState
     if (_nhGroesse != null) {
       eigenschaften['nhGroesse'] = _nhGroesse;
     }
-
-    k.eigenschaftenJson =
+    final eigenschaftenJson =
         eigenschaften.isEmpty ? null : jsonEncode(eigenschaften);
+
+    final VerteilerKomponente k;
+    if (existing != null) {
+      k = VerteilerKomponente(
+        uuid: existing.uuid,
+        verteilerUuid: existing.verteilerUuid,
+        parentUuid: existing.parentUuid,
+        typ: _typ,
+        bezeichnung: bezeichnung,
+        position: existing.position,
+        eigenschaftenJson: eigenschaftenJson,
+        erstelltAm: existing.erstelltAm,
+      );
+    } else {
+      k = VerteilerKomponente(
+        verteilerUuid: widget.verteilerUuid,
+        parentUuid: widget.parentUuid,
+        typ: _typ,
+        bezeichnung: bezeichnung,
+        eigenschaftenJson: eigenschaftenJson,
+      );
+    }
 
     await ref.read(komponentenRepositoryProvider).save(k);
 

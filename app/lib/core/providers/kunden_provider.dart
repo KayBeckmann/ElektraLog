@@ -1,63 +1,68 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart';
-import 'package:uuid/uuid.dart';
+import 'package:sembast/sembast.dart';
 
+import '../database/isar_service.dart';
 import '../models/kunde.dart';
 import 'isar_provider.dart';
 
 // ── Repository ────────────────────────────────────────────────────────────────
 
 class KundenRepository {
-  const KundenRepository(this._isar);
+  const KundenRepository(this._db);
 
-  final Isar _isar;
+  final Database _db;
 
   Stream<List<Kunde>> watchAll() {
-    return _isar.kundes.where().sortByName().watch(fireImmediately: true);
+    return StorageService.kundenStore
+        .query()
+        .onSnapshots(_db)
+        .map((snapshots) => snapshots
+            .map((s) => Kunde.fromJson(s.value.cast<String, dynamic>()))
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name)));
   }
 
   Future<List<Kunde>> getAll() async {
-    return _isar.kundes.where().sortByName().findAll();
+    final snapshots = await StorageService.kundenStore.find(_db);
+    return snapshots
+        .map((s) => Kunde.fromJson(s.value.cast<String, dynamic>()))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
   }
 
   Future<Kunde?> getByUuid(String uuid) async {
-    return _isar.kundes.filter().uuidEqualTo(uuid).findFirst();
+    final snapshot =
+        await StorageService.kundenStore.record(uuid).get(_db);
+    if (snapshot == null) return null;
+    return Kunde.fromJson(snapshot.cast<String, dynamic>());
   }
 
   Future<void> save(Kunde kunde) async {
-    if (kunde.uuid.isEmpty) {
-      kunde.uuid = const Uuid().v4();
-    }
-    kunde.erstelltAm ??= DateTime.now();
-    await _isar.writeTxn(() async {
-      await _isar.kundes.put(kunde);
-    });
+    await StorageService.kundenStore
+        .record(kunde.uuid)
+        .put(_db, kunde.toJson().cast<String, Object?>());
   }
 
   Future<void> delete(String uuid) async {
-    final existing = await getByUuid(uuid);
-    if (existing == null) return;
-    await _isar.writeTxn(() async {
-      await _isar.kundes.delete(existing.id);
-    });
+    await StorageService.kundenStore.record(uuid).delete(_db);
   }
 }
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final kundenRepositoryProvider = Provider<KundenRepository>((ref) {
-  final isarAsync = ref.watch(isarProvider);
-  return isarAsync.when(
-    data: (isar) => KundenRepository(isar),
-    loading: () => throw StateError('Isar not ready'),
+  final dbAsync = ref.watch(dbProvider);
+  return dbAsync.when(
+    data: (db) => KundenRepository(db),
+    loading: () => throw StateError('DB not ready'),
     error: (e, _) => throw e,
   );
 });
 
 final kundenProvider = StreamProvider<List<Kunde>>((ref) {
-  final isarAsync = ref.watch(isarProvider);
-  return isarAsync.when(
-    data: (isar) => KundenRepository(isar).watchAll(),
+  final dbAsync = ref.watch(dbProvider);
+  return dbAsync.when(
+    data: (db) => KundenRepository(db).watchAll(),
     loading: () => const Stream.empty(),
     error: (e, _) => Stream.error(e),
   );

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../core/models/kunde.dart';
 import '../../core/providers/kunden_provider.dart';
@@ -195,22 +194,40 @@ class _KundeFormularState extends ConsumerState<KundeFormular> {
     setState(() => _isSaving = true);
 
     final existing = widget.existingKunde;
-    final kunde = existing ?? Kunde();
-
-    if (existing == null) {
-      kunde.uuid = const Uuid().v4();
-      kunde.erstelltAm = DateTime.now();
-    }
-
-    kunde.name = _nameCtrl.text.trim();
-    kunde.strasse =
+    final name = _nameCtrl.text.trim();
+    final strasse =
         _strasseCtrl.text.trim().isEmpty ? null : _strasseCtrl.text.trim();
-    kunde.plz = _plzCtrl.text.trim().isEmpty ? null : _plzCtrl.text.trim();
-    kunde.ort = _ortCtrl.text.trim().isEmpty ? null : _ortCtrl.text.trim();
-    kunde.kontaktEmail =
+    final plz =
+        _plzCtrl.text.trim().isEmpty ? null : _plzCtrl.text.trim();
+    final ort =
+        _ortCtrl.text.trim().isEmpty ? null : _ortCtrl.text.trim();
+    final kontaktEmail =
         _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim();
-    kunde.kontaktTelefon =
+    final kontaktTelefon =
         _telefonCtrl.text.trim().isEmpty ? null : _telefonCtrl.text.trim();
+
+    final Kunde kunde;
+    if (existing != null) {
+      kunde = Kunde(
+        uuid: existing.uuid,
+        name: name,
+        strasse: strasse,
+        plz: plz,
+        ort: ort,
+        kontaktEmail: kontaktEmail,
+        kontaktTelefon: kontaktTelefon,
+        erstelltAm: existing.erstelltAm,
+      );
+    } else {
+      kunde = Kunde(
+        name: name,
+        strasse: strasse,
+        plz: plz,
+        ort: ort,
+        kontaktEmail: kontaktEmail,
+        kontaktTelefon: kontaktTelefon,
+      );
+    }
 
     await ref.read(kundenRepositoryProvider).save(kunde);
 

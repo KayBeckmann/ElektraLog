@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../core/models/verteiler.dart';
 import '../../core/providers/verteiler_provider.dart';
@@ -205,24 +204,35 @@ class _VerteilerFormularState extends ConsumerState<VerteilerFormular> {
     setState(() => _isSaving = true);
 
     final existing = widget.existingVerteiler;
-    final verteiler = existing ?? Verteiler();
-
-    if (existing == null) {
-      verteiler.uuid = const Uuid().v4();
-      verteiler.standortUuid = widget.standortUuid;
-      verteiler.erstelltAm = DateTime.now();
-    }
-
-    verteiler.bezeichnung = _bezeichnungCtrl.text.trim();
-    verteiler.bemerkung = _bemerkungCtrl.text.trim().isEmpty
+    final bezeichnung = _bezeichnungCtrl.text.trim();
+    final bemerkung = _bemerkungCtrl.text.trim().isEmpty
         ? null
         : _bemerkungCtrl.text.trim();
-    verteiler.anlagendatenJson = jsonEncode({
+    final anlagendatenJson = jsonEncode({
       'netzform': _netzform,
       'nennspannung': _nennspannung,
       'frequenz': _frequenz,
       'aussenleiter': _aussenleiter,
     });
+
+    final Verteiler verteiler;
+    if (existing != null) {
+      verteiler = Verteiler(
+        uuid: existing.uuid,
+        standortUuid: existing.standortUuid,
+        bezeichnung: bezeichnung,
+        bemerkung: bemerkung,
+        anlagendatenJson: anlagendatenJson,
+        erstelltAm: existing.erstelltAm,
+      );
+    } else {
+      verteiler = Verteiler(
+        standortUuid: widget.standortUuid,
+        bezeichnung: bezeichnung,
+        bemerkung: bemerkung,
+        anlagendatenJson: anlagendatenJson,
+      );
+    }
 
     await ref.read(verteilerRepositoryProvider).save(verteiler);
 

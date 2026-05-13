@@ -1,71 +1,76 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart';
-import 'package:uuid/uuid.dart';
+import 'package:sembast/sembast.dart';
 
+import '../database/isar_service.dart';
 import '../models/verteiler.dart';
 import 'isar_provider.dart';
 
 // ── Repository ────────────────────────────────────────────────────────────────
 
 class VerteilerRepository {
-  const VerteilerRepository(this._isar);
+  const VerteilerRepository(this._db);
 
-  final Isar _isar;
+  final Database _db;
 
   Stream<List<Verteiler>> watchByStandort(String standortUuid) {
-    return _isar.verteilers
-        .filter()
-        .standortUuidEqualTo(standortUuid)
-        .watch(fireImmediately: true);
+    final finder = Finder(
+      filter: Filter.equals('standortUuid', standortUuid),
+      sortOrders: [SortOrder('bezeichnung')],
+    );
+    return StorageService.verteilerStore
+        .query(finder: finder)
+        .onSnapshots(_db)
+        .map((snapshots) => snapshots
+            .map((s) => Verteiler.fromJson(s.value.cast<String, dynamic>()))
+            .toList());
   }
 
   Future<List<Verteiler>> getByStandort(String standortUuid) async {
-    return _isar.verteilers
-        .filter()
-        .standortUuidEqualTo(standortUuid)
-        .sortByBezeichnung()
-        .findAll();
+    final finder = Finder(
+      filter: Filter.equals('standortUuid', standortUuid),
+      sortOrders: [SortOrder('bezeichnung')],
+    );
+    final snapshots =
+        await StorageService.verteilerStore.find(_db, finder: finder);
+    return snapshots
+        .map((s) => Verteiler.fromJson(s.value.cast<String, dynamic>()))
+        .toList();
   }
 
   Future<Verteiler?> getByUuid(String uuid) async {
-    return _isar.verteilers.filter().uuidEqualTo(uuid).findFirst();
+    final snapshot =
+        await StorageService.verteilerStore.record(uuid).get(_db);
+    if (snapshot == null) return null;
+    return Verteiler.fromJson(snapshot.cast<String, dynamic>());
   }
 
   Future<void> save(Verteiler verteiler) async {
-    if (verteiler.uuid.isEmpty) {
-      verteiler.uuid = const Uuid().v4();
-    }
-    verteiler.erstelltAm ??= DateTime.now();
-    await _isar.writeTxn(() async {
-      await _isar.verteilers.put(verteiler);
-    });
+    await StorageService.verteilerStore
+        .record(verteiler.uuid)
+        .put(_db, verteiler.toJson().cast<String, Object?>());
   }
 
   Future<void> delete(String uuid) async {
-    final existing = await getByUuid(uuid);
-    if (existing == null) return;
-    await _isar.writeTxn(() async {
-      await _isar.verteilers.delete(existing.id);
-    });
+    await StorageService.verteilerStore.record(uuid).delete(_db);
   }
 }
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final verteilerRepositoryProvider = Provider<VerteilerRepository>((ref) {
-  final isarAsync = ref.watch(isarProvider);
-  return isarAsync.when(
-    data: (isar) => VerteilerRepository(isar),
-    loading: () => throw StateError('Isar not ready'),
+  final dbAsync = ref.watch(dbProvider);
+  return dbAsync.when(
+    data: (db) => VerteilerRepository(db),
+    loading: () => throw StateError('DB not ready'),
     error: (e, _) => throw e,
   );
 });
 
 final verteilerByStandortProvider =
     StreamProvider.family<List<Verteiler>, String>((ref, standortUuid) {
-  final isarAsync = ref.watch(isarProvider);
-  return isarAsync.when(
-    data: (isar) => VerteilerRepository(isar).watchByStandort(standortUuid),
+  final dbAsync = ref.watch(dbProvider);
+  return dbAsync.when(
+    data: (db) => VerteilerRepository(db).watchByStandort(standortUuid),
     loading: () => const Stream.empty(),
     error: (e, _) => Stream.error(e),
   );

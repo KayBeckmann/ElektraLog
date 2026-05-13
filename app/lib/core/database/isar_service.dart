@@ -1,59 +1,36 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:isar/isar.dart';
+import 'package:sembast/sembast_io.dart';
+import 'package:sembast/sembast.dart';
+import 'package:sembast_web/sembast_web.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
-import '../models/kunde.dart';
-import '../models/standort.dart';
-import '../models/verteiler.dart';
-import '../models/verteiler_komponente.dart';
-import '../models/messung.dart';
-import '../models/sichtpruefung.dart';
+class StorageService {
+  StorageService._();
+  static final StorageService I = StorageService._();
 
-/// Singleton service for Isar database access.
-class IsarService {
-  IsarService._();
+  Database? _db;
 
-  static final IsarService _instance = IsarService._();
-  static IsarService get I => _instance;
-
-  Isar? _isar;
-
-  /// Returns the open Isar instance, opening it first if necessary.
-  Future<Isar> get instance async {
-    if (_isar != null && _isar!.isOpen) return _isar!;
-    _isar = await _open();
-    return _isar!;
+  Future<Database> get db async {
+    if (_db != null) return _db!;
+    _db = await _open();
+    return _db!;
   }
 
-  Future<Isar> _open() async {
+  Future<Database> _open() async {
     if (kIsWeb) {
-      // Web: use a temporary directory path (in-memory, not persisted)
-      return Isar.open(
-        [
-          KundeSchema,
-          StandortSchema,
-          VerteilerSchema,
-          VerteilerKomponenteSchema,
-          MessungSchema,
-          SichtpruefungSchema,
-        ],
-        directory: '',
-        name: 'elektralog_web',
-        inspector: false,
-      );
+      return databaseFactoryWeb.openDatabase('elektralog.db');
     }
-
     final dir = await getApplicationDocumentsDirectory();
-    return Isar.open(
-      [
-        KundeSchema,
-        StandortSchema,
-        VerteilerSchema,
-        VerteilerKomponenteSchema,
-        MessungSchema,
-        SichtpruefungSchema,
-      ],
-      directory: dir.path,
-    );
+    return databaseFactoryIo.openDatabase(p.join(dir.path, 'elektralog.db'));
   }
+
+  // Stores (one per collection)
+  static final kundenStore = stringMapStoreFactory.store('kunden');
+  static final standorteStore = stringMapStoreFactory.store('standorte');
+  static final verteilerStore = stringMapStoreFactory.store('verteiler');
+  static final komponentenStore = stringMapStoreFactory.store('komponenten');
+  static final messungenStore = stringMapStoreFactory.store('messungen');
+  static final sichtpruefungStore =
+      stringMapStoreFactory.store('sichtpruefungen');
 }

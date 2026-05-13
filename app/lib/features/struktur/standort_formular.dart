@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../core/models/standort.dart';
 import '../../core/providers/standorte_provider.dart';
@@ -163,22 +162,35 @@ class _StandortFormularState extends ConsumerState<StandortFormular> {
     setState(() => _isSaving = true);
 
     final existing = widget.existingStandort;
-    final standort = existing ?? Standort();
-
-    if (existing == null) {
-      standort.uuid = const Uuid().v4();
-      standort.kundeUuid = widget.kundeUuid;
-      standort.erstelltAm = DateTime.now();
-    }
-
-    standort.bezeichnung = _bezeichnungCtrl.text.trim();
-    standort.strasse = _strasseCtrl.text.trim().isEmpty
+    final bezeichnung = _bezeichnungCtrl.text.trim();
+    final strasse = _strasseCtrl.text.trim().isEmpty
         ? null
         : _strasseCtrl.text.trim();
-    standort.plz =
+    final plz =
         _plzCtrl.text.trim().isEmpty ? null : _plzCtrl.text.trim();
-    standort.ort =
+    final ort =
         _ortCtrl.text.trim().isEmpty ? null : _ortCtrl.text.trim();
+
+    final Standort standort;
+    if (existing != null) {
+      standort = Standort(
+        uuid: existing.uuid,
+        kundeUuid: existing.kundeUuid,
+        bezeichnung: bezeichnung,
+        strasse: strasse,
+        plz: plz,
+        ort: ort,
+        erstelltAm: existing.erstelltAm,
+      );
+    } else {
+      standort = Standort(
+        kundeUuid: widget.kundeUuid,
+        bezeichnung: bezeichnung,
+        strasse: strasse,
+        plz: plz,
+        ort: ort,
+      );
+    }
 
     await ref.read(standorteRepositoryProvider).save(standort);
 

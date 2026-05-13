@@ -1,23 +1,55 @@
-import 'package:isar/isar.dart';
+import 'package:uuid/uuid.dart';
 
-part 'verteiler.g.dart';
-
-@collection
 class Verteiler {
-  Id id = Isar.autoIncrement;
-
-  @Index(unique: true)
-  late String uuid;
-
-  @Index()
-  late String standortUuid;
-
-  late String bezeichnung;
-
-  String? bemerkung;
+  final String uuid;
+  final String standortUuid;
+  final String bezeichnung;
+  final String? bemerkung;
 
   /// Anlagendaten als JSON-String (dart:convert)
-  String? anlagendatenJson;
+  final String? anlagendatenJson;
 
-  DateTime? erstelltAm;
+  final DateTime erstelltAm;
+
+  Verteiler({
+    String? uuid,
+    required this.standortUuid,
+    required this.bezeichnung,
+    this.bemerkung,
+    this.anlagendatenJson,
+    DateTime? erstelltAm,
+  })  : uuid = uuid ?? const Uuid().v4(),
+        erstelltAm = erstelltAm ?? DateTime.now();
+
+  Map<String, dynamic> toJson() => {
+        'uuid': uuid,
+        'standortUuid': standortUuid,
+        'bezeichnung': bezeichnung,
+        'bemerkung': bemerkung,
+        'anlagendatenJson': anlagendatenJson,
+        'erstelltAm': erstelltAm.toIso8601String(),
+      };
+
+  factory Verteiler.fromJson(Map<String, dynamic> json) => Verteiler(
+        uuid: json['uuid'] as String,
+        standortUuid: json['standortUuid'] as String,
+        bezeichnung: json['bezeichnung'] as String,
+        bemerkung: json['bemerkung'] as String?,
+        anlagendatenJson: json['anlagendatenJson'] as String?,
+        erstelltAm: DateTime.parse(json['erstelltAm'] as String),
+      );
+
+  Verteiler copyWith({
+    String? bezeichnung,
+    String? bemerkung,
+    String? anlagendatenJson,
+  }) =>
+      Verteiler(
+        uuid: uuid,
+        standortUuid: standortUuid,
+        bezeichnung: bezeichnung ?? this.bezeichnung,
+        bemerkung: bemerkung ?? this.bemerkung,
+        anlagendatenJson: anlagendatenJson ?? this.anlagendatenJson,
+        erstelltAm: erstelltAm,
+      );
 }

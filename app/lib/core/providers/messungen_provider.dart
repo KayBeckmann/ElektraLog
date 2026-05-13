@@ -1,96 +1,100 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:isar/isar.dart';
-import 'package:uuid/uuid.dart';
+import 'package:sembast/sembast.dart';
 
+import '../database/isar_service.dart';
 import '../models/messung.dart';
 import 'isar_provider.dart';
 
 // ── Repository ────────────────────────────────────────────────────────────────
 
 class MessungenRepository {
-  const MessungenRepository(this._isar);
+  const MessungenRepository(this._db);
 
-  final Isar _isar;
+  final Database _db;
 
   Stream<List<Messung>> watchByKomponente(String komponenteUuid) {
-    return _isar.messungs
-        .filter()
-        .komponenteUuidEqualTo(komponenteUuid)
-        .watch(fireImmediately: true);
+    final finder = Finder(
+      filter: Filter.equals('komponenteUuid', komponenteUuid),
+      sortOrders: [SortOrder('pruefungDatum', false)],
+    );
+    return StorageService.messungenStore
+        .query(finder: finder)
+        .onSnapshots(_db)
+        .map((snapshots) => snapshots
+            .map((s) => Messung.fromJson(s.value.cast<String, dynamic>()))
+            .toList());
   }
 
   Future<List<Messung>> getByKomponente(String komponenteUuid) async {
-    return _isar.messungs
-        .filter()
-        .komponenteUuidEqualTo(komponenteUuid)
-        .sortByPruefungDatumDesc()
-        .findAll();
+    final finder = Finder(
+      filter: Filter.equals('komponenteUuid', komponenteUuid),
+      sortOrders: [SortOrder('pruefungDatum', false)],
+    );
+    final snapshots =
+        await StorageService.messungenStore.find(_db, finder: finder);
+    return snapshots
+        .map((s) => Messung.fromJson(s.value.cast<String, dynamic>()))
+        .toList();
   }
 
   Future<List<Messung>> getAll() async {
-    return _isar.messungs.where().sortByPruefungDatumDesc().findAll();
+    final finder = Finder(sortOrders: [SortOrder('pruefungDatum', false)]);
+    final snapshots =
+        await StorageService.messungenStore.find(_db, finder: finder);
+    return snapshots
+        .map((s) => Messung.fromJson(s.value.cast<String, dynamic>()))
+        .toList();
   }
 
   Future<Messung?> getByUuid(String uuid) async {
-    return _isar.messungs.filter().uuidEqualTo(uuid).findFirst();
-  }
-
-  Future<int> countToday() async {
-    final today = DateTime.now();
-    final start = DateTime(today.year, today.month, today.day);
-    final end = start.add(const Duration(days: 1));
-    return _isar.messungs
-        .filter()
-        .pruefungDatumBetween(start, end)
-        .count();
+    final snapshot =
+        await StorageService.messungenStore.record(uuid).get(_db);
+    if (snapshot == null) return null;
+    return Messung.fromJson(snapshot.cast<String, dynamic>());
   }
 
   Future<void> save(Messung messung) async {
-    if (messung.uuid.isEmpty) {
-      messung.uuid = const Uuid().v4();
-    }
-    messung.erstelltAm ??= DateTime.now();
-    await _isar.writeTxn(() async {
-      await _isar.messungs.put(messung);
-    });
+    await StorageService.messungenStore
+        .record(messung.uuid)
+        .put(_db, messung.toJson().cast<String, Object?>());
   }
 
   Future<void> delete(String uuid) async {
-    final existing = await getByUuid(uuid);
-    if (existing == null) return;
-    await _isar.writeTxn(() async {
-      await _isar.messungs.delete(existing.id);
-    });
+    await StorageService.messungenStore.record(uuid).delete(_db);
   }
 }
 
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final messungenRepositoryProvider = Provider<MessungenRepository>((ref) {
-  final isarAsync = ref.watch(isarProvider);
-  return isarAsync.when(
-    data: (isar) => MessungenRepository(isar),
-    loading: () => throw StateError('Isar not ready'),
+  final dbAsync = ref.watch(dbProvider);
+  return dbAsync.when(
+    data: (db) => MessungenRepository(db),
+    loading: () => throw StateError('DB not ready'),
     error: (e, _) => throw e,
   );
 });
 
 final messungenByKomponenteProvider =
     StreamProvider.family<List<Messung>, String>((ref, komponenteUuid) {
-  final isarAsync = ref.watch(isarProvider);
-  return isarAsync.when(
-    data: (isar) =>
-        MessungenRepository(isar).watchByKomponente(komponenteUuid),
+  final dbAsync = ref.watch(dbProvider);
+  return dbAsync.when(
+    data: (db) => MessungenRepository(db).watchByKomponente(komponenteUuid),
     loading: () => const Stream.empty(),
     error: (e, _) => Stream.error(e),
   );
 });
 
-final alleMessungenProvider = FutureProvider<List<Messung>>((ref) async {
-  final isarAsync = ref.watch(isarProvider);
-  return isarAsync.when(
-    data: (isar) => MessungenRepository(isar).getAll(),
-    loading: () async => [],
-    error: (e, _) => throw e,
+final alleMessungenProvider = StreamProvider<List<Messung>>((ref) {
+  final dbAsync = ref.watch(dbProvider);
+  return dbAsync.when(
+    data: (db) => StorageService.messungenStore
+        .query()
+        .onSnapshots(db)
+        .map((snapshots) => snapshots
+            .map((s) => Messung.fromJson(s.value.cast<String, dynamic>()))
+            .toList()),
+    loading: () => const Stream.empty(),
+    error: (_, __) => const Stream.empty(),
   );
 });

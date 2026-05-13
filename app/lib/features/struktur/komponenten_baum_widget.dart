@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -324,8 +325,7 @@ class _TechnischeDaten extends StatelessWidget {
     if (k.eigenschaftenJson == null) return const SizedBox.shrink();
 
     try {
-      final data =
-          Map<String, dynamic>.from(k.eigenschaftenJson as dynamic);
+      final data = jsonDecode(k.eigenschaftenJson!) as Map<String, dynamic>;
       final parts = <String>[];
 
       if (data['nennstrom'] != null) {
