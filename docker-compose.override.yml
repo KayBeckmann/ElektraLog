@@ -2,12 +2,27 @@ version: "3.9"
 
 # =============================================================================
 # ElektraLog — Local Development Override
-# Only starts postgres directly (no app build needed for local dev)
-# Usage: docker-compose up -d postgres
+# - Exposes postgres on all interfaces for local dev tools
+# - Replaces the app build with a pre-built nginx image for faster startup
+#   (Phase 0 shortcut: use `flutter build web` output instead of Docker build)
 # =============================================================================
 
 services:
   postgres:
-    # Expose postgres on all interfaces for local dev tools (DBeaver, psql, etc.)
+    # For local dev tools (DBeaver, psql, etc.), uncomment below to expose on all interfaces:
+    # ports:
+    #   - "${POSTGRES_PORT}:5432"
+    ports: []
+
+  # Override app service: use pre-built web files instead of Docker build
+  # The image override supersedes the build directive in docker-compose.yml
+  app:
+    image: nginx:alpine
+    volumes:
+      - ./app/build/web:/usr/share/nginx/html:ro
+      - ./app/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
-      - "${POSTGRES_PORT}:5432"
+      - "${APP_PORT}:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
