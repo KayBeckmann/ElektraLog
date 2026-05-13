@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+
+<html lang="de"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Dashboard - DGUV V3 Prüfer</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#eae7e9",
+                        "on-tertiary-container": "#a38c6a",
+                        "tertiary-container": "#35260c",
+                        "primary-fixed-dim": "#bcc7de",
+                        "on-background": "#1b1b1d",
+                        "primary": "#091426",
+                        "surface-container": "#f0edef",
+                        "primary-container": "#1e293b",
+                        "tertiary": "#1e1200",
+                        "on-primary-container": "#8590a6",
+                        "surface-tint": "#545f73",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "on-secondary-fixed": "#0b1c30",
+                        "surface": "#fbf8fa",
+                        "surface-dim": "#dcd9db",
+                        "on-primary-fixed-variant": "#3c475a",
+                        "on-tertiary": "#ffffff",
+                        "surface-bright": "#fbf8fa",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "on-error": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed": "#271902",
+                        "outline-variant": "#c5c6cd",
+                        "secondary": "#505f76",
+                        "inverse-surface": "#303032",
+                        "surface-variant": "#e4e2e3",
+                        "secondary-container": "#d0e1fb",
+                        "inverse-primary": "#bcc7de",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e4e2e3",
+                        "on-surface": "#1b1b1d",
+                        "secondary-fixed": "#d3e4fe",
+                        "surface-container-low": "#f5f3f4",
+                        "on-primary-fixed": "#111c2d",
+                        "primary-fixed": "#d8e3fb",
+                        "tertiary-fixed-dim": "#ddc39d",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-fixed-variant": "#564427",
+                        "background": "#fbf8fa",
+                        "tertiary-fixed": "#fadfb8",
+                        "on-primary": "#ffffff",
+                        "on-surface-variant": "#45474c",
+                        "inverse-on-surface": "#f3f0f2",
+                        "on-secondary": "#ffffff",
+                        "outline": "#75777d",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-container": "#54647a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "xl": "40px",
+                        "base": "4px",
+                        "sm": "8px",
+                        "xs": "4px",
+                        "container-margin": "16px",
+                        "lg": "24px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "body-base": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "title-sm": ["Inter"],
+                        "data-mono": ["JetBrains Mono"],
+                        "body-sm": ["Inter"],
+                        "label-caps": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                        "body-base": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "display-lg": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "title-sm": ["18px", { "lineHeight": "1.4", "fontWeight": "600" }],
+                        "data-mono": ["14px", { "lineHeight": "1.4", "fontWeight": "500" }],
+                        "body-sm": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "label-caps": ["12px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-base antialiased pt-16 md:pt-0">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-40 bg-surface border-b border-outline-variant transition-colors duration-200">
+<div class="flex items-center justify-between px-md w-full max-w-[1440px] mx-auto h-16">
+<button class="text-on-surface-variant hover:bg-surface-variant p-2 rounded-full transition-colors duration-200 md:hidden">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">DGUV V3 Prüfer</h1>
+<button class="text-on-surface-variant hover:bg-surface-variant p-2 rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined">search</span>
+</button>
+</div>
+</header>
+<div class="max-w-[1440px] mx-auto flex h-screen md:pt-16">
+<!-- NavigationDrawer (Desktop SideNav) -->
+<aside class="hidden md:flex flex-col h-full w-80 bg-surface bg-surface-container-low shadow-md p-md transition-all duration-200 border-r border-outline-variant shrink-0 sticky top-16" style="height: calc(100vh - 64px);">
+<!-- Profile Header -->
+<div class="flex items-start gap-md mb-xl pb-md border-b border-outline-variant">
+<div class="w-12 h-12 rounded-full bg-surface-container-high overflow-hidden shrink-0 border border-outline-variant">
+<img alt="Techniker Profilbild" class="w-full h-full object-cover" data-alt="A professional portrait of a male electrical inspection technician in a modern, well-lit industrial environment. He is wearing a clean, high-contrast corporate uniform with a subtle slate grey tone. The lighting is bright and even, highlighting a sense of reliability and precision. The background is a slightly blurred, sterile white testing laboratory setting. The overall mood is functional, clean, and serious." src="https://lh3.googleusercontent.com/aida-public/AB6AXuALWB7MWRqLFfql_YObexsJbkHlToBcz-VWg2wdmCMDt6yrViADghgbecvb0VsF9fyoTsJLOwIzIvItFgoEgnyT9Mt0-DyWt-L9X9OtY6a-CAWr0DLGStkr5a1CL1KGz58Dq5SfLQITJEoFEksSHJuYOTIQzyoCYXOH4t7Xsi9YmK7xccl_KS__W_rMYrFGohK6mgtqDFdb5dq7sKlhxB8w8rpamH_7S-LiW2ZusEJKR9qsHRmhrp_oKULdbPYi0eS-CySfQtssC34"/>
+</div>
+<div>
+<h2 class="font-title-sm text-title-sm text-primary mb-1">Max Mustermann</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-1">Zertifizierter Prüfer</p>
+<p class="font-data-mono text-data-mono text-outline">ID: 992834</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<nav class="flex flex-col gap-sm flex-1">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-variant transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-body-base text-body-base">Prüfberichte</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-variant transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-base text-body-base">Einstellungen</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-variant transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">build</span>
+<span class="font-body-base text-body-base">Geräte-Kalibrierung</span>
+</a>
+</nav>
+<div class="mt-auto pt-md border-t border-outline-variant">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-variant transition-colors duration-200" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body-base text-body-base">Abmelden</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 overflow-y-auto p-md md:p-lg pb-24 md:pb-lg flex flex-col gap-lg">
+<!-- Page Header / Welcome -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-sm border-b border-outline-variant pb-sm">
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-xs">Dashboard</p>
+<h2 class="font-display-lg text-display-lg text-primary">Übersicht Heute</h2>
+</div>
+<div class="font-data-mono text-data-mono text-on-surface-variant bg-surface-container py-1 px-3 rounded-md border border-outline-variant inline-block">
+                    12. Oktober 2023
+                </div>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-md md:gap-lg">
+<!-- KPI: Geprüfte Geräte -->
+<div class="col-span-1 md:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-xl p-lg flex flex-col justify-between shadow-sm relative overflow-hidden">
+<div class="absolute -right-4 -top-4 opacity-5 text-primary">
+<span class="material-symbols-outlined" style="font-size: 120px;">fact_check</span>
+</div>
+<div>
+<p class="font-label-caps text-label-caps text-on-surface-variant mb-sm">Geräte Geprüft (Heute)</p>
+<p class="font-display-lg text-display-lg text-primary">47<span class="font-title-sm text-title-sm text-outline ml-1">/ 85</span></p>
+</div>
+<div class="mt-md flex items-center gap-sm">
+<div class="w-full h-1 bg-surface-container-high rounded-full overflow-hidden">
+<div class="w-[55%] h-full bg-primary"></div>
+</div>
+<span class="font-data-mono text-data-mono text-on-surface-variant text-xs">55%</span>
+</div>
+</div>
+<!-- KPI: Aktive Prüfung (Highlight Card) -->
+<div class="col-span-1 md:col-span-8 bg-surface border-2 border-primary rounded-xl p-lg flex flex-col shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-md">
+<div class="flex items-center gap-sm bg-primary text-on-primary font-label-caps text-label-caps px-3 py-1 rounded-full">
+<span class="material-symbols-outlined text-sm" style="font-size: 14px;">electric_bolt</span>
+                            Laufende Prüfung
+                        </div>
+<button class="text-primary hover:bg-surface-variant p-2 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md flex-1">
+<div>
+<h3 class="font-title-sm text-title-sm text-primary mb-xs">Industrie-Bohrmaschine B-700</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-sm">Kunde: TechCorp Fertigung GmbH</p>
+<p class="font-data-mono text-data-mono text-secondary bg-surface-container-low px-2 py-1 rounded border border-outline-variant inline-block">SN: TC-992-BX4</p>
+</div>
+<div class="flex flex-col justify-end">
+<div class="flex justify-between font-label-caps text-label-caps text-on-surface-variant mb-xs">
+<span>Fortschritt (DIN VDE 0701-0702)</span>
+<span>Schritt 4/7</span>
+</div>
+<div class="w-full h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="w-4/7 h-full bg-primary" style="width: 57%;"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Termine List -->
+<div class="col-span-1 md:col-span-7 bg-surface-container-lowest border border-outline-variant rounded-xl flex flex-col shadow-sm">
+<div class="p-md border-b border-outline-variant flex justify-between items-center bg-surface-bright rounded-t-xl">
+<h3 class="font-title-sm text-title-sm text-primary">Anstehende Termine</h3>
+<span class="font-label-caps text-label-caps text-on-surface-variant bg-surface-container px-2 py-1 rounded">3 Offen</span>
+</div>
+<div class="flex flex-col p-sm gap-xs">
+<!-- Termin Item 1 -->
+<div class="flex items-center justify-between p-sm rounded-lg hover:bg-surface-container-low transition-colors border border-transparent hover:border-outline-variant group cursor-pointer">
+<div class="flex items-center gap-md">
+<div class="font-data-mono text-data-mono text-primary font-bold w-14 text-right">09:00</div>
+<div>
+<p class="font-title-sm text-title-sm text-primary mb-xs group-hover:underline decoration-outline-variant underline-offset-4">Metallbau Schmitz</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" style="font-size: 14px;">location_on</span>
+                                        Halle 4, Werkstraße 12
+                                    </p>
+</div>
+</div>
+<div class="bg-surface-container-high text-on-surface font-label-caps text-label-caps px-2 py-1 rounded-full border border-outline-variant">
+                                Anstehend
+                            </div>
+</div>
+<!-- Termin Item 2 (Active/Next) -->
+<div class="flex items-center justify-between p-sm rounded-lg bg-secondary-container text-on-secondary-container border border-secondary-fixed-dim cursor-pointer">
+<div class="flex items-center gap-md">
+<div class="font-data-mono text-data-mono font-bold w-14 text-right">11:30</div>
+<div>
+<p class="font-title-sm text-title-sm mb-xs">TechCorp Fertigung</p>
+<p class="font-body-sm text-body-sm opacity-80 flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" style="font-size: 14px;">location_on</span>
+                                        Hauptgebäude, Etage 2
+                                    </p>
+</div>
+</div>
+<div class="bg-primary text-on-primary font-label-caps text-label-caps px-2 py-1 rounded-full">
+                                In Arbeit
+                            </div>
+</div>
+<!-- Termin Item 3 -->
+<div class="flex items-center justify-between p-sm rounded-lg hover:bg-surface-container-low transition-colors border border-transparent hover:border-outline-variant group cursor-pointer">
+<div class="flex items-center gap-md">
+<div class="font-data-mono text-data-mono text-on-surface-variant w-14 text-right">14:00</div>
+<div>
+<p class="font-title-sm text-title-sm text-on-surface mb-xs group-hover:underline decoration-outline-variant underline-offset-4">Klinikum Süd</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-sm" style="font-size: 14px;">location_on</span>
+                                        Verwaltungstrakt B
+                                    </p>
+</div>
+</div>
+<div class="bg-surface-container-high text-on-surface font-label-caps text-label-caps px-2 py-1 rounded-full border border-outline-variant">
+                                Anstehend
+                            </div>
+</div>
+</div>
+</div>
+<!-- Map Component -->
+<div class="col-span-1 md:col-span-5 bg-surface-container-lowest border border-outline-variant rounded-xl flex flex-col shadow-sm overflow-hidden">
+<div class="p-md border-b border-outline-variant bg-surface-bright flex justify-between items-center z-10">
+<h3 class="font-title-sm text-title-sm text-primary">Standorte</h3>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">fullscreen</span>
+</button>
+</div>
+<div class="flex-1 relative min-h-[250px] bg-surface-dim">
+<!-- Map Image Background -->
+<div class="absolute inset-0 bg-cover bg-center opacity-90" data-alt="A highly detailed, modern digital map interface displaying an industrial city district from a top-down perspective. The map utilizes a strict light-mode aesthetic with a corporate color palette of light grays, pristine whites, and deep slate blue accents for routes. The design prioritizes functional density and clarity, typical of enterprise software. Several location marker pins indicate inspection sites. The mood is analytical, efficient, and professional." data-location="Industriegebiet" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBK9TnWjFKi98uBCQOsQipgimdOHZXfOSMJqgjbikSx3vz61Zz5Bp9UPJbvSYOXEmdL2v2ZgTSTJvU7UE6Zwrv44UYd3huoihaZigwp8nBqjPwu6Q1N3sDhqkB8LOW_phm-7KGm_KoR5ZP0zGWzYtbGUK5RUjfNSviRtKepdMuQwvUSnYs9qaWHpQRacnaML1pVJJ926SAPPLk_aoEPBk_sY6oNms9GnyO_DcUHU-4WrX6dfIrBlK8-HXIZeQ9BfAvTJh0szkHvTCg');"></div>
+<!-- Overlay elements to make it look like a functional UI map -->
+<div class="absolute inset-0 bg-gradient-to-b from-surface/20 to-surface/60 mix-blend-multiply"></div>
+<!-- Center Pin -->
+<div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+<div class="bg-primary text-on-primary px-3 py-1 rounded shadow-md font-label-caps text-label-caps mb-1 whitespace-nowrap">
+                                TechCorp Fertigung
+                            </div>
+<div class="w-4 h-4 bg-primary rounded-full border-2 border-surface shadow-md"></div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-sm py-xs bg-surface border-t border-outline-variant shadow-sm z-50">
+<!-- Active Tab: Dashboard -->
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-4 py-1 w-20" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-label-caps text-label-caps mt-1">Dashboard</span>
+</a>
+<!-- Inactive Tabs -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-highest scale-95 transition-transform duration-150 px-2 py-1 rounded-lg w-16" href="#">
+<span class="material-symbols-outlined">business_center</span>
+<span class="font-label-caps text-label-caps mt-1 truncate w-full text-center">Kunden</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-highest scale-95 transition-transform duration-150 px-2 py-1 rounded-lg w-16" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="font-label-caps text-label-caps mt-1 truncate w-full text-center">Struktur</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-highest scale-95 transition-transform duration-150 px-2 py-1 rounded-lg w-16" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-caps text-label-caps mt-1 truncate w-full text-center">Historie</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-highest scale-95 transition-transform duration-150 px-2 py-1 rounded-lg w-16" href="#">
+<span class="material-symbols-outlined">draw</span>
+<span class="font-label-caps text-label-caps mt-1 truncate w-full text-center">Signatur</span>
+</a>
+</nav>
+</body></html>

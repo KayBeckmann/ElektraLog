@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+
+<html class="light" lang="de"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Kundenverwaltung - DGUV V3 Prüfer</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#eae7e9",
+                        "on-tertiary-container": "#a38c6a",
+                        "tertiary-container": "#35260c",
+                        "primary-fixed-dim": "#bcc7de",
+                        "on-background": "#1b1b1d",
+                        "primary": "#091426",
+                        "surface-container": "#f0edef",
+                        "primary-container": "#1e293b",
+                        "tertiary": "#1e1200",
+                        "on-primary-container": "#8590a6",
+                        "surface-tint": "#545f73",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "on-secondary-fixed": "#0b1c30",
+                        "surface": "#fbf8fa",
+                        "surface-dim": "#dcd9db",
+                        "on-primary-fixed-variant": "#3c475a",
+                        "on-tertiary": "#ffffff",
+                        "surface-bright": "#fbf8fa",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "on-error": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed": "#271902",
+                        "outline-variant": "#c5c6cd",
+                        "secondary": "#505f76",
+                        "inverse-surface": "#303032",
+                        "surface-variant": "#e4e2e3",
+                        "secondary-container": "#d0e1fb",
+                        "inverse-primary": "#bcc7de",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e4e2e3",
+                        "on-surface": "#1b1b1d",
+                        "secondary-fixed": "#d3e4fe",
+                        "surface-container-low": "#f5f3f4",
+                        "on-primary-fixed": "#111c2d",
+                        "primary-fixed": "#d8e3fb",
+                        "tertiary-fixed-dim": "#ddc39d",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-fixed-variant": "#564427",
+                        "background": "#fbf8fa",
+                        "tertiary-fixed": "#fadfb8",
+                        "on-primary": "#ffffff",
+                        "on-surface-variant": "#45474c",
+                        "inverse-on-surface": "#f3f0f2",
+                        "on-secondary": "#ffffff",
+                        "outline": "#75777d",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-container": "#54647a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "md": "16px",
+                        "xl": "40px",
+                        "base": "4px",
+                        "sm": "8px",
+                        "xs": "4px",
+                        "container-margin": "16px",
+                        "lg": "24px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "body-base": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "title-sm": ["Inter"],
+                        "data-mono": ["JetBrains Mono"],
+                        "body-sm": ["Inter"],
+                        "label-caps": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "1.3", "fontWeight": "600" }],
+                        "body-base": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "display-lg": ["32px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "title-sm": ["18px", { "lineHeight": "1.4", "fontWeight": "600" }],
+                        "data-mono": ["14px", { "lineHeight": "1.4", "fontWeight": "500" }],
+                        "body-sm": ["14px", { "lineHeight": "1.5", "fontWeight": "400" }],
+                        "label-caps": ["12px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+        /* Custom scrollbar for an industrial feel */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c5c6cd;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #75777d;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface antialiased flex flex-col h-screen overflow-hidden">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface dark:bg-on-background border-b border-outline-variant dark:border-on-secondary-fixed-variant h-16 flex items-center">
+<div class="flex items-center justify-between px-md w-full max-w-[1440px] mx-auto">
+<button class="p-2 text-on-surface-variant hover:bg-surface-variant rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-primary-fixed-dim tracking-tight">DGUV V3 Prüfer</h1>
+<button class="p-2 text-on-surface-variant hover:bg-surface-variant rounded-full transition-colors duration-200">
+<span class="material-symbols-outlined">search</span>
+</button>
+</div>
+</header>
+<!-- Main Layout Container -->
+<div class="flex flex-1 pt-16 w-full max-w-[1440px] mx-auto h-full">
+<!-- Navigation Drawer (Desktop) -->
+<aside class="hidden md:flex flex-col h-full w-80 bg-surface dark:bg-on-background border-r border-surface-container-low dark:border-surface-container shadow-sm shrink-0">
+<!-- Profile Header -->
+<div class="p-md flex items-center gap-sm border-b border-outline-variant">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container shrink-0">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div class="flex flex-col">
+<span class="font-title-sm text-title-sm text-on-surface">Max Mustermann</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">Zertifizierter Prüfer</span>
+<span class="font-data-mono text-data-mono text-outline text-[10px]">ID: 992834</span>
+</div>
+</div>
+<!-- Nav Items -->
+<nav class="flex-1 overflow-y-auto p-md space-y-2">
+<a class="flex items-center gap-sm px-4 py-3 rounded-lg text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-all duration-200" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-body-base text-body-base">Prüfberichte</span>
+</a>
+<a class="flex items-center gap-sm px-4 py-3 rounded-lg text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-all duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body-base text-body-base">Einstellungen</span>
+</a>
+<a class="flex items-center gap-sm px-4 py-3 rounded-lg text-on-surface-variant dark:text-on-primary-container hover:bg-surface-variant dark:hover:bg-surface-container-highest transition-all duration-200" href="#">
+<span class="material-symbols-outlined">build</span>
+<span class="font-body-base text-body-base">Geräte-Kalibrierung</span>
+</a>
+</nav>
+<div class="p-md border-t border-surface-container-low">
+<a class="flex items-center gap-sm px-4 py-3 rounded-lg text-error hover:bg-error-container transition-all duration-200" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body-base text-body-base">Abmelden</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 h-full overflow-y-auto pb-20 md:pb-0 relative">
+<div class="p-md md:p-xl space-y-lg max-w-5xl mx-auto">
+<!-- Page Header & Actions -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-md">
+<div>
+<h2 class="font-display-lg text-display-lg text-on-surface">Kunden</h2>
+<p class="font-body-base text-body-base text-on-surface-variant mt-1">Verwalten Sie Kunden und deren Betriebsstätten.</p>
+</div>
+<button class="flex items-center justify-center gap-2 bg-primary text-on-primary px-lg py-3 rounded-lg hover:bg-primary-container transition-colors shadow-sm font-title-sm text-title-sm w-full md:w-auto">
+<span class="material-symbols-outlined">add</span>
+                        Neuer Kunde
+                    </button>
+</div>
+<!-- Search & Filter Bar -->
+<div class="flex flex-col sm:flex-row gap-sm bg-surface-container-low p-2 rounded-xl border border-outline-variant">
+<div class="relative flex-1">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full pl-10 pr-4 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-lg font-body-base text-body-base text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-shadow" placeholder="Kunde, ID oder Stadt suchen..." type="text"/>
+</div>
+<button class="flex items-center justify-center gap-2 px-4 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-lg text-on-surface-variant hover:bg-surface-variant transition-colors font-body-sm text-body-sm whitespace-nowrap">
+<span class="material-symbols-outlined">filter_list</span>
+                        Filter
+                    </button>
+<button class="flex items-center justify-center gap-2 px-4 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-lg text-on-surface-variant hover:bg-surface-variant transition-colors font-body-sm text-body-sm whitespace-nowrap">
+<span class="material-symbols-outlined">sort</span>
+                        Sortieren
+                    </button>
+</div>
+<!-- Customer List / Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-md">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col gap-md hover:border-primary hover:shadow-sm transition-all group cursor-pointer">
+<div class="flex justify-between items-start">
+<div class="flex flex-col">
+<h3 class="font-title-sm text-title-sm text-on-surface group-hover:text-primary transition-colors">Muster GmbH &amp; Co. KG</h3>
+<span class="font-data-mono text-data-mono text-on-surface-variant">KND-2023-001</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-1 rounded-full hover:bg-surface-variant">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div class="flex items-start gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px] shrink-0 mt-0.5">location_on</span>
+<span class="font-body-sm text-body-sm">Industriepark Nord 14<br/>10115 Berlin</span>
+</div>
+<div class="mt-auto pt-sm border-t border-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="bg-secondary-container text-on-secondary-container font-label-caps text-label-caps px-2 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">domain</span>
+                                    3 Standorte
+                                </span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">arrow_forward</span>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col gap-md hover:border-primary hover:shadow-sm transition-all group cursor-pointer">
+<div class="flex justify-between items-start">
+<div class="flex flex-col">
+<h3 class="font-title-sm text-title-sm text-on-surface group-hover:text-primary transition-colors">Elektro Schmidt AG</h3>
+<span class="font-data-mono text-data-mono text-on-surface-variant">KND-2023-042</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-1 rounded-full hover:bg-surface-variant">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div class="flex items-start gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px] shrink-0 mt-0.5">location_on</span>
+<span class="font-body-sm text-body-sm">Hauptstraße 128<br/>80331 München</span>
+</div>
+<div class="mt-auto pt-sm border-t border-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="bg-surface-variant text-on-surface-variant font-label-caps text-label-caps px-2 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">domain</span>
+                                    1 Standort
+                                </span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">arrow_forward</span>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col gap-md hover:border-primary hover:shadow-sm transition-all group cursor-pointer">
+<div class="flex justify-between items-start">
+<div class="flex flex-col">
+<h3 class="font-title-sm text-title-sm text-on-surface group-hover:text-primary transition-colors">TechCorp Germany</h3>
+<span class="font-data-mono text-data-mono text-on-surface-variant">KND-2023-089</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-1 rounded-full hover:bg-surface-variant">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div class="flex items-start gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px] shrink-0 mt-0.5">location_on</span>
+<span class="font-body-sm text-body-sm">Innovationsallee 5<br/>60329 Frankfurt</span>
+</div>
+<div class="mt-auto pt-sm border-t border-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="bg-secondary-container text-on-secondary-container font-label-caps text-label-caps px-2 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">domain</span>
+                                    12 Standorte
+                                </span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">arrow_forward</span>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md flex flex-col gap-md hover:border-primary hover:shadow-sm transition-all group cursor-pointer">
+<div class="flex justify-between items-start">
+<div class="flex flex-col">
+<h3 class="font-title-sm text-title-sm text-on-surface group-hover:text-primary transition-colors">Klinikum Süd</h3>
+<span class="font-data-mono text-data-mono text-on-surface-variant">KND-2023-104</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-1 rounded-full hover:bg-surface-variant">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<div class="flex items-start gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px] shrink-0 mt-0.5">location_on</span>
+<span class="font-body-sm text-body-sm">Gesundheitspark 1<br/>70174 Stuttgart</span>
+</div>
+<div class="mt-auto pt-sm border-t border-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="bg-secondary-container text-on-secondary-container font-label-caps text-label-caps px-2 py-1 rounded-full flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">domain</span>
+                                    5 Standorte
+                                </span>
+</div>
+<span class="material-symbols-outlined text-outline group-hover:text-primary transition-colors">arrow_forward</span>
+</div>
+</div>
+</div>
+<!-- Pagination/Load More -->
+<div class="flex justify-center pt-md">
+<button class="px-6 py-2 border border-outline-variant rounded-full text-on-surface-variant hover:bg-surface-variant transition-colors font-title-sm text-title-sm">
+                        Weitere laden
+                    </button>
+</div>
+</div>
+</main>
+</div>
+<!-- BottomNavBar (Mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-sm py-xs z-50 bg-surface dark:bg-on-background border-t border-outline-variant dark:border-on-secondary-fixed-variant shadow-sm pb-safe">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-primary-container hover:bg-surface-container-high dark:hover:bg-surface-container-highest rounded-lg p-2 transition-transform duration-150 active:scale-95 w-16" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-caps text-label-caps mt-1">Dashboard</span>
+</a>
+<!-- Active State for Kunden -->
+<a class="flex flex-col items-center justify-center bg-secondary-container dark:bg-primary-container text-on-secondary-container dark:text-on-primary-container rounded-full px-4 py-1 transition-transform duration-150 scale-100 w-auto min-w-[64px]" href="#">
+<span class="material-symbols-outlined fill">business_center</span>
+<span class="font-label-caps text-label-caps mt-1">Kunden</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-primary-container hover:bg-surface-container-high dark:hover:bg-surface-container-highest rounded-lg p-2 transition-transform duration-150 active:scale-95 w-16" href="#">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="font-label-caps text-label-caps mt-1">Struktur</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-primary-container hover:bg-surface-container-high dark:hover:bg-surface-container-highest rounded-lg p-2 transition-transform duration-150 active:scale-95 w-16" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-caps text-label-caps mt-1">Historie</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-primary-container hover:bg-surface-container-high dark:hover:bg-surface-container-highest rounded-lg p-2 transition-transform duration-150 active:scale-95 w-16" href="#">
+<span class="material-symbols-outlined">draw</span>
+<span class="font-label-caps text-label-caps mt-1">Signatur</span>
+</a>
+</nav>
+<!-- Safe area padding for mobile browsers -->
+<style>
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            .pb-safe {
+                padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
+            }
+        }
+    </style>
+</body></html>
