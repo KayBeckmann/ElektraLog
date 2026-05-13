@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -25,6 +26,23 @@ class IsarService {
   }
 
   Future<Isar> _open() async {
+    if (kIsWeb) {
+      // Web: use a temporary directory path (in-memory, not persisted)
+      return Isar.open(
+        [
+          KundeSchema,
+          StandortSchema,
+          VerteilerSchema,
+          VerteilerKomponenteSchema,
+          MessungSchema,
+          SichtpruefungSchema,
+        ],
+        directory: '',
+        name: 'elektralog_web',
+        inspector: false,
+      );
+    }
+
     final dir = await getApplicationDocumentsDirectory();
     return Isar.open(
       [
