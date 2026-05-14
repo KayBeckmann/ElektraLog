@@ -587,132 +587,128 @@ class _Vde0100Form extends ConsumerStatefulWidget {
 
 class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
   final _prueferCtrl = TextEditingController();
-  final _zsCtrl = TextEditingController();          // Schleifenimpedanz Ω
-  final _ikCtrl = TextEditingController();          // Kurzschlussstrom A
-  final _isolationCtrl = TextEditingController();
-  final _rcdNennCtrl = TextEditingController();     // Nenn-I∆n mA
-  final _rcdGemessenCtrl = TextEditingController(); // Gemessener I∆n mA
-  final _rcdZeitCtrl = TextEditingController();     // Auslösezeit ms
+  final _rcdNennCtrl = TextEditingController();
+  final _rcdGemessenCtrl = TextEditingController();
+  final _rcdZeitCtrl = TextEditingController();
   final _erdungCtrl = TextEditingController();
   final _bemerkungCtrl = TextEditingController();
 
-  bool _useIk = true;   // true = Kurzschlussstrom, false = Schleifenimpedanz
+  // Pro Phase — werden in initState() befüllt
+  late final List<TextEditingController> _ikCtrls;
+  late final List<TextEditingController> _zsCtrls;
+  late final List<TextEditingController> _isoCtrls;
+
+  bool _useIk = true;
   bool _drehfeldRichtig = true;
   bool _isSaving = false;
 
-  // ── Ableitbare Werte aus Komponenten-Eigenschaften ────────────────────────
+  // ── Komponenten-Eigenschaften ─────────────────────────────────────────────
 
   bool get _isRcd =>
       widget.komponenteTyp == 'rcd' || widget.komponenteTyp == 'fi_ls';
 
   bool get _isLs => const [
-        'ls_schalter',
-        'vorsicherung',
-        'nh_sicherung',
-        'neozed',
-        'diazed',
-        'hauptschalter',
-        'fi_ls',
+        'ls_schalter', 'vorsicherung', 'nh_sicherung',
+        'neozed', 'diazed', 'hauptschalter', 'fi_ls',
       ].contains(widget.komponenteTyp);
 
-  /// Nennstrom aus Komponenten-Eigenschaften (für Ik-Mindestwert)
   double? get _nennstrom {
     final v = widget.komponenteEigenschaften?['nennstrom'];
     if (v == null) return null;
     return (v as num).toDouble();
   }
 
-  /// Auslöse-Charakteristik B/C/D aus Komponente
   String get _charakteristik =>
       (widget.komponenteEigenschaften?['charakteristik'] as String?) ?? 'B';
 
-  /// Berechneter Mindest-Kurzschlussstrom: Ik_min = Faktor × Nennstrom
-  /// B: 5×, C: 10×, D: 20×
   double? get _minIk {
     final n = _nennstrom;
     if (n == null) return null;
-    final faktor = _charakteristik == 'C'
-        ? 10.0
-        : _charakteristik == 'D'
-            ? 20.0
-            : 5.0;
+    final faktor = _charakteristik == 'C' ? 10.0
+        : _charakteristik == 'D' ? 20.0 : 5.0;
     return n * faktor;
   }
 
-  /// Nenn-Differenzstrom aus RCD-Komponente (z.B. "30" → 30 mA)
   String? get _nennDifferenzstromFromKomponente {
     final v = widget.komponenteEigenschaften?['auslösestrom'];
     if (v == null) return null;
     return v.toString();
   }
 
+  /// Anzahl der zu messenden Phasen aus Pole-Eigenschaft.
+  /// 4-polige Schalter: 3 Phasen (N wird nicht separat gemessen).
+  int get _poleCount {
+    final p = (widget.komponenteEigenschaften?['pole'] as num?)?.toInt() ?? 1;
+    return p >= 4 ? 3 : p;
+  }
+
+  /// Phasenbeschriftungen je nach Polzahl
+  List<String> get _phaseLabels => switch (_poleCount) {
+        1 => ['L'],
+        2 => ['L1', 'L2'],
+        _ => ['L1', 'L2', 'L3'],
+      };
+
+  /// Drehfeld nur sinnvoll bei 3-phasig
+  bool get _showDrehfeld => _poleCount >= 3;
+
   @override
   void initState() {
     super.initState();
-    // Nenn-I∆n aus Komponente vorbelegen
+    final count = _poleCount;
+    _ikCtrls  = List.generate(count, (_) => TextEditingController());
+    _zsCtrls  = List.generate(count, (_) => TextEditingController());
+    _isoCtrls = List.generate(count, (_) => TextEditingController());
+
     final nennDiff = _nennDifferenzstromFromKomponente;
-    if (nennDiff != null) {
-      _rcdNennCtrl.text = nennDiff;
-    }
+    if (nennDiff != null) _rcdNennCtrl.text = nennDiff;
   }
 
   String get _ergebnis {
     if (_isRcd && !_isLs) {
-      // RCD: Auslösestrom 50 %–100 % I∆n UND Auslösezeit ≤ 300 ms
-      final nenn =
-          double.tryParse(_rcdNennCtrl.text.replaceAll(',', '.'));
-      final gemessen =
-          double.tryParse(_rcdGemessenCtrl.text.replaceAll(',', '.'));
-      final zeit =
-          double.tryParse(_rcdZeitCtrl.text.replaceAll(',', '.'));
-
+      final nenn    = double.tryParse(_rcdNennCtrl.text.replaceAll(',', '.'));
+      final gemessen = double.tryParse(_rcdGemessenCtrl.text.replaceAll(',', '.'));
+      final zeit    = double.tryParse(_rcdZeitCtrl.text.replaceAll(',', '.'));
       final stromOk = (nenn == null || gemessen == null)
-          ? true // noch kein Wert → nicht bewerten
+          ? true
           : gemessen >= nenn * 0.5 && gemessen <= nenn;
-
       return _autoErgebnis({
         'rcd_auslösestrom': stromOk,
         'rcd_ausloesezeit': zeit == null || zeit <= 300,
       });
     } else if (_isLs && !_isRcd) {
-      // Nur LS/Sicherung: Kurzschlussstrom prüfen
-      if (_useIk) {
-        final ik = double.tryParse(_ikCtrl.text.replaceAll(',', '.'));
-        final minIk = _minIk;
-        return _autoErgebnis({
-          'kurzschlussstrom':
-              ik == null || minIk == null || ik >= minIk,
-        });
-      } else {
-        // Zs — Umrechnung: Ik = 230 / Zs, dann Mindestwert prüfen
-        final zs = double.tryParse(_zsCtrl.text.replaceAll(',', '.'));
-        final minIk = _minIk;
-        if (zs != null && zs > 0 && minIk != null) {
-          final ikFromZs = 230.0 / zs;
-          return _autoErgebnis({'kurzschlussstrom': ikFromZs >= minIk});
+      final minIk = _minIk;
+      final checks = <String, bool>{};
+      for (int i = 0; i < _poleCount; i++) {
+        if (_useIk) {
+          final ik = double.tryParse(_ikCtrls[i].text.replaceAll(',', '.'));
+          checks['phase_${i + 1}_ik'] =
+              ik == null || minIk == null || ik >= minIk;
+        } else {
+          final zs = double.tryParse(_zsCtrls[i].text.replaceAll(',', '.'));
+          if (zs != null && zs > 0 && minIk != null) {
+            checks['phase_${i + 1}_zs'] = 230.0 / zs >= minIk;
+          }
         }
-        return 'bestanden';
       }
+      return _autoErgebnis(checks);
     } else {
-      // Generisch (kein Typ bekannt oder Kombination)
       final zeit = double.tryParse(_rcdZeitCtrl.text.replaceAll(',', '.'));
-      return _autoErgebnis({
-        'rcd_ausloesezeit': zeit == null || zeit <= 300,
-      });
+      return _autoErgebnis({'rcd_ausloesezeit': zeit == null || zeit <= 300});
     }
   }
 
   @override
   void dispose() {
     _prueferCtrl.dispose();
-    _zsCtrl.dispose();
-    _ikCtrl.dispose();
-    _isolationCtrl.dispose();
     _rcdNennCtrl.dispose();
     _rcdGemessenCtrl.dispose();
     _rcdZeitCtrl.dispose();
     _erdungCtrl.dispose();
     _bemerkungCtrl.dispose();
+    for (final c in _ikCtrls) c.dispose();
+    for (final c in _zsCtrls) c.dispose();
+    for (final c in _isoCtrls) c.dispose();
     super.dispose();
   }
 
@@ -729,10 +725,14 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
 
         // ── Schleifenimpedanz / Kurzschlussstrom (nur für LS/Sicherungen) ──
         if (_isLs) ...[
-          _SectionHeader('Kurzschlussschutz'),
+          _SectionHeader(
+            _poleCount > 1
+                ? 'Kurzschlussschutz — $_poleCount Phasen'
+                : 'Kurzschlussschutz',
+          ),
           const SizedBox(height: 8),
 
-          // Toggle Zs ↔ Ik
+          // Toggle Ik ↔ Zs
           Row(
             children: [
               const Text('Eingabe als:', style: TextStyle(fontSize: 13)),
@@ -754,30 +754,51 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
           ),
           const SizedBox(height: 12),
 
-          if (_useIk) ...[
-            // Kurzschlussstrom
-            _LimitField(
-              controller: _ikCtrl,
-              label: 'Kurzschlussstrom Ik',
-              unit: 'A',
-              limitHint: _minIk != null
-                  ? 'min. ${_minIk!.toStringAsFixed(0)} A  '
-                      '(${_charakteristik}${_nennstrom?.toStringAsFixed(0) ?? '?'}: '
-                      '${_charakteristik == 'C' ? '10' : _charakteristik == 'D' ? '20' : '5'}× '
-                      '${_nennstrom?.toStringAsFixed(0) ?? '?'} A)'
-                  : 'gemessener Kurzschlussstrom',
-              onChanged: (_) => setState(() {}),
-            ),
-            // Live-Anzeige ob ausreichend
-            if (_minIk != null) ...[
-              const SizedBox(height: 4),
-              Builder(builder: (ctx) {
-                final ik =
-                    double.tryParse(_ikCtrl.text.replaceAll(',', '.'));
-                if (ik == null) return const SizedBox();
-                final ok = ik >= _minIk!;
-                return Row(
-                  children: [
+          // ── Pro Phase ───────────────────────────────────────────────────
+          for (int i = 0; i < _poleCount; i++) ...[
+            if (_poleCount > 1) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  _phaseLabels[i],
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            if (_useIk) ...[
+              _LimitField(
+                controller: _ikCtrls[i],
+                label: _poleCount > 1
+                    ? 'Kurzschlussstrom Ik ${_phaseLabels[i]}'
+                    : 'Kurzschlussstrom Ik',
+                unit: 'A',
+                limitHint: _minIk != null
+                    ? 'min. ${_minIk!.toStringAsFixed(0)} A  '
+                        '(${_charakteristik}${_nennstrom?.toStringAsFixed(0) ?? '?'}: '
+                        '${_charakteristik == 'C' ? '10' : _charakteristik == 'D' ? '20' : '5'}×'
+                        '${_nennstrom?.toStringAsFixed(0) ?? '?'} A)'
+                    : 'gemessener Kurzschlussstrom',
+                onChanged: (_) => setState(() {}),
+              ),
+              if (_minIk != null) ...[
+                const SizedBox(height: 4),
+                Builder(builder: (ctx) {
+                  final ik = double.tryParse(
+                      _ikCtrls[i].text.replaceAll(',', '.'));
+                  if (ik == null) return const SizedBox();
+                  final ok = ik >= _minIk!;
+                  return Row(children: [
                     Icon(
                       ok ? Icons.check_circle_outline : Icons.cancel_outlined,
                       size: 14,
@@ -787,45 +808,51 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
                     Text(
                       ok
                           ? 'Ausreichend (≥ ${_minIk!.toStringAsFixed(0)} A)'
-                          : 'Zu gering! Mindestens ${_minIk!.toStringAsFixed(0)} A erforderlich',
+                          : 'Zu gering! Min. ${_minIk!.toStringAsFixed(0)} A',
                       style: TextStyle(
-                        fontSize: 11,
-                        color: ok ? AppColors.success : AppColors.error,
-                      ),
+                          fontSize: 11,
+                          color: ok ? AppColors.success : AppColors.error),
                     ),
-                  ],
-                );
-              }),
+                  ]);
+                }),
+              ],
+            ] else ...[
+              _LimitField(
+                controller: _zsCtrls[i],
+                label: _poleCount > 1
+                    ? 'Schleifenimpedanz Zs ${_phaseLabels[i]}'
+                    : 'Schleifenimpedanz Zs',
+                unit: 'Ω',
+                limitHint: _minIk != null
+                    ? 'max. ${(230.0 / _minIk!).toStringAsFixed(3)} Ω'
+                        '  (230 V ÷ ${_minIk!.toStringAsFixed(0)} A)'
+                    : 'gemessener Wert',
+                onChanged: (_) => setState(() {}),
+              ),
             ],
-          ] else ...[
-            // Schleifenimpedanz
+            const SizedBox(height: 8),
+
             _LimitField(
-              controller: _zsCtrl,
-              label: 'Schleifenimpedanz Zs',
-              unit: 'Ω',
-              limitHint: _minIk != null
-                  ? 'max. ${(230.0 / _minIk!).toStringAsFixed(3)} Ω  '
-                      '(= 230 V ÷ ${_minIk!.toStringAsFixed(0)} A)'
-                  : 'gemessener Wert',
-              onChanged: (_) => setState(() {}),
+              controller: _isoCtrls[i],
+              label: _poleCount > 1
+                  ? 'Isolationswiderstand ${_phaseLabels[i]}'
+                  : 'Isolationswiderstand (optional)',
+              unit: 'MΩ',
+              limitHint: 'min. 1 MΩ',
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Drehfeld: nur bei 3-phasig sinnvoll
+          if (_showDrehfeld) ...[
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Drehfeldrichtung korrekt'),
+              value: _drehfeldRichtig,
+              onChanged: (v) => setState(() => _drehfeldRichtig = v),
             ),
           ],
-          const SizedBox(height: 12),
 
-          _LimitField(
-            controller: _isolationCtrl,
-            label: 'Isolationswiderstand (optional)',
-            unit: 'MΩ',
-            limitHint: 'min. 1 MΩ',
-          ),
-          const SizedBox(height: 12),
-
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Drehfeldrichtung korrekt (optional)'),
-            value: _drehfeldRichtig,
-            onChanged: (v) => setState(() => _drehfeldRichtig = v),
-          ),
           _LimitField(
             controller: _erdungCtrl,
             label: 'Erdungswiderstand (optional)',
@@ -964,14 +991,14 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
         // Generischer Fallback wenn kein Typ bekannt
         if (!_isLs && !_isRcd) ...[
           _LimitField(
-            controller: _zsCtrl,
+            controller: _zsCtrls[0],
             label: 'Schleifenimpedanz Zs',
             unit: 'Ω',
             limitHint: 'gemessener Wert',
           ),
           const SizedBox(height: 12),
           _LimitField(
-            controller: _isolationCtrl,
+            controller: _isoCtrls[0],
             label: 'Isolationswiderstand',
             unit: 'MΩ',
             limitHint: 'min. 1 MΩ',
@@ -1017,18 +1044,25 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
       messwertJson: jsonEncode({
         if (_isLs) ...{
           'eingabemodus': _useIk ? 'kurzschlussstrom' : 'schleifenimpedanz',
-          if (_useIk)
-            'kurzschlussstrom_a':
-                double.tryParse(_ikCtrl.text.replaceAll(',', '.')),
-          if (!_useIk)
-            'schleifenimpedanz_ohm':
-                double.tryParse(_zsCtrl.text.replaceAll(',', '.')),
           'mindest_ik_a': _minIk,
           'nennstrom_a': _nennstrom,
           'charakteristik': _charakteristik,
-          'isolationswiderstand_mohm':
-              double.tryParse(_isolationCtrl.text.replaceAll(',', '.')),
-          'drehfeld_richtig': _drehfeldRichtig,
+          'pole': _poleCount,
+          'phasen': [
+            for (int i = 0; i < _poleCount; i++)
+              {
+                'phase': _phaseLabels[i],
+                if (_useIk)
+                  'kurzschlussstrom_a': double.tryParse(
+                      _ikCtrls[i].text.replaceAll(',', '.')),
+                if (!_useIk)
+                  'schleifenimpedanz_ohm': double.tryParse(
+                      _zsCtrls[i].text.replaceAll(',', '.')),
+                'isolationswiderstand_mohm': double.tryParse(
+                    _isoCtrls[i].text.replaceAll(',', '.')),
+              }
+          ],
+          if (_showDrehfeld) 'drehfeld_richtig': _drehfeldRichtig,
           'erdungswiderstand_ohm': _erdungCtrl.text.isEmpty
               ? null
               : double.tryParse(_erdungCtrl.text.replaceAll(',', '.')),
@@ -1043,9 +1077,9 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
         },
         if (!_isLs && !_isRcd) ...{
           'schleifenimpedanz_ohm':
-              double.tryParse(_zsCtrl.text.replaceAll(',', '.')),
+              double.tryParse(_zsCtrls[0].text.replaceAll(',', '.')),
           'isolationswiderstand_mohm':
-              double.tryParse(_isolationCtrl.text.replaceAll(',', '.')),
+              double.tryParse(_isoCtrls[0].text.replaceAll(',', '.')),
           'rcd_ausloesezeit_ms': _rcdZeitCtrl.text.isEmpty
               ? null
               : double.tryParse(_rcdZeitCtrl.text.replaceAll(',', '.')),
