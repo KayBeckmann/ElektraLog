@@ -9,6 +9,9 @@ class Verteiler {
   /// Anlagendaten als JSON-String (dart:convert)
   final String? anlagendatenJson;
 
+  /// Prüfintervall in Jahren — ortsfeste Anlagen max. 4 Jahre (VDE 0105)
+  final int pruefintervallJahre;
+
   final DateTime erstelltAm;
 
   Verteiler({
@@ -17,6 +20,7 @@ class Verteiler {
     required this.bezeichnung,
     this.bemerkung,
     this.anlagendatenJson,
+    this.pruefintervallJahre = 4,
     DateTime? erstelltAm,
   })  : uuid = uuid ?? const Uuid().v4(),
         erstelltAm = erstelltAm ?? DateTime.now();
@@ -27,6 +31,7 @@ class Verteiler {
         'bezeichnung': bezeichnung,
         'bemerkung': bemerkung,
         'anlagendatenJson': anlagendatenJson,
+        'pruefintervallJahre': pruefintervallJahre,
         'erstelltAm': erstelltAm.toIso8601String(),
       };
 
@@ -36,6 +41,8 @@ class Verteiler {
         bezeichnung: json['bezeichnung'] as String,
         bemerkung: json['bemerkung'] as String?,
         anlagendatenJson: json['anlagendatenJson'] as String?,
+        pruefintervallJahre:
+            (json['pruefintervallJahre'] as num?)?.toInt() ?? 4,
         erstelltAm: DateTime.parse(json['erstelltAm'] as String),
       );
 
@@ -43,6 +50,7 @@ class Verteiler {
     String? bezeichnung,
     String? bemerkung,
     String? anlagendatenJson,
+    int? pruefintervallJahre,
   }) =>
       Verteiler(
         uuid: uuid,
@@ -50,6 +58,7 @@ class Verteiler {
         bezeichnung: bezeichnung ?? this.bezeichnung,
         bemerkung: bemerkung ?? this.bemerkung,
         anlagendatenJson: anlagendatenJson ?? this.anlagendatenJson,
+        pruefintervallJahre: pruefintervallJahre ?? this.pruefintervallJahre,
         erstelltAm: erstelltAm,
       );
 }

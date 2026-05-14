@@ -30,6 +30,7 @@ class _VerteilerFormularState extends ConsumerState<VerteilerFormular> {
   String _nennspannung = '400V';
   String _frequenz = '50Hz';
   String _aussenleiter = '3';
+  int _pruefintervallJahre = 4;
   bool _isSaving = false;
 
   static const _netzformen = ['TN-C', 'TN-S', 'TN-CS', 'TT', 'IT'];
@@ -44,6 +45,7 @@ class _VerteilerFormularState extends ConsumerState<VerteilerFormular> {
     if (v != null) {
       _bezeichnungCtrl.text = v.bezeichnung;
       _bemerkungCtrl.text = v.bemerkung ?? '';
+      _pruefintervallJahre = v.pruefintervallJahre;
       if (v.anlagendatenJson != null) {
         final data =
             jsonDecode(v.anlagendatenJson!) as Map<String, dynamic>;
@@ -115,6 +117,38 @@ class _VerteilerFormularState extends ConsumerState<VerteilerFormular> {
                 ),
                 maxLines: 2,
                 textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 16),
+
+              // ── Prüfintervall ─────────────────────────────────────────
+              Text(
+                'PRÜFINTERVALL (ORTSFESTE ANLAGE)',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                      letterSpacing: 0.8,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(value: 1, label: Text('1 Jahr')),
+                  ButtonSegment(value: 2, label: Text('2 Jahre')),
+                  ButtonSegment(value: 4, label: Text('4 Jahre')),
+                ],
+                selected: {_pruefintervallJahre},
+                onSelectionChanged: (s) =>
+                    setState(() => _pruefintervallJahre = s.first),
+                style: SegmentedButton.styleFrom(
+                  selectedBackgroundColor: AppColors.secondaryContainer,
+                  selectedForegroundColor: AppColors.onSecondaryContainer,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Max. 4 Jahre gemäß VDE 0105 (Standard: 4 Jahre)',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
               ),
               const SizedBox(height: 20),
 
@@ -223,6 +257,7 @@ class _VerteilerFormularState extends ConsumerState<VerteilerFormular> {
         bezeichnung: bezeichnung,
         bemerkung: bemerkung,
         anlagendatenJson: anlagendatenJson,
+        pruefintervallJahre: _pruefintervallJahre,
         erstelltAm: existing.erstelltAm,
       );
     } else {
@@ -231,6 +266,7 @@ class _VerteilerFormularState extends ConsumerState<VerteilerFormular> {
         bezeichnung: bezeichnung,
         bemerkung: bemerkung,
         anlagendatenJson: anlagendatenJson,
+        pruefintervallJahre: _pruefintervallJahre,
       );
     }
 
