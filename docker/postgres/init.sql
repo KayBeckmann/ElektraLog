@@ -14,3 +14,7 @@ WHERE NOT EXISTS (
 
 -- Grant permissions
 GRANT ALL PRIVILEGES ON DATABASE wikijs TO elektralog;
+
+-- Run schema migrations
+\i /docker-entrypoint-initdb.d/001_initial.sql
+\i /docker-entrypoint-initdb.d/002_seed_permissions.sql
