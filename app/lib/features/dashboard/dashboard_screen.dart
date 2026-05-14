@@ -107,6 +107,11 @@ class DashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
 
+            // ── Statistik Section ─────────────────────────────────────────────
+            _StatistikSection(
+                messungenAsync: messungenAsync, kundenAsync: kundenAsync),
+            const SizedBox(height: 24),
+
             // ── Fälligkeiten Banner ───────────────────────────────────────────
             _FaelligkeitenBanner(messungenAsync: messungenAsync),
             const SizedBox(height: 16),
@@ -568,6 +573,180 @@ class _FaelligkeitenBanner extends StatelessWidget {
             Icon(Icons.chevron_right, size: 20, color: textColor),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Statistik Section ─────────────────────────────────────────────────────────
+
+class _StatistikSection extends StatelessWidget {
+  const _StatistikSection({
+    required this.messungenAsync,
+    required this.kundenAsync,
+  });
+
+  final AsyncValue<dynamic> messungenAsync;
+  final AsyncValue<dynamic> kundenAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    final int total = messungenAsync.when(
+      data: (list) => (list as List).length,
+      loading: () => 0,
+      error: (_, __) => 0,
+    );
+    final int bestanden = messungenAsync.when(
+      data: (list) =>
+          (list as List).where((m) => m.ergebnis == 'bestanden').length,
+      loading: () => 0,
+      error: (_, __) => 0,
+    );
+    final int fehler = messungenAsync.when(
+      data: (list) =>
+          (list as List).where((m) => m.ergebnis == 'nicht_bestanden').length,
+      loading: () => 0,
+      error: (_, __) => 0,
+    );
+    final int ueberfaellig = messungenAsync.when(
+      data: (list) {
+        final now = DateTime.now();
+        return (list as List).where((m) {
+          final datum = m.naechstePruefungDatum as DateTime?;
+          return datum != null && datum.isBefore(now);
+        }).length;
+      },
+      loading: () => 0,
+      error: (_, __) => 0,
+    );
+    final int kundenCount = kundenAsync.when(
+      data: (list) => (list as List).length,
+      loading: () => 0,
+      error: (_, __) => 0,
+    );
+
+    final int quotePercent = total == 0 ? 0 : (bestanden * 100 ~/ total);
+    final int fehlerPercent = total == 0 ? 0 : (fehler * 100 ~/ total);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'STATISTIKEN',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: AppColors.onSurfaceVariant,
+                letterSpacing: 0.08 * 12,
+              ),
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _StatCard(
+                label: 'Prüfquote',
+                value: '$quotePercent%',
+                subtitle: '$bestanden / $total Messungen',
+                icon: Icons.fact_check_outlined,
+                color: quotePercent >= 80
+                    ? AppColors.success
+                    : AppColors.warning,
+              ),
+              const SizedBox(width: 12),
+              _StatCard(
+                label: 'Fehlerrate',
+                value: '$fehlerPercent%',
+                subtitle: '$fehler nicht bestanden',
+                icon: Icons.error_outline,
+                color: fehlerPercent > 10
+                    ? AppColors.error
+                    : AppColors.success,
+              ),
+              const SizedBox(width: 12),
+              _StatCard(
+                label: 'Überfällig',
+                value: '$ueberfaellig',
+                subtitle: 'Prüftermine',
+                icon: Icons.calendar_today_outlined,
+                color: ueberfaellig > 0
+                    ? AppColors.error
+                    : AppColors.success,
+              ),
+              const SizedBox(width: 12),
+              _StatCard(
+                label: 'Kunden',
+                value: '$kundenCount',
+                subtitle: 'aktiv',
+                icon: Icons.business_center_outlined,
+                color: AppColors.secondary,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 160,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                  color: color,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+          ),
+        ],
       ),
     );
   }
