@@ -13,6 +13,8 @@ import '../features/struktur/verteiler_detail_screen.dart';
 import '../features/historie/historie_screen.dart';
 import '../features/signatur/signatur_screen.dart';
 import '../features/auth/auth_screen.dart';
+import '../features/import/csv_import_screen.dart';
+import '../features/qr/qr_screen.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 part 'router.g.dart';
@@ -33,6 +35,8 @@ abstract final class AppRoutes {
   static const String sichtpruefung =
       '/kunden/:kundeUuid/standort/:standortUuid/verteiler/:verteilerUuid/sichtpruefung';
   static const String auth = '/auth';
+  static const String csvImport = '/import';
+  static const String qr = '/qr/:komponenteUuid';
 }
 
 @riverpod
@@ -154,6 +158,21 @@ GoRouter router(Ref ref) {
         pageBuilder: (context, state) => const NoTransitionPage(
           child: AuthScreen(),
         ),
+      ),
+      // CSV Import - outside shell for focused workflow
+      GoRoute(
+        path: AppRoutes.csvImport,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: CsvImportScreen(),
+        ),
+      ),
+      // QR Screen - outside shell
+      GoRoute(
+        path: AppRoutes.qr,
+        pageBuilder: (context, state) {
+          final uuid = state.pathParameters['komponenteUuid']!;
+          return NoTransitionPage(child: QrScreen(komponenteUuid: uuid));
+        },
       ),
     ],
   );

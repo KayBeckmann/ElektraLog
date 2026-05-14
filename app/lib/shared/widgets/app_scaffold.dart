@@ -170,6 +170,13 @@ class _DesktopDrawer extends ConsumerWidget {
                       ),
                     ),
 
+                    // ── Import ───────────────────────────────────────
+                    _DrawerActionItem(
+                      icon: Icons.upload_file_outlined,
+                      label: 'CSV-Import',
+                      onTap: () => context.go('/import'),
+                    ),
+
                     // ── Auth / Logout ─────────────────────────────────
                     const Divider(color: AppColors.outlineVariant),
                     const SizedBox(height: 8),

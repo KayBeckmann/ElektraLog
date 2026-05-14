@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/models/verteiler_komponente.dart';
@@ -209,6 +210,24 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                               // Status pill
                               StatusPill(status: status),
                               const SizedBox(width: 4),
+
+                              // QR button
+                              IconButton(
+                                onPressed: () => context.push(
+                                  '/qr/${k.uuid}',
+                                ),
+                                icon: const Icon(
+                                  Icons.qr_code_outlined,
+                                  size: 16,
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 28,
+                                  minHeight: 28,
+                                ),
+                                tooltip: 'QR-Code',
+                              ),
 
                               // More menu
                               PopupMenuButton<String>(
