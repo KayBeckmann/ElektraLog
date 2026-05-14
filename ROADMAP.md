@@ -105,8 +105,9 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 ### M1.4 — Komponentenbaum
 
 - ✅ Rekursive Baumdarstellung (TreeView-Widget mit Einrückung und Verbindungslinien)
-- ✅ Komponente hinzufügen: Typ auswählen (Hauptschalter, NH-Sicherung, Vorsicherung, RCD, LS-Schalter, FI/LS, Überspannungsableiter, Sammelschiene, Sonstige)
+- ✅ Komponente hinzufügen: Typ auswählen (Hauptschalter, NH-Sicherung, Vorsicherung, RCD, LS-Schalter, FI/LS, NeoZed-Sicherung, DiaZed-Sicherung, Überspannungsableiter, Sammelschiene, Sonstige)
 - ✅ Typ-spezifische Eigenschaften erfassen (Nennstrom, Pole, Charakteristik, RCD-Typ, Auslösestrom)
+- ✅ NeoZed-Größen (D01 / D02 / D03) und DiaZed-Größen (DII / DIII / DIV / DV) auswählbar
 - ✅ Bezeichnung und Position festlegen
 - ✅ Komponente bearbeiten
 - ✅ Komponente löschen (kaskadierend mit Kindern + Messungen, Bestätigung)
@@ -117,7 +118,7 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 ### M1.5 — Sichtprüfung (ZVEH)
 
 - ✅ Sichtprüfungs-Startbildschirm pro Verteiler
-- ✅ ZVEH-Checkliste: je Punkt (OK / Mangel / nicht geprüft) mit Tap-Toggle
+- ✅ ZVEH-Checkliste: je Punkt **drei Zustände** (Bestanden / Durchgefallen / Nicht zutreffend) per Tap-Toggle
   - ✅ Kennzeichnung vorhanden
   - ✅ Schutzleiter angeschlossen und korrekt
   - ✅ Leitungen ordnungsgemäß verlegt
@@ -126,12 +127,26 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
   - ✅ Beschriftung der Abgänge
   - ✅ Zustand des Gehäuses / Schranks
   - ✅ Verteiler abschließbar / abgeschlossen
+- ✅ Inline-Status-Badge je Punkt (grün / rot / grau)
 - ✅ Mängeltext-Eingabe (Freitext je Punkt oder global)
-- ✅ Ergebnis-Berechnung: bestanden / mit Mängeln / nicht bestanden
+- ✅ Ergebnis-Berechnung: bestanden / mit Mängeln — „Nicht zutreffend" zählt als bestanden
 - ✅ Pflicht-Sperre: Messerfassung erst nach abgeschlossener Sichtprüfung freigeschalten
 - ✅ Sichtprüfungs-Verlauf pro Verteiler (Datum, Prüfer, Ergebnis)
+- ✅ Rückwärtskompatibilität: alte `ok`/`mangel`-Schlüssel werden migriert
 
-### M1.6 — Messformulare
+### M1.6 — Geräteverwaltung (DGUV V3)
+
+- ✅ Geräteliste pro Standort (in Standort-Detailansicht)
+- ✅ Gerät anlegen: Bezeichnung, Gerätetyp, Hersteller, Seriennummer / Inventar-Nr.
+- ✅ Prüfintervall in **Monaten** (max. 24 Monate, DGUV V3 / VDE 0701-0702)
+  - ✅ Schnellauswahl-Chips: 6 / 12 / 18 / 24 Monate
+  - ✅ Freitexteingabe (1–24) mit Validierung
+- ✅ Nächste Prüfung automatisch berechnet (letztePruefung + Intervall)
+- ✅ Überfälligkeits-Anzeige (`isUeberfaellig`)
+- ✅ Gerät bearbeiten / löschen
+- ✅ Rückwärtskompatibilität: altes `pruefintervallJahre` × 12 → Monate
+
+### M1.7 — Messformulare
 
 #### DIN VDE 0701-0702 (ortsveränderliche Geräte)
 
@@ -154,13 +169,15 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 
 #### DIN VDE 0100 (ortsfeste Anlagen)
 
-- ✅ Schleifenimpedanz Zs (Ω)
-- ✅ Isolationswiderstand (MΩ)
-- ✅ RCD-Auslösestrom: gemessen (mA) vs. Nennauslösestrom
-- ✅ RCD-Auslösezeit (ms), Grenzwert 300 ms (allgemein) / 40 ms (erhöhte Anforderung)
-- ✅ Drehfeldrichtung (optional: rechtsdrehend / linksdrehend)
+- ✅ Schleifenimpedanz Zs (Ω) — polzahlabhängig (je Phase L1/L2/L3)
+- ✅ Isolationswiderstand (MΩ) — polzahlabhängig
+- ✅ Kurzschlussstrom Ik (A) pro Phase (min. B=5×, C=10×, D=20× Nennstrom)
+- ✅ RCD-Auslösestrom: gemessen (mA) vs. Nennauslösestrom; gültig 50 %–100 % I∆n
+- ✅ RCD-Auslösezeit (ms), Grenzwert ≤ 300 ms
+- ✅ Nenn-I∆n aus Komponenteneigenschaften vorausgefüllt
+- ✅ Drehfeldrichtung: **nur bei Mehrpoligen** (≥ 3-polig); bei Einpolschaltern ausgeblendet
 - ✅ Erdungswiderstand (optional)
-- ✅ Automatische Gesamtbewertung
+- ✅ Automatische Gesamtbewertung (alle Phasen + RCD-Grenzwerte)
 
 #### Allgemein
 
@@ -168,7 +185,7 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 - ✅ Messungs-Verlauf pro Komponente (mit Datum)
 - ✅ Bemerkungsfeld pro Messung
 
-### M1.7 — PDF-Export (ZVEH-angelehnt)
+### M1.8 — PDF-Export (ZVEH-angelehnt)
 
 - ✅ Deckblatt: Prüfer, Firma (Solo: Freitext), Datum, Auftrags-/Prüfnummer
 - ✅ Abschnitt 1: Anlagendaten (Netzform, Spannung, Frequenz, Nennstrom etc.)
@@ -179,9 +196,11 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
   - ✅ Ergebnis-Kennzeichnung: ✓ bestanden / ✗ nicht bestanden
 - ✅ Abschnitt 4: Gesamtbewertung
 - ✅ Unterschriftsfeld: Prüfer + Auftraggeber (leer für Druck)
-- ✅ PDF auf Gerät speichern (Downloads-Ordner)
+- ✅ **Protokoll pro Verteiler** (Icon-Button in Verteiler-Detailansicht)
+- ✅ **Protokoll pro Standort** (Icon-Button → Verteiler-Picker → je Verteiler ein Protokoll)
+- ✅ Dialog: Prüfer-Name + Datum/Ort vor Generierung abfragbar
+- ✅ Printing.layoutPdf — Browser-Print-Dialog (Web) / System-Druck (Android)
 - ✅ PDF teilen (System-Share-Dialog)
-- ✅ Vorschau vor dem Export
 
 ---
 
@@ -419,16 +438,20 @@ Implementierte Phasen: 0, 1, 2, 3, 4, 5 (Kernfeatures)
 | Feature | Status |
 |---------|--------|
 | Solo-Modus (offline, lokale DB) | ✅ Produktiv |
-| PDF-Export (ZVEH-angelehnt) | ✅ Produktiv |
-| Company-Modus (Auth + Backend) | ✅ Produktiv |
-| RBAC-Rollensystem | ✅ Produktiv |
-| Offline-Sync | ✅ Produktiv |
+| PDF-Export pro Verteiler + Standort | ✅ Produktiv |
+| Komponentenbaum (inkl. NeoZed/DiaZed) | ✅ Produktiv |
+| Sichtprüfung 3-Zustände (ZVEH) | ✅ Produktiv |
+| Mehrphasige Messungen (VDE 0100) | ✅ Produktiv |
+| RCD-Validierung (50 %–100 % I∆n, ≤ 300 ms) | ✅ Produktiv |
+| Geräteverwaltung + Prüfintervall (Monate) | ✅ Produktiv |
 | Fälligkeitsverwaltung | ✅ Produktiv |
-| Sichtprüfung (ZVEH-Checkliste) | ✅ Produktiv |
 | CSV-Import | ✅ Produktiv |
 | Statistik-Dashboard | ✅ Produktiv |
 | QR-Code-Etiketten | ✅ Produktiv |
 | Digitale Unterschrift | ✅ Produktiv |
+| Company-Modus (Auth + Backend) | ✅ Produktiv |
+| RBAC-Rollensystem | ✅ Produktiv |
+| Offline-Sync | ✅ Produktiv |
 | Projekt-Homepage | ✅ Produktiv |
 | Wiki.js Dokumentation | ✅ Konfiguriert |
 | CI/CD (GitHub Actions) | ✅ Aktiv |
