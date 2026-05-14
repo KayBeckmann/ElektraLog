@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  flutter-analyze:
+    name: Flutter Analyze & Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+          channel: 'stable'
+      - name: Install dependencies
+        run: flutter pub get
+        working-directory: app
+      - name: Analyze
+        run: flutter analyze --no-pub
+        working-directory: app
+      - name: Test
+        run: flutter test
+        working-directory: app
+
+  dart-server-analyze:
+    name: Dart Server Analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Install dependencies
+        run: dart pub get
+        working-directory: packages/elektralog_server
+      - name: Analyze
+        run: dart analyze
+        working-directory: packages/elektralog_server
