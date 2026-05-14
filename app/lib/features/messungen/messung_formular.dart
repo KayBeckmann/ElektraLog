@@ -658,9 +658,20 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
 
   String get _ergebnis {
     if (_isRcd && !_isLs) {
-      // Nur RCD: Auslösezeit prüfen
-      final zeit = double.tryParse(_rcdZeitCtrl.text.replaceAll(',', '.'));
+      // RCD: Auslösestrom 50 %–100 % I∆n UND Auslösezeit ≤ 300 ms
+      final nenn =
+          double.tryParse(_rcdNennCtrl.text.replaceAll(',', '.'));
+      final gemessen =
+          double.tryParse(_rcdGemessenCtrl.text.replaceAll(',', '.'));
+      final zeit =
+          double.tryParse(_rcdZeitCtrl.text.replaceAll(',', '.'));
+
+      final stromOk = (nenn == null || gemessen == null)
+          ? true // noch kein Wert → nicht bewerten
+          : gemessen >= nenn * 0.5 && gemessen <= nenn;
+
       return _autoErgebnis({
+        'rcd_auslösestrom': stromOk,
         'rcd_ausloesezeit': zeit == null || zeit <= 300,
       });
     } else if (_isLs && !_isRcd) {
@@ -841,40 +852,112 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
                   limitHint: _nennDifferenzstromFromKomponente != null
                       ? 'Aus Bauteil übernommen'
                       : 'Sollwert aus Typenschild',
+                  onChanged: (_) => setState(() {}),
                 ),
               ),
               if (_nennDifferenzstromFromKomponente != null) ...[
                 const SizedBox(width: 8),
                 Tooltip(
                   message:
-                      'Aus Bauteil-Eigenschaften übernommen: ${_nennDifferenzstromFromKomponente} mA',
-                  child: const Icon(
-                    Icons.auto_fix_high,
-                    size: 18,
-                    color: AppColors.secondary,
-                  ),
+                      'Aus Bauteil: ${_nennDifferenzstromFromKomponente} mA',
+                  child: const Icon(Icons.auto_fix_high,
+                      size: 18, color: AppColors.secondary),
                 ),
               ],
             ],
           ),
           const SizedBox(height: 12),
 
-          _LimitField(
-            controller: _rcdGemessenCtrl,
-            label: 'Gemessener Auslösestrom I∆',
-            unit: 'mA',
-            limitHint: 'Istwert — sollte ≤ I∆n sein',
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 12),
+          // Gemessener Auslösestrom mit dynamischem Bereich
+          Builder(builder: (ctx) {
+            final nenn =
+                double.tryParse(_rcdNennCtrl.text.replaceAll(',', '.'));
+            final minMa = nenn != null ? nenn * 0.5 : null;
+            final hint = nenn != null
+                ? '${minMa!.toStringAsFixed(1)}–${nenn.toStringAsFixed(1)} mA  '
+                    '(50 %–100 % von ${nenn.toStringAsFixed(0)} mA I∆n)'
+                : '50 %–100 % von I∆n';
+            return _LimitField(
+              controller: _rcdGemessenCtrl,
+              label: 'Gemessener Auslösestrom I∆',
+              unit: 'mA',
+              limitHint: hint,
+              onChanged: (_) => setState(() {}),
+            );
+          }),
+          // Live-Indikator für Auslösestrom
+          Builder(builder: (ctx) {
+            final nenn =
+                double.tryParse(_rcdNennCtrl.text.replaceAll(',', '.'));
+            final gemessen =
+                double.tryParse(_rcdGemessenCtrl.text.replaceAll(',', '.'));
+            if (nenn == null || gemessen == null) return const SizedBox();
+            final ok = gemessen >= nenn * 0.5 && gemessen <= nenn;
+            return Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    ok
+                        ? Icons.check_circle_outline
+                        : Icons.cancel_outlined,
+                    size: 14,
+                    color: ok ? AppColors.success : AppColors.error,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    ok
+                        ? 'Im gültigen Bereich (${(nenn * 0.5).toStringAsFixed(1)}–${nenn.toStringAsFixed(1)} mA)'
+                        : gemessen > nenn
+                            ? 'Zu hoch! Max. ${nenn.toStringAsFixed(1)} mA (= 100 % I∆n)'
+                            : 'Zu niedrig! Min. ${(nenn * 0.5).toStringAsFixed(1)} mA (= 50 % I∆n)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: ok ? AppColors.success : AppColors.error,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: 8),
 
           _LimitField(
             controller: _rcdZeitCtrl,
             label: 'Auslösezeit',
             unit: 'ms',
-            limitHint: 'max. 300 ms (allgemein) / 40 ms (erhöhte Anforderung)',
+            limitHint: 'max. 300 ms',
             onChanged: (_) => setState(() {}),
           ),
+          // Live-Indikator für Auslösezeit
+          Builder(builder: (ctx) {
+            final zeit =
+                double.tryParse(_rcdZeitCtrl.text.replaceAll(',', '.'));
+            if (zeit == null) return const SizedBox();
+            final ok = zeit <= 300;
+            return Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    ok ? Icons.check_circle_outline : Icons.cancel_outlined,
+                    size: 14,
+                    color: ok ? AppColors.success : AppColors.error,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    ok
+                        ? 'Auslösezeit i.O. (${zeit.toStringAsFixed(0)} ms ≤ 300 ms)'
+                        : 'Zu langsam! ${zeit.toStringAsFixed(0)} ms > 300 ms',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: ok ? AppColors.success : AppColors.error,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
           const SizedBox(height: 12),
         ],
 
