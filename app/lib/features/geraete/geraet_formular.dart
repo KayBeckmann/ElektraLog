@@ -25,7 +25,8 @@ class _GeraetFormularState extends ConsumerState<GeraetFormular> {
   final _seriennummerCtrl = TextEditingController();
   final _herstellerCtrl = TextEditingController();
   final _geraetetypCtrl = TextEditingController();
-  int _pruefintervallJahre = 2;
+  int _pruefintervallMonate = 24;
+  final _intervallCtrl = TextEditingController(text: '24');
   bool _isSaving = false;
 
   @override
@@ -37,7 +38,8 @@ class _GeraetFormularState extends ConsumerState<GeraetFormular> {
       _seriennummerCtrl.text = g.seriennummer ?? '';
       _herstellerCtrl.text = g.hersteller ?? '';
       _geraetetypCtrl.text = g.geraetetyp ?? '';
-      _pruefintervallJahre = g.pruefintervallJahre;
+      _pruefintervallMonate = g.pruefintervallMonate;
+      _intervallCtrl.text = g.pruefintervallMonate.toString();
     }
   }
 
@@ -47,6 +49,7 @@ class _GeraetFormularState extends ConsumerState<GeraetFormular> {
     _seriennummerCtrl.dispose();
     _herstellerCtrl.dispose();
     _geraetetypCtrl.dispose();
+    _intervallCtrl.dispose();
     super.dispose();
   }
 
@@ -138,25 +141,50 @@ class _GeraetFormularState extends ConsumerState<GeraetFormular> {
                     ),
               ),
               const SizedBox(height: 8),
-              SegmentedButton<int>(
-                segments: const [
-                  ButtonSegment(value: 1, label: Text('1 Jahr')),
-                  ButtonSegment(value: 2, label: Text('2 Jahre')),
-                ],
-                selected: {_pruefintervallJahre},
-                onSelectionChanged: (s) =>
-                    setState(() => _pruefintervallJahre = s.first),
-                style: SegmentedButton.styleFrom(
-                  selectedBackgroundColor: AppColors.secondaryContainer,
-                  selectedForegroundColor: AppColors.onSecondaryContainer,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Max. 2 Jahre gemäß DGUV V3 / VDE 0701-0702',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.onSurfaceVariant,
+              // Schnellauswahl-Chips
+              Wrap(
+                spacing: 8,
+                children: [6, 12, 18, 24].map((m) {
+                  final selected = _pruefintervallMonate == m;
+                  return ChoiceChip(
+                    label: Text('$m M.'),
+                    selected: selected,
+                    onSelected: (_) => setState(() {
+                      _pruefintervallMonate = m;
+                      _intervallCtrl.text = m.toString();
+                    }),
+                    selectedColor: AppColors.secondaryContainer,
+                    labelStyle: TextStyle(
+                      color: selected
+                          ? AppColors.onSecondaryContainer
+                          : AppColors.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
                     ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 10),
+              // Freitexteingabe
+              TextFormField(
+                controller: _intervallCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Prüfintervall in Monaten',
+                  suffixText: 'Monate',
+                  helperText: 'Min. 1 — Max. 24 Monate (DGUV V3)',
+                ),
+                validator: (v) {
+                  final n = int.tryParse(v ?? '');
+                  if (n == null || n < 1) return 'Mindestens 1 Monat';
+                  if (n > 24) return 'Maximum 24 Monate (DGUV V3)';
+                  return null;
+                },
+                onChanged: (v) {
+                  final n = int.tryParse(v);
+                  if (n != null && n >= 1 && n <= 24) {
+                    setState(() => _pruefintervallMonate = n);
+                  }
+                },
               ),
               const SizedBox(height: 20),
 
@@ -201,7 +229,7 @@ class _GeraetFormularState extends ConsumerState<GeraetFormular> {
             geraetetyp: _geraetetypCtrl.text.trim().isEmpty
                 ? null
                 : _geraetetypCtrl.text.trim(),
-            pruefintervallJahre: _pruefintervallJahre,
+            pruefintervallMonate: _pruefintervallMonate,
           )
         : existing.copyWith(
             bezeichnung: _bezeichnungCtrl.text.trim(),
@@ -214,7 +242,7 @@ class _GeraetFormularState extends ConsumerState<GeraetFormular> {
             geraetetyp: _geraetetypCtrl.text.trim().isEmpty
                 ? null
                 : _geraetetypCtrl.text.trim(),
-            pruefintervallJahre: _pruefintervallJahre,
+            pruefintervallMonate: _pruefintervallMonate,
           );
 
     await ref.read(geraeteRepositoryProvider).save(geraet);

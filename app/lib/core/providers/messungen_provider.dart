@@ -62,6 +62,20 @@ class MessungenRepository {
   Future<void> delete(String uuid) async {
     await StorageService.messungenStore.record(uuid).delete(_db);
   }
+
+  /// Alle Messungen für eine Liste von Komponenten-UUIDs (für PDF-Export)
+  Future<List<Messung>> getByKomponenteUuids(List<String> uuids) async {
+    if (uuids.isEmpty) return [];
+    final finder = Finder(
+      filter: Filter.inList('komponenteUuid', uuids),
+      sortOrders: [SortOrder('pruefungDatum', false)],
+    );
+    final snapshots =
+        await StorageService.messungenStore.find(_db, finder: finder);
+    return snapshots
+        .map((s) => Messung.fromJson(s.value.cast<String, dynamic>()))
+        .toList();
+  }
 }
 
 // ── Providers ─────────────────────────────────────────────────────────────────

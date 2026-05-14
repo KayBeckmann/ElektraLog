@@ -8,7 +8,12 @@ import '../../core/providers/geraete_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../core/providers/verteiler_provider.dart';
 import '../../shared/theme/app_colors.dart';
+import 'package:printing/printing.dart';
+import '../../core/providers/komponenten_provider.dart';
+import '../../core/providers/messungen_provider.dart';
+import '../../core/providers/sichtpruefung_provider.dart';
 import '../../features/geraete/geraet_formular.dart';
+import '../../features/pdf/pdf_service.dart';
 import 'verteiler_formular.dart';
 import 'standort_formular.dart';
 
@@ -45,6 +50,15 @@ class StandortDetailScreen extends ConsumerWidget {
         title: Text(standort?.bezeichnung ?? 'Standort'),
         backgroundColor: AppColors.surface,
         actions: [
+          // ── Protokoll-Auswahl für Verteiler dieses Standorts ──────────
+          Tooltip(
+            message: 'Protokoll generieren',
+            child: IconButton(
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              onPressed: () => _showProtokollAuswahl(
+                  context, ref, verteilerAsync.value ?? []),
+            ),
+          ),
           if (standort != null)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
@@ -345,6 +359,129 @@ class StandortDetailScreen extends ConsumerWidget {
       await ref.read(verteilerRepositoryProvider).delete(v.uuid);
     }
   }
+
+  /// Zeigt ein BottomSheet zur Verteiler-Auswahl, dann generiert PDF
+  Future<void> _showProtokollAuswahl(
+      BuildContext context, WidgetRef ref, List<Verteiler> verteiler) async {
+    if (verteiler.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Keine Verteiler vorhanden'),
+          behavior: SnackBarBehavior.floating));
+      return;
+    }
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surfaceContainerLowest,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Protokoll generieren',
+                style: Theme.of(ctx).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text('Verteiler auswählen:',
+                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                    color: AppColors.onSurfaceVariant)),
+            const SizedBox(height: 12),
+            ...verteiler.map((v) => ListTile(
+                  leading: const Icon(Icons.picture_as_pdf_outlined,
+                      color: AppColors.primary),
+                  title: Text(v.bezeichnung),
+                  contentPadding: EdgeInsets.zero,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _generatePdfForVerteiler(context, ref, v);
+                  },
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _generatePdfForVerteiler(
+      BuildContext context, WidgetRef ref, Verteiler v) async {
+    // Prüfer + Ort/Datum abfragen
+    final prueferCtrl = TextEditingController();
+    final datumCtrl = TextEditingController(
+      text:
+          '${DateTime.now().day.toString().padLeft(2, '0')}.${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().year}',
+    );
+    final result = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        title: Text('Protokoll: ${v.bezeichnung}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: prueferCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Name des Prüfers',
+                  hintText: 'Max Mustermann'),
+              textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: datumCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Datum / Ort',
+                  hintText: 'TT.MM.JJJJ, Musterstadt'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dlgCtx),
+              child: const Text('Abbrechen')),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+            label: const Text('Generieren'),
+            onPressed: () => Navigator.pop(dlgCtx, {
+              'pruefer': prueferCtrl.text.trim().isEmpty
+                  ? 'Unbekannt'
+                  : prueferCtrl.text.trim(),
+              'datumOrt': datumCtrl.text.trim(),
+            }),
+          ),
+        ],
+      ),
+    );
+    if (result == null) return;
+
+    try {
+      final kompList =
+          await ref.read(komponentenByVerteilerProvider(v.uuid).future);
+      final kompUuids = kompList.map((k) => k.uuid).toList();
+      final messungen = await ref
+          .read(messungenRepositoryProvider)
+          .getByKomponenteUuids(kompUuids);
+      final sichtpruefungen =
+          await ref.read(sichtpruefungenByVerteilerProvider(v.uuid).future);
+
+      final bytes = await PdfService.generateProtokoll(
+        prueferName: result['pruefer']!,
+        datumOrt: result['datumOrt']!,
+        verteiler: v,
+        sichtpruefungen: sichtpruefungen,
+        komponenten: kompList,
+        messungen: messungen,
+      );
+      await Printing.layoutPdf(
+          onLayout: (_) async => bytes, name: 'Protokoll_${v.bezeichnung}');
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('PDF-Fehler: $e'),
+          backgroundColor: AppColors.error,
+        ));
+      }
+    }
+  }
 }
 
 class _VerteilerTile extends StatelessWidget {
@@ -513,7 +650,7 @@ class _GeraetTile extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '(${geraet.pruefintervallJahre} J.)',
+                      '(${geraet.intervallLabel})',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.outline,
                           ),
