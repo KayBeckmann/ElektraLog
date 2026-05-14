@@ -5,6 +5,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../features/dashboard/dashboard_screen.dart';
 import '../features/faelligkeit/faelligkeit_screen.dart';
 import '../features/kunden/kunden_screen.dart';
+import '../features/sichtpruefung/sichtpruefung_screen.dart';
 import '../features/kunden/kunden_detail_screen.dart';
 import '../features/struktur/struktur_screen.dart';
 import '../features/struktur/standort_detail_screen.dart';
@@ -29,6 +30,8 @@ abstract final class AppRoutes {
   static const String historie = '/historie';
   static const String signatur = '/signatur';
   static const String faelligkeit = '/faelligkeit';
+  static const String sichtpruefung =
+      '/kunden/:kundeUuid/standort/:standortUuid/verteiler/:verteilerUuid/sichtpruefung';
   static const String auth = '/auth';
 }
 
@@ -94,6 +97,24 @@ GoRouter router(Ref ref) {
                             ),
                           );
                         },
+                        routes: [
+                          GoRoute(
+                            path: 'sichtpruefung',
+                            pageBuilder: (context, state) {
+                              final verteilerUuid =
+                                  state.pathParameters['verteilerUuid']!;
+                              final bezeichnung = state.uri
+                                  .queryParameters['bezeichnung'] ??
+                                  'Verteiler';
+                              return MaterialPage(
+                                child: SichtpruefungScreen(
+                                  verteilerUuid: verteilerUuid,
+                                  verteilerBezeichnung: bezeichnung,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),

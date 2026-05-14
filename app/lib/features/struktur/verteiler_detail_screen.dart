@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/providers/verteiler_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../core/providers/kunden_provider.dart';
+import '../../core/providers/sichtpruefung_provider.dart';
 import '../../shared/theme/app_colors.dart';
 import 'komponenten_baum_widget.dart';
 import 'komponente_formular.dart';
@@ -29,6 +30,8 @@ class VerteilerDetailScreen extends ConsumerWidget {
     final standorteAsync =
         ref.watch(standorteByKundeProvider(kundeUuid));
     final kundenAsync = ref.watch(kundenProvider);
+    final sichtpruefungenAsync =
+        ref.watch(sichtpruefungenByVerteilerProvider(verteilerUuid));
 
     final verteiler = verteilerAsync.when(
       data: (list) =>
@@ -48,6 +51,14 @@ class VerteilerDetailScreen extends ConsumerWidget {
       data: (list) => list.where((k) => k.uuid == kundeUuid).firstOrNull,
       loading: () => null,
       error: (_, __) => null,
+    );
+
+    // Check if a valid Sichtprüfung exists (bestanden or mit_maengeln)
+    final hatGueltigeSichtpruefung = sichtpruefungenAsync.when(
+      data: (list) => list.any((s) =>
+          s.ergebnis == 'bestanden' || s.ergebnis == 'mit_maengeln'),
+      loading: () => true, // don't block while loading
+      error: (_, __) => true,
     );
 
     return Scaffold(
@@ -80,6 +91,15 @@ class VerteilerDetailScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          // ── Sichtprüfung Lock Banner ─────────────────────────────────────
+          if (!hatGueltigeSichtpruefung)
+            _SichtpruefungLockBanner(
+              verteilerUuid: verteilerUuid,
+              verteilerBezeichnung: verteiler?.bezeichnung ?? 'Verteiler',
+              kundeUuid: kundeUuid,
+              standortUuid: standortUuid,
+            ),
+
           // ── Breadcrumb ──────────────────────────────────────────────────
           Container(
             color: AppColors.surfaceContainerLow,
@@ -160,6 +180,54 @@ class _BreadcrumbItem extends StatelessWidget {
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: AppColors.onSurfaceVariant,
             ),
+      ),
+    );
+  }
+}
+
+class _SichtpruefungLockBanner extends StatelessWidget {
+  const _SichtpruefungLockBanner({
+    required this.verteilerUuid,
+    required this.verteilerBezeichnung,
+    required this.kundeUuid,
+    required this.standortUuid,
+  });
+
+  final String verteilerUuid;
+  final String verteilerBezeichnung;
+  final String kundeUuid;
+  final String standortUuid;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => context.go(
+        '/kunden/$kundeUuid/standort/$standortUuid/verteiler/$verteilerUuid/sichtpruefung',
+        extra: {'bezeichnung': verteilerBezeichnung},
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        color: AppColors.errorContainer,
+        child: Row(
+          children: [
+            const Icon(Icons.lock_outline,
+                size: 18, color: AppColors.onErrorContainer),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Keine gültige Sichtprüfung. Messung erfassen gesperrt. '
+                'Tippen zum Starten.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.onErrorContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                size: 18, color: AppColors.onErrorContainer),
+          ],
+        ),
       ),
     );
   }
