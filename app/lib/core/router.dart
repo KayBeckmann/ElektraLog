@@ -106,7 +106,7 @@ GoRouter router(Ref ref) {
                               final bezeichnung = state.uri
                                   .queryParameters['bezeichnung'] ??
                                   'Verteiler';
-                              return MaterialPage(
+                              return NoTransitionPage(
                                 child: SichtpruefungScreen(
                                   verteilerUuid: verteilerUuid,
                                   verteilerBezeichnung: bezeichnung,
