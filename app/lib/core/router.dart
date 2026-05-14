@@ -10,6 +10,7 @@ import '../features/struktur/standort_detail_screen.dart';
 import '../features/struktur/verteiler_detail_screen.dart';
 import '../features/historie/historie_screen.dart';
 import '../features/signatur/signatur_screen.dart';
+import '../features/auth/auth_screen.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 part 'router.g.dart';
@@ -26,6 +27,7 @@ abstract final class AppRoutes {
   static const String struktur = '/struktur';
   static const String historie = '/historie';
   static const String signatur = '/signatur';
+  static const String auth = '/auth';
 }
 
 @riverpod
@@ -116,6 +118,13 @@ GoRouter router(Ref ref) {
             ),
           ),
         ],
+      ),
+      // Auth screen is outside the shell (no nav drawer)
+      GoRoute(
+        path: AppRoutes.auth,
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: AuthScreen(),
+        ),
       ),
     ],
   );

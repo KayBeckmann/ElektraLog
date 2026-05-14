@@ -29,6 +29,11 @@ dependencies:
   # Utilities
   uuid: ^4.4.0
 
+  # Network + Auth
+  http: ^1.2.2
+  shared_preferences: ^2.3.2
+  flutter_secure_storage: ^9.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

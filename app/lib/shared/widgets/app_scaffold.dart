@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_colors.dart';
 import '../../core/router.dart';
+import '../../core/providers/app_mode_provider.dart';
 
 /// Desktop breakpoint: 768px (md)
 const double _kDesktopBreakpoint = 768.0;
@@ -107,9 +109,9 @@ class _DesktopShell extends StatelessWidget {
   }
 }
 
-class _DesktopDrawer extends StatelessWidget {
+class _DesktopDrawer extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.path;
 
     return SizedBox(
@@ -168,16 +170,32 @@ class _DesktopDrawer extends StatelessWidget {
                       ),
                     ),
 
-                    // ── Logout ────────────────────────────────────────
+                    // ── Auth / Logout ─────────────────────────────────
                     const Divider(color: AppColors.outlineVariant),
                     const SizedBox(height: 8),
-                    _DrawerActionItem(
-                      icon: Icons.logout_outlined,
-                      label: 'Abmelden',
-                      onTap: () {
-                        // TODO: implement logout in Phase 2
-                      },
-                    ),
+                    Consumer(builder: (context, ref, _) {
+                      final modusAsync = ref.watch(appModusProvider);
+                      return modusAsync.when(
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
+                        data: (modus) => modus == AppModus.company
+                            ? _DrawerActionItem(
+                                icon: Icons.logout_outlined,
+                                label: 'Abmelden',
+                                onTap: () async {
+                                  await ref
+                                      .read(appModusProvider.notifier)
+                                      .logout();
+                                  if (context.mounted) context.go('/');
+                                },
+                              )
+                            : _DrawerActionItem(
+                                icon: Icons.cloud_outlined,
+                                label: 'Mit Konto verbinden',
+                                onTap: () => context.go(AppRoutes.auth),
+                              ),
+                      );
+                    }),
                   ],
                 ),
               ),
@@ -189,9 +207,15 @@ class _DesktopDrawer extends StatelessWidget {
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
+class _ProfileHeader extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userAsync = ref.watch(currentUserProvider);
+    final modusAsync = ref.watch(appModusProvider);
+    final isCompany = modusAsync.valueOrNull == AppModus.company;
+    final name = userAsync.valueOrNull?['name'] ?? 'Prüfer';
+    final subtitle = isCompany ? 'Company-Modus' : 'Solo-Modus';
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -201,13 +225,17 @@ class _ProfileHeader extends StatelessWidget {
           height: 48,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppColors.surfaceContainerHigh,
+            color: isCompany
+                ? AppColors.secondaryContainer
+                : AppColors.surfaceContainerHigh,
             border: Border.all(color: AppColors.outlineVariant),
           ),
-          child: const Icon(
-            Icons.person,
+          child: Icon(
+            isCompany ? Icons.business : Icons.person,
             size: 28,
-            color: AppColors.onSurfaceVariant,
+            color: isCompany
+                ? AppColors.onSecondaryContainer
+                : AppColors.onSurfaceVariant,
           ),
         ),
         const SizedBox(width: 12),
@@ -218,29 +246,33 @@ class _ProfileHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Prüfer',
+                name,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: AppColors.primary,
                       fontWeight: FontWeight.w600,
                     ),
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
               Text(
-                'Zertifizierter Prüfer',
+                subtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: AppColors.onSurfaceVariant,
                     ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                'ID: 000000',
-                style: GoogleFonts.jetBrainsMono(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  height: 1.4,
-                  color: AppColors.outline,
+              if (isCompany) ...[
+                const SizedBox(height: 2),
+                Text(
+                  userAsync.valueOrNull?['firmaId']?.substring(0, 8) ??
+                      '',
+                  style: GoogleFonts.jetBrainsMono(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                    color: AppColors.outline,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
