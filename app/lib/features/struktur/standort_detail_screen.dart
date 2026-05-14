@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/models/geraet.dart';
 import '../../core/models/verteiler.dart';
 import '../../core/providers/geraete_provider.dart';
+import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../core/providers/verteiler_provider.dart';
 import '../../shared/theme/app_colors.dart';
@@ -13,6 +14,7 @@ import '../../core/providers/komponenten_provider.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../core/providers/sichtpruefung_provider.dart';
 import '../../features/geraete/geraet_formular.dart';
+import '../../features/pdf/pdf_options_sheet.dart';
 import '../../features/pdf/pdf_service.dart';
 import 'verteiler_formular.dart';
 import 'standort_formular.dart';
@@ -33,10 +35,18 @@ class StandortDetailScreen extends ConsumerWidget {
     final geraeteAsync = ref.watch(geraeteByStandortProvider(standortUuid));
     final verteilerAsync =
         ref.watch(verteilerByStandortProvider(standortUuid));
+    final kundenAsync = ref.watch(kundenProvider);
 
     final standort = standorteAsync.when(
       data: (list) =>
           list.where((s) => s.uuid == standortUuid).firstOrNull,
+      loading: () => null,
+      error: (_, __) => null,
+    );
+
+    final kundenName = kundenAsync.when(
+      data: (list) =>
+          list.where((k) => k.uuid == kundeUuid).firstOrNull?.name,
       loading: () => null,
       error: (_, __) => null,
     );
@@ -56,7 +66,9 @@ class StandortDetailScreen extends ConsumerWidget {
             child: IconButton(
               icon: const Icon(Icons.picture_as_pdf_outlined),
               onPressed: () => _showProtokollAuswahl(
-                  context, ref, verteilerAsync.value ?? []),
+                  context, ref, verteilerAsync.value ?? [],
+                  kundenName: kundenName,
+                  standortBezeichnung: standort?.bezeichnung),
             ),
           ),
           if (standort != null)
@@ -362,7 +374,12 @@ class StandortDetailScreen extends ConsumerWidget {
 
   /// Zeigt ein BottomSheet zur Verteiler-Auswahl, dann generiert PDF
   Future<void> _showProtokollAuswahl(
-      BuildContext context, WidgetRef ref, List<Verteiler> verteiler) async {
+    BuildContext context,
+    WidgetRef ref,
+    List<Verteiler> verteiler, {
+    String? kundenName,
+    String? standortBezeichnung,
+  }) async {
     if (verteiler.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Keine Verteiler vorhanden'),
@@ -394,7 +411,9 @@ class StandortDetailScreen extends ConsumerWidget {
                   contentPadding: EdgeInsets.zero,
                   onTap: () {
                     Navigator.pop(ctx);
-                    _generatePdfForVerteiler(context, ref, v);
+                    _generatePdfForVerteiler(context, ref, v,
+                        kundenName: kundenName,
+                        standortBezeichnung: standortBezeichnung);
                   },
                 )),
           ],
@@ -404,54 +423,14 @@ class StandortDetailScreen extends ConsumerWidget {
   }
 
   Future<void> _generatePdfForVerteiler(
-      BuildContext context, WidgetRef ref, Verteiler v) async {
-    // Prüfer + Ort/Datum abfragen
-    final prueferCtrl = TextEditingController();
-    final datumCtrl = TextEditingController(
-      text:
-          '${DateTime.now().day.toString().padLeft(2, '0')}.${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().year}',
-    );
-    final result = await showDialog<Map<String, String>>(
-      context: context,
-      builder: (dlgCtx) => AlertDialog(
-        title: Text('Protokoll: ${v.bezeichnung}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: prueferCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Name des Prüfers',
-                  hintText: 'Max Mustermann'),
-              textCapitalization: TextCapitalization.words,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: datumCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Datum / Ort',
-                  hintText: 'TT.MM.JJJJ, Musterstadt'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(dlgCtx),
-              child: const Text('Abbrechen')),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-            label: const Text('Generieren'),
-            onPressed: () => Navigator.pop(dlgCtx, {
-              'pruefer': prueferCtrl.text.trim().isEmpty
-                  ? 'Unbekannt'
-                  : prueferCtrl.text.trim(),
-              'datumOrt': datumCtrl.text.trim(),
-            }),
-          ),
-        ],
-      ),
-    );
-    if (result == null) return;
+    BuildContext context,
+    WidgetRef ref,
+    Verteiler v, {
+    String? kundenName,
+    String? standortBezeichnung,
+  }) async {
+    final opts = await PdfOptionsSheet.show(context, titel: v.bezeichnung);
+    if (opts == null || !context.mounted) return;
 
     try {
       final kompList =
@@ -464,12 +443,17 @@ class StandortDetailScreen extends ConsumerWidget {
           await ref.read(sichtpruefungenByVerteilerProvider(v.uuid).future);
 
       final bytes = await PdfService.generateProtokoll(
-        prueferName: result['pruefer']!,
-        datumOrt: result['datumOrt']!,
+        prueferName: opts.prueferName,
+        firma: opts.firma,
+        pruefgeraet: opts.pruefgeraet,
+        datumOrt: opts.datumOrt,
+        kundenName: kundenName,
+        standortBezeichnung: standortBezeichnung,
         verteiler: v,
         sichtpruefungen: sichtpruefungen,
         komponenten: kompList,
         messungen: messungen,
+        signaturPng: opts.signaturPng,
       );
       await Printing.layoutPdf(
           onLayout: (_) async => bytes, name: 'Protokoll_${v.bezeichnung}');

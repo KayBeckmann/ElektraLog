@@ -10,6 +10,7 @@ import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/sichtpruefung_provider.dart';
 import '../../core/providers/komponenten_provider.dart';
 import '../../core/providers/messungen_provider.dart';
+import '../../features/pdf/pdf_options_sheet.dart';
 import '../../features/pdf/pdf_service.dart';
 import '../../shared/theme/app_colors.dart';
 import 'komponenten_baum_widget.dart';
@@ -110,6 +111,8 @@ class _VerteilerDetailScreenState
                         : () => _generatePdf(
                               context,
                               sichtpruefungen: sichtpruefungenAsync.value ?? [],
+                              kundenName: kunde?.name,
+                              standortBezeichnung: standort?.bezeichnung,
                             ),
                   ),
           ),
@@ -179,41 +182,48 @@ class _VerteilerDetailScreenState
   Future<void> _generatePdf(
     BuildContext context, {
     required List sichtpruefungen,
+    String? kundenName,
+    String? standortBezeichnung,
   }) async {
-    // Prüfer-Name und Ort/Datum abfragen
-    final result = await _showPdfDialog(context);
-    if (result == null) return;
+    final verteilerList =
+        await ref.read(verteilerByStandortProvider(widget.standortUuid).future);
+    final verteiler =
+        verteilerList.where((v) => v.uuid == widget.verteilerUuid).firstOrNull;
+    if (verteiler == null || !mounted) return;
+
+    final opts = await PdfOptionsSheet.show(
+      context,
+      titel: verteiler.bezeichnung,
+    );
+    if (opts == null || !mounted) return;
 
     setState(() => _pdfLoading = true);
     try {
-      // Verteiler laden
-      final verteilerList =
-          await ref.read(verteilerByStandortProvider(widget.standortUuid).future);
-      final verteiler =
-          verteilerList.where((v) => v.uuid == widget.verteilerUuid).firstOrNull;
-      if (verteiler == null) return;
-
-      // Komponenten laden
       final kompList = await ref
           .read(komponentenByVerteilerProvider(widget.verteilerUuid).future);
-
-      // Messungen laden
       final kompUuids = kompList.map((k) => k.uuid).toList();
       final messungen = await ref
           .read(messungenRepositoryProvider)
           .getByKomponenteUuids(kompUuids);
 
       final bytes = await PdfService.generateProtokoll(
-        prueferName: result['pruefer']!,
-        datumOrt: result['datumOrt']!,
+        prueferName: opts.prueferName,
+        firma: opts.firma,
+        pruefgeraet: opts.pruefgeraet,
+        datumOrt: opts.datumOrt,
+        kundenName: kundenName,
+        standortBezeichnung: standortBezeichnung,
         verteiler: verteiler,
         sichtpruefungen: sichtpruefungen.cast(),
         komponenten: kompList,
         messungen: messungen,
+        signaturPng: opts.signaturPng,
       );
 
-      await Printing.layoutPdf(onLayout: (_) async => bytes,
-          name: 'Protokoll_${verteiler.bezeichnung}');
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: 'Protokoll_${verteiler.bezeichnung}',
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -226,54 +236,6 @@ class _VerteilerDetailScreenState
     } finally {
       if (mounted) setState(() => _pdfLoading = false);
     }
-  }
-
-  Future<Map<String, String>?> _showPdfDialog(BuildContext context) {
-    final prueferCtrl = TextEditingController();
-    final datumOrtCtrl = TextEditingController(
-      text:
-          '${DateTime.now().day.toString().padLeft(2, '0')}.${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().year}',
-    );
-    return showDialog<Map<String, String>>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Protokoll generieren'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: prueferCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Name des Prüfers', hintText: 'Max Mustermann'),
-              textCapitalization: TextCapitalization.words,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: datumOrtCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Datum / Ort',
-                  hintText: 'TT.MM.JJJJ, Musterstadt'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Abbrechen'),
-          ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-            label: const Text('Generieren'),
-            onPressed: () => Navigator.pop(ctx, {
-              'pruefer': prueferCtrl.text.trim().isEmpty
-                  ? 'Unbekannt'
-                  : prueferCtrl.text.trim(),
-              'datumOrt': datumOrtCtrl.text.trim(),
-            }),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _showKomponenteFormular(
