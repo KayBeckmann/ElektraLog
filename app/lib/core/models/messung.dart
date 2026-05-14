@@ -19,6 +19,9 @@ class Messung {
   final String? bemerkung;
   final DateTime erstelltAm;
 
+  /// Nächstes Prüfungsdatum (z.B. aus DGUV-V3-Messung übernommen)
+  final DateTime? naechstePruefungDatum;
+
   Messung({
     String? uuid,
     required this.komponenteUuid,
@@ -29,6 +32,7 @@ class Messung {
     required this.ergebnis,
     this.bemerkung,
     DateTime? erstelltAm,
+    this.naechstePruefungDatum,
   })  : uuid = uuid ?? const Uuid().v4(),
         erstelltAm = erstelltAm ?? DateTime.now();
 
@@ -42,6 +46,7 @@ class Messung {
         'ergebnis': ergebnis,
         'bemerkung': bemerkung,
         'erstelltAm': erstelltAm.toIso8601String(),
+        'naechstePruefungDatum': naechstePruefungDatum?.toIso8601String(),
       };
 
   factory Messung.fromJson(Map<String, dynamic> json) => Messung(
@@ -54,6 +59,9 @@ class Messung {
         ergebnis: json['ergebnis'] as String,
         bemerkung: json['bemerkung'] as String?,
         erstelltAm: DateTime.parse(json['erstelltAm'] as String),
+        naechstePruefungDatum: json['naechstePruefungDatum'] != null
+            ? DateTime.parse(json['naechstePruefungDatum'] as String)
+            : null,
       );
 
   Messung copyWith({
@@ -63,6 +71,7 @@ class Messung {
     String? messwertJson,
     String? ergebnis,
     String? bemerkung,
+    DateTime? naechstePruefungDatum,
   }) =>
       Messung(
         uuid: uuid,
@@ -74,5 +83,7 @@ class Messung {
         ergebnis: ergebnis ?? this.ergebnis,
         bemerkung: bemerkung ?? this.bemerkung,
         erstelltAm: erstelltAm,
+        naechstePruefungDatum:
+            naechstePruefungDatum ?? this.naechstePruefungDatum,
       );
 }
