@@ -357,25 +357,38 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 
 > Ziel: Skalierbarkeit, Importmöglichkeiten, Statistiken.
 
+### M5.0 — PDF-Export (echte Implementierung)
+
+- ✅ ZVEH-angelehtes Prüfprotokoll mit dart_pdf + printing
+- ✅ Abschnitte: Prüfinformationen, Anlagendaten, Sichtprüfung, Messwerte, Unterschrift
+- ✅ Google Fonts (Inter + JetBrains Mono) direkt aus Package
+- ✅ Printing.layoutPdf — Browser-Print-Dialog (Web) / System-Druck (Android)
+- ✅ QR-Etiketten-PDF (2×4 Grid auf A4, BarcodeWidget aus pdf-Package)
+
 ### M5.1 — Import
 
-- ⏳ Geräte-Import: CSV-Template bereitstellen
-- ⏳ Geräte-Import: CSV einlesen, Vorschau, Bestätigung
-- ⏳ Kunden-Import: CSV/Excel
-- ⏳ Fehlerbehandlung: invalide Zeilen hervorheben
+- ✅ Geräte-Import: CSV-Template bereitstellen (Dialog)
+- ✅ Geräte-Import: CSV einlesen, Vorschau (erste 5 Zeilen), Bestätigung
+- ✅ Kunden-Import: CSV mit Spalten name, strasse, plz, ort, kontakt_email, kontakt_telefon
+- ✅ Fehlerbehandlung: invalide Zeilen rot hervorheben
+- ✅ Fortschrittsanzeige (LinearProgressIndicator)
+- ✅ Erreichbar über CSV-Import-Link im Drawer
 
 ### M5.2 — Prüfhistorie & Statistiken
 
-- ⏳ Prüfhistorie pro Gerät (alle Messungen chronologisch)
-- ⏳ Dashboard: Prüfquote je Verteiler (% abgeschlossen)
-- ⏳ Dashboard: Fehlerrate (% nicht bestanden)
-- ⏳ Dashboard: Geräte nach Status (OK / Mangel / überfällig)
+- ✅ Dashboard: Prüfquote (% bestanden)
+- ✅ Dashboard: Fehlerrate (% nicht bestanden)
+- ✅ Dashboard: Überfällige Prüftermine
+- ✅ Dashboard: Kunden-Anzahl
+- ✅ Horizontale StatCard-Reihe mit Schwellwert-Farbgebung
 - ⏳ Export: Auswertung als Excel-Tabelle
 
 ### M5.3 — QR-Code / Barcode-Etiketten
 
-- ⏳ QR-Code pro Gerät/Komponente generieren (UUID-basiert)
-- ⏳ Etiketten-Sheet als PDF drucken (mehrere Etiketten pro Seite)
+- ✅ QR-Code pro Komponente generieren (UUID-basiert, qr_flutter)
+- ✅ QR-Code-Screen mit UUID-Anzeige und Druck-Button
+- ✅ QR-Icon-Button direkt im KomponentenBaum
+- ✅ Etiketten-Sheet als PDF drucken (2×4 = 8 Etiketten je A4-Seite)
 - ⏳ Gerät per QR-Code-Scan direkt öffnen (Flutter `mobile_scanner`)
 
 ### M5.4 — Monetarisierung aktivieren
@@ -394,3 +407,30 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 - Echtzeit-Kollaboration (mehrere Nutzer gleichzeitig am selben Verteiler)
 - KI-gestützte Auswertung
 - Integration mit Messgeräten via Bluetooth/USB (Phase 5+ falls Bedarf)
+
+---
+
+## Aktueller Status
+
+**Stand: Mai 2026**
+
+Implementierte Phasen: 0, 1, 2, 3, 4, 5 (Kernfeatures)
+
+| Feature | Status |
+|---------|--------|
+| Solo-Modus (offline, lokale DB) | ✅ Produktiv |
+| PDF-Export (ZVEH-angelehnt) | ✅ Produktiv |
+| Company-Modus (Auth + Backend) | ✅ Produktiv |
+| RBAC-Rollensystem | ✅ Produktiv |
+| Offline-Sync | ✅ Produktiv |
+| Fälligkeitsverwaltung | ✅ Produktiv |
+| Sichtprüfung (ZVEH-Checkliste) | ✅ Produktiv |
+| CSV-Import | ✅ Produktiv |
+| Statistik-Dashboard | ✅ Produktiv |
+| QR-Code-Etiketten | ✅ Produktiv |
+| Digitale Unterschrift | ✅ Produktiv |
+| Projekt-Homepage | ✅ Produktiv |
+| Wiki.js Dokumentation | ✅ Konfiguriert |
+| CI/CD (GitHub Actions) | ✅ Aktiv |
+| Individuelle Templates | ⏳ Phase 4.4 |
+| Stripe-Monetarisierung | ⏳ Phase 5.4 |
