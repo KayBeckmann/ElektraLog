@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/messungen_provider.dart';
 import '../../shared/theme/app_colors.dart';
+import 'signature_pad.dart';
 
 class SignaturScreen extends ConsumerStatefulWidget {
   const SignaturScreen({super.key});
@@ -207,23 +208,12 @@ class _SignaturScreenState extends ConsumerState<SignaturScreen> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(4),
-                      child: GestureDetector(
-                        onPanStart: (details) {
-                          setState(() => _points
-                              .add(details.localPosition));
-                        },
-                        onPanUpdate: (details) {
-                          setState(() => _points
-                              .add(details.localPosition));
-                        },
-                        onPanEnd: (_) {
-                          setState(() => _points.add(null));
-                        },
-                        child: CustomPaint(
-                          painter:
-                              _SignaturePainter(points: _points),
-                          child: const SizedBox.expand(),
-                        ),
+                      child: SignaturePad(
+                        points: _points,
+                        onChanged: (pts) =>
+                            setState(() => _points
+                              ..clear()
+                              ..addAll(pts)),
                       ),
                     ),
                   ),
@@ -398,51 +388,3 @@ class _BentoCard extends StatelessWidget {
   }
 }
 
-// ── Signature Painter ─────────────────────────────────────────────────────────
-
-class _SignaturePainter extends CustomPainter {
-  _SignaturePainter({required this.points});
-
-  final List<Offset?> points;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Dashed baseline
-    final baselinePaint = Paint()
-      ..color = AppColors.outlineVariant
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-    const dashWidth = 8.0;
-    const dashGap = 4.0;
-    final baselineY = size.height * 0.75;
-    double x = 8;
-    while (x < size.width - 8) {
-      canvas.drawLine(
-        Offset(x, baselineY),
-        Offset(
-            (x + dashWidth).clamp(0.0, size.width - 8), baselineY),
-        baselinePaint,
-      );
-      x += dashWidth + dashGap;
-    }
-
-    // Signature
-    final signPaint = Paint()
-      ..color = AppColors.primary
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-
-    for (var i = 0; i < points.length - 1; i++) {
-      final p1 = points[i];
-      final p2 = points[i + 1];
-      if (p1 != null && p2 != null) {
-        canvas.drawLine(p1, p2, signPaint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _SignaturePainter oldDelegate) => true;
-}
