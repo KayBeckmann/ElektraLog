@@ -46,15 +46,26 @@ services:
         condition: service_healthy
 
   # ---------------------------------------------------------------------------
-  # Serverpod — Dart backend (company profile only)
+  # Serverpod — Dart HTTP backend (always active from Phase 2)
   # ---------------------------------------------------------------------------
   serverpod:
-    image: busybox
-    profiles: ["company"]
-    command: ["sh", "-c", "echo 'Serverpod placeholder — configure in Phase 2' && sleep infinity"]
+    build:
+      context: ./packages/elektralog_server
+      dockerfile: Dockerfile
+    restart: unless-stopped
     environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       SERVERPOD_PORT: ${SERVERPOD_PORT}
-      SERVERPOD_INSIGHTS_PORT: ${SERVERPOD_INSIGHTS_PORT}
+      JWT_SECRET: ${JWT_SECRET}
+    ports:
+      - "127.0.0.1:${SERVERPOD_PORT}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   # ---------------------------------------------------------------------------
   # Wiki.js — internal documentation (company profile only)
