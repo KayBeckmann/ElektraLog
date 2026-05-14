@@ -114,35 +114,8 @@ services:
       - elektralog
     profiles: ["company"]
 
-  # ---------------------------------------------------------------------------
-  # Proxy — Traefik reverse proxy with Let's Encrypt (company profile only)
-  # ---------------------------------------------------------------------------
-  proxy:
-    image: traefik:v3.0
-    profiles: ["company"]
-    restart: unless-stopped
-    command:
-      - "--api.insecure=false"
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.web.address=:${PROXY_HTTP_PORT}"
-      - "--entrypoints.websecure.address=:${PROXY_HTTPS_PORT}"
-      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
-    ports:
-      - "${PROXY_HTTP_PORT}:${PROXY_HTTP_PORT}"
-      - "${PROXY_HTTPS_PORT}:${PROXY_HTTPS_PORT}"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - letsencrypt_data:/letsencrypt
-    networks:
-      - elektralog
-
 volumes:
   postgres_data:
-    driver: local
-  letsencrypt_data:
     driver: local
 
 networks:
