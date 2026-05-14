@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/verteiler_komponente.dart';
 import '../../core/providers/komponenten_provider.dart';
 import '../../core/providers/messungen_provider.dart';
+import '../../features/messungen/messung_formular.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/widgets/status_pill.dart';
 
@@ -257,6 +258,21 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                 onSelected: (v) {
                                   if (v == 'add_child') {
                                     widget.onAddChild(k.uuid);
+                                  } else if (v == 'messung') {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor:
+                                          AppColors.surfaceContainerLowest,
+                                      shape: const RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.vertical(
+                                          top: Radius.circular(16),
+                                        ),
+                                      ),
+                                      builder: (_) => MessungFormular(
+                                        komponenteUuid: k.uuid,
+                                      ),
+                                    );
                                   }
                                 },
                               ),
@@ -317,6 +333,12 @@ class _TypIcon extends StatelessWidget {
       case 'nh_sicherung':
         icon = Icons.flash_on;
         color = AppColors.error;
+      case 'neozed':
+        icon = Icons.bolt;
+        color = AppColors.error;
+      case 'diazed':
+        icon = Icons.bolt;
+        color = AppColors.warning;
       case 'ueberspannung':
         icon = Icons.shield_outlined;
         color = AppColors.tertiary;

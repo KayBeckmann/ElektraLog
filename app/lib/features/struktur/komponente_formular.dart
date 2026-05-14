@@ -36,6 +36,7 @@ class _KomponenteFormularState
   String? _ausloeseStrom;
   String? _rcdTyp;
   String? _nhGroesse;
+  String? _sicherungGroesse; // für NeoZed und DiaZed
   bool _isSaving = false;
 
   static const _typen = [
@@ -45,6 +46,8 @@ class _KomponenteFormularState
     ('hauptschalter', 'Hauptschalter'),
     ('vorsicherung', 'Vorsicherung'),
     ('nh_sicherung', 'NH-Sicherung'),
+    ('neozed', 'NeoZed-Sicherung'),
+    ('diazed', 'DiaZed-Sicherung'),
     ('ueberspannung', 'Überspannungsschutz'),
     ('sammelschiene', 'Sammelschiene'),
     ('sonstige', 'Sonstige'),
@@ -54,6 +57,10 @@ class _KomponenteFormularState
   static const _ausloeseStromOpts = ['10', '30', '100', '300'];
   static const _rcdTypen = ['A', 'B', 'F'];
   static const _nhGroessen = ['000', '00', '1', '2', '3'];
+  // NeoZed: D01 (bis 16 A), D02 (bis 63 A), D03 (bis 100 A)
+  static const _neozedGroessen = ['D01', 'D02', 'D03'];
+  // DiaZed: DII (bis 25 A), DIII (bis 63 A), DIV (bis 160 A), DV (bis 200 A)
+  static const _diazedGroessen = ['DII', 'DIII', 'DIV', 'DV'];
 
   @override
   void initState() {
@@ -72,6 +79,7 @@ class _KomponenteFormularState
         _ausloeseStrom = data['auslösestrom'] as String?;
         _rcdTyp = data['rcdTyp'] as String?;
         _nhGroesse = data['nhGroesse'] as String?;
+        _sicherungGroesse = data['sicherungGroesse'] as String?;
       }
     }
   }
@@ -92,6 +100,8 @@ class _KomponenteFormularState
     final showAusloeseStrom = _typ == 'rcd' || _typ == 'fi_ls';
     final showRcdTyp = _typ == 'rcd' || _typ == 'fi_ls';
     final showNhGroesse = _typ == 'nh_sicherung';
+    final showNeozedGroesse = _typ == 'neozed';
+    final showDiazedGroesse = _typ == 'diazed';
 
     return Padding(
       padding: EdgeInsets.only(
@@ -140,6 +150,7 @@ class _KomponenteFormularState
                   _ausloeseStrom = null;
                   _rcdTyp = null;
                   _nhGroesse = null;
+                  _sicherungGroesse = null;
                 }),
               ),
               const SizedBox(height: 12),
@@ -262,6 +273,44 @@ class _KomponenteFormularState
                 const SizedBox(height: 12),
               ],
 
+              // ── NeoZed-System ─────────────────────────────────────────────
+              if (showNeozedGroesse) ...[
+                DropdownButtonFormField<String>(
+                  initialValue: _sicherungGroesse,
+                  decoration: const InputDecoration(
+                    labelText: 'NeoZed-System',
+                    helperText: 'D01 ≤16 A · D02 ≤63 A · D03 ≤100 A',
+                  ),
+                  items: _neozedGroessen
+                      .map((e) => DropdownMenuItem(
+                            value: e,
+                            child: Text(e),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setState(() => _sicherungGroesse = v),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // ── DiaZed-System ─────────────────────────────────────────────
+              if (showDiazedGroesse) ...[
+                DropdownButtonFormField<String>(
+                  initialValue: _sicherungGroesse,
+                  decoration: const InputDecoration(
+                    labelText: 'DiaZed-System',
+                    helperText: 'DII ≤25 A · DIII ≤63 A · DIV ≤160 A · DV ≤200 A',
+                  ),
+                  items: _diazedGroessen
+                      .map((e) => DropdownMenuItem(
+                            value: e,
+                            child: Text(e),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setState(() => _sicherungGroesse = v),
+                ),
+                const SizedBox(height: 12),
+              ],
+
               const SizedBox(height: 12),
 
               SizedBox(
@@ -315,6 +364,9 @@ class _KomponenteFormularState
     }
     if (_nhGroesse != null) {
       eigenschaften['nhGroesse'] = _nhGroesse;
+    }
+    if (_sicherungGroesse != null) {
+      eigenschaften['sicherungGroesse'] = _sicherungGroesse;
     }
     final eigenschaftenJson =
         eigenschaften.isEmpty ? null : jsonEncode(eigenschaften);
