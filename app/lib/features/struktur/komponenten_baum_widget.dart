@@ -259,6 +259,14 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                   if (v == 'add_child') {
                                     widget.onAddChild(k.uuid);
                                   } else if (v == 'messung') {
+                                    // Eigenschaften parsen für Formular-Vorbelgung
+                                    Map<String, dynamic>? props;
+                                    if (k.eigenschaftenJson != null) {
+                                      try {
+                                        props = jsonDecode(k.eigenschaftenJson!)
+                                            as Map<String, dynamic>;
+                                      } catch (_) {}
+                                    }
                                     showModalBottomSheet(
                                       context: context,
                                       isScrollControlled: true,
@@ -271,6 +279,8 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                       ),
                                       builder: (_) => MessungFormular(
                                         komponenteUuid: k.uuid,
+                                        komponenteTyp: k.typ,
+                                        komponenteEigenschaften: props,
                                       ),
                                     );
                                   }

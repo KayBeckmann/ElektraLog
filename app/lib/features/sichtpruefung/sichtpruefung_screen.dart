@@ -48,28 +48,45 @@ extension ChecklistePunktLabel on ChecklistePunkt {
 
 // ── Checkpunkt Status ─────────────────────────────────────────────────────────
 
-enum PunktStatus { ok, mangel, nichtGeprueft }
+/// Drei Zustände je Prüfpunkt:
+/// - bestanden   → Punkt geprüft, i.O.
+/// - durchgefallen → Mangel festgestellt
+/// - nichtZutreffend → Punkt gilt nicht für diese Anlage (N/A)
+enum PunktStatus { bestanden, durchgefallen, nichtZutreffend }
 
 extension PunktStatusLabel on PunktStatus {
   String get key {
     switch (this) {
-      case PunktStatus.ok:
-        return 'ok';
-      case PunktStatus.mangel:
-        return 'mangel';
-      case PunktStatus.nichtGeprueft:
-        return 'nicht_geprueft';
+      case PunktStatus.bestanden:
+        return 'bestanden';
+      case PunktStatus.durchgefallen:
+        return 'durchgefallen';
+      case PunktStatus.nichtZutreffend:
+        return 'nicht_zutreffend';
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case PunktStatus.bestanden:
+        return 'Bestanden';
+      case PunktStatus.durchgefallen:
+        return 'Durchgefallen';
+      case PunktStatus.nichtZutreffend:
+        return 'N/A';
     }
   }
 
   static PunktStatus fromKey(String key) {
     switch (key) {
-      case 'ok':
-        return PunktStatus.ok;
-      case 'mangel':
-        return PunktStatus.mangel;
+      case 'bestanden':
+      case 'ok': // Rückwärtskompatibilität
+        return PunktStatus.bestanden;
+      case 'durchgefallen':
+      case 'mangel': // Rückwärtskompatibilität
+        return PunktStatus.durchgefallen;
       default:
-        return PunktStatus.nichtGeprueft;
+        return PunktStatus.nichtZutreffend;
     }
   }
 }
@@ -93,7 +110,7 @@ class SichtpruefungScreen extends ConsumerStatefulWidget {
 
 class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
   final Map<ChecklistePunkt, PunktStatus> _checkliste = {
-    for (final p in ChecklistePunkt.values) p: PunktStatus.nichtGeprueft,
+    for (final p in ChecklistePunkt.values) p: PunktStatus.nichtZutreffend,
   };
   final _maengelCtrl = TextEditingController();
   bool _isSaving = false;
@@ -106,22 +123,22 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
 
   String _berechneErgebnis() {
     final values = _checkliste.values.toList();
-    if (values.any((v) => v == PunktStatus.mangel)) {
+    // Mindestens ein Durchgefallen → mit Mängeln
+    if (values.any((v) => v == PunktStatus.durchgefallen)) {
       return 'mit_maengeln';
     }
-    if (values.any((v) => v == PunktStatus.nichtGeprueft)) {
-      return 'nicht_bestanden';
-    }
+    // Alles bestanden oder N/A → bestanden
     return 'bestanden';
   }
 
+  /// Zyklus: N/A → Bestanden → Durchgefallen → N/A
   void _togglePunkt(ChecklistePunkt punkt) {
     setState(() {
       final current = _checkliste[punkt]!;
       _checkliste[punkt] = switch (current) {
-        PunktStatus.nichtGeprueft => PunktStatus.ok,
-        PunktStatus.ok => PunktStatus.mangel,
-        PunktStatus.mangel => PunktStatus.nichtGeprueft,
+        PunktStatus.nichtZutreffend => PunktStatus.bestanden,
+        PunktStatus.bestanden => PunktStatus.durchgefallen,
+        PunktStatus.durchgefallen => PunktStatus.nichtZutreffend,
       };
     });
   }
@@ -164,7 +181,7 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
     final sichtpruefungenAsync =
         ref.watch(sichtpruefungenByVerteilerProvider(widget.verteilerUuid));
     final ergebnis = _berechneErgebnis();
-    final hatMaengel = _checkliste.values.any((v) => v == PunktStatus.mangel);
+    final hatMaengel = _checkliste.values.any((v) => v == PunktStatus.durchgefallen);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -217,7 +234,7 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Tippen zum Umschalten: — → ✓ → ✗ → —',
+              'Tippen zum Umschalten:  N/A → ✓ Bestanden → ✗ Durchgefallen → N/A',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.onSurfaceVariant,
                   ),
@@ -392,24 +409,25 @@ class _ChecklisteTile extends StatelessWidget {
     Color iconColor;
 
     switch (status) {
-      case PunktStatus.ok:
+      case PunktStatus.bestanden:
         icon = Icons.check_circle;
         iconColor = AppColors.success;
-      case PunktStatus.mangel:
+      case PunktStatus.durchgefallen:
         icon = Icons.cancel;
         iconColor = AppColors.error;
-      case PunktStatus.nichtGeprueft:
-        icon = Icons.remove_circle_outline;
+      case PunktStatus.nichtZutreffend:
+        icon = Icons.do_not_disturb_on_outlined;
         iconColor = AppColors.outlineVariant;
     }
+
+    final isNa = status == PunktStatus.nichtZutreffend;
 
     return Column(
       children: [
         InkWell(
           onTap: onTap,
           child: Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
                 Icon(icon, size: 22, color: iconColor),
@@ -418,8 +436,37 @@ class _ChecklisteTile extends StatelessWidget {
                   child: Text(
                     punkt.label,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.onSurface,
+                          color: isNa
+                              ? AppColors.onSurfaceVariant
+                              : AppColors.onSurface,
                         ),
+                  ),
+                ),
+                // Status-Badge rechts
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: switch (status) {
+                      PunktStatus.bestanden => AppColors.successContainer,
+                      PunktStatus.durchgefallen => AppColors.errorContainer,
+                      PunktStatus.nichtZutreffend =>
+                        AppColors.surfaceContainerHigh,
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    status.label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: switch (status) {
+                        PunktStatus.bestanden => AppColors.success,
+                        PunktStatus.durchgefallen => AppColors.error,
+                        PunktStatus.nichtZutreffend =>
+                          AppColors.onSurfaceVariant,
+                      },
+                    ),
                   ),
                 ),
               ],
