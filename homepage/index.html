@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ElektraLog — Digitale Prüfprotokolle für Elektrotechniker</title>
+  <meta name="description" content="VDE-konforme, offline-fähige Prüfprotokolle für Elektrotechniker. ZVEH-angelehnte PDFs — kostenlos als Solo-App." />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Inter + JetBrains Mono + Material Symbols -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary:    '#091426',
+            surface:    '#fbf8fa',
+            secondary:  '#505f76',
+            'secondary-container': '#d0e1fb',
+            'on-secondary-container': '#54647a',
+            'surface-container':      '#f0edef',
+            'surface-container-low':  '#f5f3f4',
+            'surface-container-high': '#eae7e9',
+            'outline-variant':        '#c5c6cd',
+            success:    '#1a6b2e',
+            'success-container': '#b7f0cb',
+            warning:    '#7a5700',
+            'warning-container': '#ffdea0',
+            error:      '#ba1a1a',
+            'error-container':   '#ffdad6',
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #fbf8fa; color: #1b1b1d; }
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    .hero-phone {
+      width: 220px; height: 440px;
+      background: #091426;
+      border-radius: 32px;
+      border: 6px solid #1e293b;
+      position: relative;
+      box-shadow: 0 32px 64px rgba(9,20,38,0.35);
+      overflow: hidden;
+    }
+    .hero-phone::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 80px; height: 22px;
+      background: #1e293b;
+      border-radius: 0 0 14px 14px;
+      z-index: 10;
+    }
+    .screen-bar {
+      height: 4px;
+      border-radius: 2px;
+      background: #d0e1fb;
+      margin: 6px 12px;
+    }
+    .screen-card {
+      margin: 8px 10px;
+      padding: 8px 10px;
+      background: #1e293b;
+      border-radius: 8px;
+      border: 1px solid #3c475a;
+    }
+    .nav-item { transition: color 0.15s; }
+    .nav-item:hover { color: #091426; }
+    .btn-primary {
+      background: #091426; color: #fff;
+      padding: 12px 24px; border-radius: 6px;
+      font-weight: 600; font-size: 15px;
+      transition: opacity 0.15s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-outline {
+      border: 2px solid #091426; color: #091426;
+      padding: 10px 22px; border-radius: 6px;
+      font-weight: 600; font-size: 15px;
+      transition: background 0.15s;
+      display: inline-flex; align-items: center; gap: 8px;
+    }
+    .btn-outline:hover { background: #f0edef; }
+    .feature-card {
+      background: #fff;
+      border: 1px solid #c5c6cd;
+      border-radius: 12px;
+      padding: 24px;
+      transition: box-shadow 0.2s, border-color 0.2s;
+    }
+    .feature-card:hover { box-shadow: 0 8px 24px rgba(9,20,38,0.1); border-color: #d0e1fb; }
+    .price-card {
+      background: #fff;
+      border: 1px solid #c5c6cd;
+      border-radius: 12px;
+      padding: 28px 24px;
+      display: flex; flex-direction: column;
+    }
+    .price-card.featured {
+      border: 2px solid #091426;
+      background: #091426;
+      color: #fff;
+    }
+    .chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #d0e1fb; color: #091426;
+      padding: 4px 12px; border-radius: 999px;
+      font-size: 12px; font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================ NAVBAR -->
+<header class="sticky top-0 z-50 bg-white border-b border-[#c5c6cd]">
+  <nav class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-6">
+    <!-- Logo -->
+    <a href="#" class="flex items-center gap-2 font-bold text-lg text-primary tracking-tight">
+      <span class="material-symbols-outlined text-primary" style="font-size:22px">electric_bolt</span>
+      ElektraLog
+    </a>
+
+    <!-- Desktop nav links -->
+    <div class="hidden md:flex items-center gap-6 ml-4 text-sm font-medium text-[#45474c]">
+      <a href="#features" class="nav-item">Features</a>
+      <a href="#preise" class="nav-item">Preise</a>
+      <a href="#docs" class="nav-item">Docs</a>
+      <a href="https://github.com/KayBeckmann/ElektraLog" target="_blank" rel="noopener" class="nav-item flex items-center gap-1">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.341-3.369-1.341-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.031 1.531 1.031.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+        GitHub
+      </a>
+    </div>
+
+    <div class="flex-1"></div>
+
+    <!-- CTA -->
+    <a href="#download" class="btn-primary text-sm py-2 px-4 hidden sm:inline-flex">
+      <span class="material-symbols-outlined" style="font-size:16px">download</span>
+      Download
+    </a>
+  </nav>
+</header>
+
+<!-- ============================================================ HERO -->
+<section class="max-w-6xl mx-auto px-4 sm:px-6 py-16 md:py-24 flex flex-col md:flex-row items-center gap-12">
+  <!-- Text -->
+  <div class="flex-1 max-w-xl">
+    <div class="chip mb-5">
+      <span class="material-symbols-outlined" style="font-size:14px">verified</span>
+      VDE-konform · DGUV V3 · ZVEH
+    </div>
+    <h1 class="text-4xl md:text-5xl font-extrabold text-primary leading-tight mb-5">
+      Digitale Prüfprotokolle für Elektrotechniker
+    </h1>
+    <p class="text-lg text-[#45474c] mb-8 leading-relaxed">
+      VDE-konform, offline-fähig, ZVEH-angelehnte PDFs — kostenlos als Solo-App.
+      Für Monteure, Prüftechniker und Elektrounternehmen.
+    </p>
+    <div class="flex flex-wrap gap-3">
+      <a href="#download" id="download" class="btn-primary">
+        <span class="material-symbols-outlined" style="font-size:18px">download</span>
+        App herunterladen
+      </a>
+      <a href="#docs" class="btn-outline">
+        <span class="material-symbols-outlined" style="font-size:18px">menu_book</span>
+        Dokumentation
+      </a>
+    </div>
+    <!-- Trust indicators -->
+    <div class="mt-8 flex flex-wrap gap-4 text-sm text-[#75777d]">
+      <span class="flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>
+        Kostenlos starten
+      </span>
+      <span class="flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>
+        Kein Account nötig
+      </span>
+      <span class="flex items-center gap-1.5">
+        <span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>
+        MIT-Lizenz
+      </span>
+    </div>
+  </div>
+
+  <!-- Phone Mockup -->
+  <div class="hidden md:flex flex-col items-center justify-center flex-shrink-0">
+    <div class="hero-phone">
+      <!-- Notch -->
+      <div style="height:28px"></div>
+      <!-- App screen simulation -->
+      <div style="padding:8px 10px">
+        <div style="color:#8590a6;font-size:9px;font-family:'JetBrains Mono',monospace;letter-spacing:1px">DASHBOARD</div>
+        <div style="color:#d0e1fb;font-size:16px;font-weight:700;margin-top:2px">Übersicht</div>
+        <div class="screen-bar" style="background:#1e293b; margin:10px 0 6px 0; height:2px"></div>
+        <!-- KPI card 1 -->
+        <div class="screen-card">
+          <div style="color:#8590a6;font-size:8px;letter-spacing:0.8px">GERÄTE GEPRÜFT</div>
+          <div style="color:#d0e1fb;font-size:22px;font-weight:700">12 / 18</div>
+          <div style="height:3px;background:#3c475a;border-radius:2px;margin-top:6px">
+            <div style="height:3px;width:67%;background:#d0e1fb;border-radius:2px"></div>
+          </div>
+        </div>
+        <!-- KPI card 2 -->
+        <div class="screen-card" style="margin-top:6px">
+          <div style="color:#8590a6;font-size:8px;letter-spacing:0.8px">NÄCHSTE PRÜFUNG</div>
+          <div style="color:#b7f0cb;font-size:11px;font-weight:600;margin-top:2px">Muster GmbH · heute 14:00</div>
+          <div style="color:#8590a6;font-size:9px;margin-top:1px">DIN VDE 0701-0702</div>
+        </div>
+        <!-- Status pills -->
+        <div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">
+          <div style="background:#1a6b2e20;border:1px solid #1a6b2e;border-radius:4px;padding:3px 6px;color:#b7f0cb;font-size:8px">✓ Bestanden</div>
+          <div style="background:#7a570020;border:1px solid #7a5700;border-radius:4px;padding:3px 6px;color:#ffdea0;font-size:8px">⚠ Mängel</div>
+          <div style="background:#ba1a1a20;border:1px solid #ba1a1a;border-radius:4px;padding:3px 6px;color:#ffdad6;font-size:8px">✗ Fehler</div>
+        </div>
+      </div>
+    </div>
+    <p class="mt-4 text-xs text-[#75777d] font-mono">Flutter Web / Android</p>
+  </div>
+</section>
+
+<!-- ============================================================ FEATURES -->
+<section id="features" class="bg-[#f5f3f4] py-16 md:py-24">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6">
+    <div class="text-center mb-12">
+      <div class="chip mb-3 mx-auto inline-flex">Features</div>
+      <h2 class="text-3xl md:text-4xl font-extrabold text-primary">Alles für professionelle Prüfprotokolle</h2>
+      <p class="mt-3 text-[#45474c] max-w-xl mx-auto">Von der Sichtprüfung bis zum signierten PDF — ElektraLog begleitet euch durch den gesamten Prüfprozess.</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <!-- Card 1 -->
+      <div class="feature-card">
+        <div class="w-10 h-10 rounded-lg bg-[#d0e1fb] flex items-center justify-center mb-4">
+          <span class="material-symbols-outlined text-primary" style="font-size:20px">wifi_off</span>
+        </div>
+        <h3 class="font-bold text-primary mb-2">Offline-First</h3>
+        <p class="text-sm text-[#45474c] leading-relaxed">Kein Internet nötig. Daten sicher lokal auf dem Gerät — ohne Cloud-Zwang.</p>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="feature-card">
+        <div class="w-10 h-10 rounded-lg bg-[#d0e1fb] flex items-center justify-center mb-4">
+          <span class="material-symbols-outlined text-primary" style="font-size:20px">description</span>
+        </div>
+        <h3 class="font-bold text-primary mb-2">ZVEH-Protokolle</h3>
+        <p class="text-sm text-[#45474c] leading-relaxed">Prüfprotokolle auf Knopfdruck als PDF. ZVEH-angelehnte Formulare für VDE 0701-0702, DGUV V3 und VDE 0100.</p>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="feature-card">
+        <div class="w-10 h-10 rounded-lg bg-[#d0e1fb] flex items-center justify-center mb-4">
+          <span class="material-symbols-outlined text-primary" style="font-size:20px">verified</span>
+        </div>
+        <h3 class="font-bold text-primary mb-2">VDE-konform</h3>
+        <p class="text-sm text-[#45474c] leading-relaxed">DIN VDE 0701-0702, DGUV V3, VDE 0100. Grenzwerte hinterlegt, Gesamtbewertung automatisch.</p>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="feature-card">
+        <div class="w-10 h-10 rounded-lg bg-[#d0e1fb] flex items-center justify-center mb-4">
+          <span class="material-symbols-outlined text-primary" style="font-size:20px">group</span>
+        </div>
+        <h3 class="font-bold text-primary mb-2">Multi-User</h3>
+        <p class="text-sm text-[#45474c] leading-relaxed">Firmenstruktur, RBAC-Rollen, Backend-Sync. Monteur, Prüftechniker, Disponent und Admin.</p>
+      </div>
+    </div>
+
+    <!-- Additional features list -->
+    <div class="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
+      <div class="flex items-center gap-3 text-sm text-[#45474c]">
+        <span class="material-symbols-outlined text-success" style="font-size:18px">check_circle</span>
+        Digitale Unterschrift (Touch/Stylus)
+      </div>
+      <div class="flex items-center gap-3 text-sm text-[#45474c]">
+        <span class="material-symbols-outlined text-success" style="font-size:18px">check_circle</span>
+        Fälligkeitsverwaltung mit Dashboard-Widget
+      </div>
+      <div class="flex items-center gap-3 text-sm text-[#45474c]">
+        <span class="material-symbols-outlined text-success" style="font-size:18px">check_circle</span>
+        ZVEH-Sichtprüfungs-Checkliste
+      </div>
+      <div class="flex items-center gap-3 text-sm text-[#45474c]">
+        <span class="material-symbols-outlined text-success" style="font-size:18px">check_circle</span>
+        Rekursiver Komponentenbaum je Verteiler
+      </div>
+      <div class="flex items-center gap-3 text-sm text-[#45474c]">
+        <span class="material-symbols-outlined text-success" style="font-size:18px">check_circle</span>
+        Self-Hosting via Docker Compose
+      </div>
+      <div class="flex items-center gap-3 text-sm text-[#45474c]">
+        <span class="material-symbols-outlined text-success" style="font-size:18px">check_circle</span>
+        Android &amp; Web-App (Flutter)
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ PREISE -->
+<section id="preise" class="py-16 md:py-24">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6">
+    <div class="text-center mb-12">
+      <div class="chip mb-3 mx-auto inline-flex">Preise</div>
+      <h2 class="text-3xl md:text-4xl font-extrabold text-primary">Transparent und skalierbar</h2>
+      <p class="mt-3 text-[#45474c] max-w-xl mx-auto">Starte kostenlos als Einzelkämpfer. Wächst mit deinem Team.</p>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <!-- Solo -->
+      <div class="price-card featured">
+        <div class="text-xs font-bold tracking-widest text-[#d0e1fb] mb-2">SOLO</div>
+        <div class="text-4xl font-extrabold mb-1 text-white">Kostenlos</div>
+        <div class="text-sm text-[#8590a6] mb-6">für immer</div>
+        <ul class="space-y-2.5 flex-1 mb-8">
+          <li class="flex items-center gap-2 text-sm text-[#d0e1fb]"><span class="material-symbols-outlined text-[#b7f0cb]" style="font-size:16px">check_circle</span>1 Gerät</li>
+          <li class="flex items-center gap-2 text-sm text-[#d0e1fb]"><span class="material-symbols-outlined text-[#b7f0cb]" style="font-size:16px">check_circle</span>Lokale Datenhaltung</li>
+          <li class="flex items-center gap-2 text-sm text-[#d0e1fb]"><span class="material-symbols-outlined text-[#b7f0cb]" style="font-size:16px">check_circle</span>PDF-Export</li>
+          <li class="flex items-center gap-2 text-sm text-[#d0e1fb]"><span class="material-symbols-outlined text-[#b7f0cb]" style="font-size:16px">check_circle</span>Alle Normen</li>
+        </ul>
+        <a href="#download" class="w-full text-center bg-white text-primary font-semibold py-2.5 rounded-md text-sm hover:bg-[#d0e1fb] transition-colors">Jetzt starten</a>
+      </div>
+
+      <!-- Team -->
+      <div class="price-card">
+        <div class="text-xs font-bold tracking-widest text-[#75777d] mb-2">TEAM</div>
+        <div class="text-4xl font-extrabold text-primary mb-1">Preis folgt</div>
+        <div class="text-sm text-[#75777d] mb-6">pro Monat</div>
+        <ul class="space-y-2.5 flex-1 mb-8">
+          <li class="flex items-center gap-2 text-sm text-[#45474c]"><span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>Bis 5 Nutzer</li>
+          <li class="flex items-center gap-2 text-sm text-[#45474c]"><span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>Backend-Sync</li>
+          <li class="flex items-center gap-2 text-sm text-[#45474c]"><span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>RBAC-Rollen</li>
+          <li class="flex items-center gap-2 text-sm text-[#45474c]"><span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>Alles aus Solo</li>
+        </ul>
+        <a href="https://github.com/KayBeckmann/ElektraLog" class="w-full text-center border border-[#c5c6cd] text-primary font-semibold py-2.5 rounded-md text-sm hover:bg-[#f0edef] transition-colors">Benachrichtigung</a>
+      </div>
+
+      <!-- Business -->
+      <div class="price-card">
+        <div class="text-xs font-bold tracking-widest text-[#75777d] mb-2">BUSINESS</div>
+        <div class="text-4xl font-extrabold text-primary mb-1">Preis folgt</div>
+        <div class="text-sm text-[#75777d] mb-6">pro Monat</div>
+        <ul class="space-y-2.5 flex-1 mb-8">
+          <li class="flex items-center gap-2 text-sm text-[#45474c]"><span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>Bis 20 Nutzer</li>
+          <li class="flex items-center gap-2 text-sm text-[#45474c]"><span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>Statistiken &amp; Reports</li>
+          <li class="flex items-center gap-2 text-sm text-[#45474c]"><span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>Individuelle Templates</li>
+          <li class="flex items-center gap-2 text-sm text-[#45474c]"><span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>Alles aus Team</li>
+        </ul>
+        <a href="https://github.com/KayBeckmann/ElektraLog" class="w-full text-center border border-[#c5c6cd] text-primary font-semibold py-2.5 rounded-md text-sm hover:bg-[#f0edef] transition-colors">Benachrichtigung</a>
+      </div>
+
+      <!-- Enterprise -->
+      <div class="price-card">
+        <div class="text-xs font-bold tracking-widest text-[#75777d] mb-2">ENTERPRISE</div>
+        <div class="text-4xl font-extrabold text-primary mb-1">Auf Anfrage</div>
+        <div class="text-sm text-[#75777d] mb-6">&nbsp;</div>
+        <ul class="space-y-2.5 flex-1 mb-8">
+          <li class="flex items-center gap-2 text-sm text-[#45474c]"><span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>Unbegrenzte Nutzer</li>
+          <li class="flex items-center gap-2 text-sm text-[#45474c]"><span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>Self-Hosting</li>
+          <li class="flex items-center gap-2 text-sm text-[#45474c]"><span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>Dedizierter Support</li>
+          <li class="flex items-center gap-2 text-sm text-[#45474c]"><span class="material-symbols-outlined text-success" style="font-size:16px">check_circle</span>Alles aus Business</li>
+        </ul>
+        <a href="mailto:admin@example.com" class="w-full text-center border border-[#c5c6cd] text-primary font-semibold py-2.5 rounded-md text-sm hover:bg-[#f0edef] transition-colors">Kontakt aufnehmen</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ DOCS TEASER -->
+<section id="docs" class="bg-[#f5f3f4] py-16">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 text-center">
+    <div class="chip mb-4 mx-auto inline-flex">Dokumentation</div>
+    <h2 class="text-2xl md:text-3xl font-extrabold text-primary mb-4">Alles dokumentiert — von Installation bis RBAC</h2>
+    <p class="text-[#45474c] mb-8 max-w-xl mx-auto">Self-Hosting-Anleitung, API-Referenz, ZVEH-Formular-Übersicht, Benutzerhandbuch für Monteure und Admins.</p>
+    <div class="flex flex-wrap justify-center gap-4">
+      <a href="https://github.com/KayBeckmann/ElektraLog" target="_blank" rel="noopener" class="btn-primary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.009-.868-.013-1.703-2.782.604-3.369-1.341-3.369-1.341-.454-1.155-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.031 1.531 1.031.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.163 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+        GitHub öffnen
+      </a>
+      <a href="https://github.com/KayBeckmann/ElektraLog/blob/master/README.md" target="_blank" rel="noopener" class="btn-outline">
+        <span class="material-symbols-outlined" style="font-size:16px">menu_book</span>
+        README lesen
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ FOOTER -->
+<footer class="bg-primary text-[#8590a6] py-12">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6">
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+      <!-- Branding -->
+      <div>
+        <div class="flex items-center gap-2 text-white font-bold text-lg mb-2">
+          <span class="material-symbols-outlined" style="font-size:20px">electric_bolt</span>
+          ElektraLog
+        </div>
+        <p class="text-sm max-w-xs">Digitale Prüfprotokolle für Elektrotechniker. Open Source, MIT-Lizenz.</p>
+      </div>
+
+      <!-- Links -->
+      <div class="flex flex-col sm:flex-row gap-8 text-sm">
+        <div>
+          <div class="text-white font-semibold mb-2">Projekt</div>
+          <ul class="space-y-1.5">
+            <li><a href="https://github.com/KayBeckmann/ElektraLog" target="_blank" rel="noopener" class="hover:text-white transition-colors">GitHub</a></li>
+            <li><a href="https://github.com/KayBeckmann/ElektraLog/blob/master/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors">MIT-Lizenz</a></li>
+            <li><a href="https://github.com/KayBeckmann/ElektraLog/releases" target="_blank" rel="noopener" class="hover:text-white transition-colors">Releases</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="text-white font-semibold mb-2">Rechtliches</div>
+          <ul class="space-y-1.5">
+            <li><a href="#impressum" class="hover:text-white transition-colors">Impressum</a></li>
+            <li><a href="#datenschutz" class="hover:text-white transition-colors">Datenschutz</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-8 pt-6 border-t border-[#1e293b] flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+      <span>&copy; 2026 ElektraLog — MIT License</span>
+      <span class="font-mono">v0.3.0-alpha</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
