@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:printing/printing.dart';
 
+import '../../core/models/verteiler.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../shared/theme/app_colors.dart';
+import '../pdf/pdf_service.dart';
 import 'signature_pad.dart';
 
 class SignaturScreen extends ConsumerStatefulWidget {
@@ -245,7 +248,7 @@ class _SignaturScreenState extends ConsumerState<SignaturScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _onPdfButton,
+                onPressed: () => _onPdfButton(),
                 icon: const Icon(Icons.picture_as_pdf_outlined),
                 label: const Text(
                     'Protokoll abschließen und PDF generieren'),
@@ -260,19 +263,46 @@ class _SignaturScreenState extends ConsumerState<SignaturScreen> {
     );
   }
 
-  void _onPdfButton() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('PDF-Export kommt in Phase 2'),
-        backgroundColor: AppColors.primaryContainer,
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'OK',
-          textColor: AppColors.inversePrimary,
-          onPressed: () {},
-        ),
-      ),
+  Future<void> _onPdfButton() async {
+    final now = DateTime.now();
+    final datumStr =
+        '${now.day.toString().padLeft(2, '0')}.${now.month.toString().padLeft(2, '0')}.${now.year}';
+    final prueferName =
+        _prueferCtrl.text.trim().isEmpty ? 'Unbekannt' : _prueferCtrl.text.trim();
+    final datumOrt =
+        _ortCtrl.text.trim().isEmpty ? datumStr : '$datumStr, ${_ortCtrl.text.trim()}';
+
+    // Hole alle Messungen aus dem Provider
+    final messungen = ref.read(alleMessungenProvider).valueOrNull ?? [];
+
+    // Demo-Verteiler für direkten Aufruf ohne Kontext
+    final verteiler = Verteiler(
+      uuid: 'demo',
+      standortUuid: '',
+      bezeichnung: 'Prüfprotokoll',
     );
+
+    try {
+      final bytes = await PdfService.generateProtokoll(
+        prueferName: prueferName,
+        datumOrt: datumOrt,
+        verteiler: verteiler,
+        sichtpruefungen: [],
+        komponenten: [],
+        messungen: messungen,
+      );
+      await Printing.layoutPdf(onLayout: (_) async => bytes);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF-Fehler: $e'),
+            backgroundColor: AppColors.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 }
 
