@@ -246,7 +246,7 @@ class _Vde07010702FormState
 
           // Schutzklasse
           DropdownButtonFormField<String>(
-            value: _schutzklasse,
+            initialValue: _schutzklasse,
             decoration:
                 const InputDecoration(labelText: 'Schutzklasse'),
             items: const [

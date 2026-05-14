@@ -127,7 +127,7 @@ class _VerteilerFormularState extends ConsumerState<VerteilerFormular> {
 
               // Netzform
               DropdownButtonFormField<String>(
-                value: _netzform,
+                initialValue: _netzform,
                 decoration: const InputDecoration(labelText: 'Netzform'),
                 items: _netzformen
                     .map((e) =>
@@ -139,7 +139,7 @@ class _VerteilerFormularState extends ConsumerState<VerteilerFormular> {
 
               // Nennspannung
               DropdownButtonFormField<String>(
-                value: _nennspannung,
+                initialValue: _nennspannung,
                 decoration:
                     const InputDecoration(labelText: 'Nennspannung'),
                 items: _spannungen
@@ -152,7 +152,7 @@ class _VerteilerFormularState extends ConsumerState<VerteilerFormular> {
 
               // Frequenz
               DropdownButtonFormField<String>(
-                value: _frequenz,
+                initialValue: _frequenz,
                 decoration: const InputDecoration(labelText: 'Frequenz'),
                 items: _frequenzen
                     .map((e) =>
@@ -164,7 +164,7 @@ class _VerteilerFormularState extends ConsumerState<VerteilerFormular> {
 
               // Außenleiter
               DropdownButtonFormField<String>(
-                value: _aussenleiter,
+                initialValue: _aussenleiter,
                 decoration:
                     const InputDecoration(labelText: 'Außenleiter'),
                 items: _aussenleiterOpts

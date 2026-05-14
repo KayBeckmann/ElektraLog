@@ -126,7 +126,7 @@ class _KomponenteFormularState
 
               // ── Typ ─────────────────────────────────────────────────────
               DropdownButtonFormField<String>(
-                value: _typ,
+                initialValue: _typ,
                 decoration: const InputDecoration(labelText: 'Typ *'),
                 items: _typen
                     .map((e) => DropdownMenuItem(
@@ -179,7 +179,7 @@ class _KomponenteFormularState
 
               // ── Pole ─────────────────────────────────────────────────────
               DropdownButtonFormField<String>(
-                value: _poleCtrl.text.isEmpty ? null : _poleCtrl.text,
+                initialValue: _poleCtrl.text.isEmpty ? null : _poleCtrl.text,
                 decoration:
                     const InputDecoration(labelText: 'Pole'),
                 items: ['1', '2', '3', '4']
@@ -195,7 +195,7 @@ class _KomponenteFormularState
               // ── Charakteristik (LS / Vorsicherung) ───────────────────────
               if (showCharakteristik) ...[
                 DropdownButtonFormField<String>(
-                  value: _charakteristik,
+                  initialValue: _charakteristik,
                   decoration: const InputDecoration(
                       labelText: 'Charakteristik'),
                   items: _charakteristiken
@@ -213,7 +213,7 @@ class _KomponenteFormularState
               // ── Auslösestrom (RCD / FI-LS) ───────────────────────────────
               if (showAusloeseStrom) ...[
                 DropdownButtonFormField<String>(
-                  value: _ausloeseStrom,
+                  initialValue: _ausloeseStrom,
                   decoration: const InputDecoration(
                       labelText: 'Auslösestrom I∆n'),
                   items: _ausloeseStromOpts
@@ -231,7 +231,7 @@ class _KomponenteFormularState
               // ── RCD-Typ (RCD / FI-LS) ────────────────────────────────────
               if (showRcdTyp) ...[
                 DropdownButtonFormField<String>(
-                  value: _rcdTyp,
+                  initialValue: _rcdTyp,
                   decoration:
                       const InputDecoration(labelText: 'RCD-Typ'),
                   items: _rcdTypen
@@ -248,7 +248,7 @@ class _KomponenteFormularState
               // ── NH-Größe ─────────────────────────────────────────────────
               if (showNhGroesse) ...[
                 DropdownButtonFormField<String>(
-                  value: _nhGroesse,
+                  initialValue: _nhGroesse,
                   decoration:
                       const InputDecoration(labelText: 'NH-Größe'),
                   items: _nhGroessen
