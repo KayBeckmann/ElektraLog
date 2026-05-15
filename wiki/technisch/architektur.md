@@ -41,6 +41,40 @@ Kernpunkte:
 
 Schreibvorgänge (Messungen, Sichtprüfungen) werden zuerst lokal in Sembast gespeichert und erst dann zum Server übertragen. Die App bleibt ohne Netzwerkverbindung voll bedienbar.
 
+## Mandanten-Sperrung (Superadmin)
+
+Jede Firma hat in der Datenbank ein `status`-Feld (`aktiv` | `gesperrt`).
+Ein Superadmin (`benutzer.ist_superadmin = true`) kann den Status über die Admin-API ändern.
+
+### Enforcement
+
+Die Sperrung wird auf zwei Ebenen durchgesetzt:
+
+1. **Login** (`POST /api/auth/login`): Gesperrte Firmen erhalten HTTP 403. Superadmins können sich trotzdem anmelden.
+2. **Middleware** (`firmaSperreMiddleware`): Jede authentifizierte Anfrage prüft den Firmenstatus in der DB. Gültige JWTs gesperrter Firmen werden mit HTTP 403 abgelehnt — Tokens werden also sofort wirkungslos, ohne auf Ablauf warten zu müssen.
+
+### Admin-API
+
+| Methode | Pfad | Beschreibung |
+|---|---|---|
+| `GET` | `/api/admin/firmen` | Alle Firmen auflisten |
+| `POST` | `/api/admin/firmen` | Neue Firma anlegen |
+| `PATCH` | `/api/admin/firmen/:id/status` | Status setzen (`aktiv` / `gesperrt`) |
+
+Beispiel-Request zum Sperren:
+```http
+PATCH /api/admin/firmen/uuid-hier/status
+Authorization: Bearer <superadmin-token>
+Content-Type: application/json
+
+{ "status": "gesperrt" }
+```
+
+Superadmin-Flag setzen (direkt in PostgreSQL, einmalig):
+```sql
+UPDATE benutzer SET ist_superadmin = true WHERE email = 'admin@elektralog.de';
+```
+
 ## RBAC — Rollen und Berechtigungen
 
 ### Berechtigungen

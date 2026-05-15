@@ -83,13 +83,14 @@ class AuthEndpoint {
         );
       });
 
-      final token = _issueToken(benutzerId, firmaId, email, name);
+      final token = _issueToken(benutzerId, firmaId, email, name, false);
       return Response.ok(
         jsonEncode({
           'token': token,
           'benutzerId': benutzerId,
           'firmaId': firmaId,
           'name': name,
+          'istSuperadmin': false,
         }),
         headers: {'Content-Type': 'application/json'},
       );
@@ -113,8 +114,11 @@ class AuthEndpoint {
 
       final rows = await db.execute(
         Sql.named(
-          "SELECT id, firma_id, passwort_hash, name FROM benutzer "
-          "WHERE email = @email AND status = 'aktiv'",
+          'SELECT b.id, b.firma_id, b.passwort_hash, b.name, b.ist_superadmin, '
+          '       f.status AS firma_status '
+          'FROM benutzer b '
+          'JOIN firmen f ON f.id = b.firma_id '
+          "WHERE b.email = @email AND b.status = 'aktiv'",
         ),
         parameters: {'email': email},
       );
@@ -136,10 +140,24 @@ class AuthEndpoint {
         );
       }
 
+      // Firma gesperrt? Superadmins dürfen sich trotzdem anmelden.
+      final istSuperadmin = row[4] as bool? ?? false;
+      final firmaStatus = row[5] as String? ?? 'aktiv';
+      if (firmaStatus != 'aktiv' && !istSuperadmin) {
+        return Response(
+          403,
+          body: jsonEncode({
+            'error': 'Zugang gesperrt. '
+                'Bitte wenden Sie sich an support@elektralog.de.',
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
       final benutzerId = row[0].toString();
       final firmaId = row[1].toString();
       final name = row[3] as String;
-      final token = _issueToken(benutzerId, firmaId, email, name);
+      final token = _issueToken(benutzerId, firmaId, email, name, istSuperadmin);
 
       return Response.ok(
         jsonEncode({
@@ -147,6 +165,7 @@ class AuthEndpoint {
           'benutzerId': benutzerId,
           'firmaId': firmaId,
           'name': name,
+          'istSuperadmin': istSuperadmin,
         }),
         headers: {'Content-Type': 'application/json'},
       );
@@ -160,7 +179,7 @@ class AuthEndpoint {
   }
 
   String _issueToken(
-      String id, String firmaId, String email, String name) {
+      String id, String firmaId, String email, String name, bool istSuperadmin) {
     final secret =
         Platform.environment['JWT_SECRET'] ?? 'changeme_jwt_secret';
     return JWT({
@@ -168,6 +187,7 @@ class AuthEndpoint {
       'firmaId': firmaId,
       'email': email,
       'name': name,
+      'istSuperadmin': istSuperadmin,
       'iat': DateTime.now().millisecondsSinceEpoch ~/ 1000,
     }).sign(SecretKey(secret), expiresIn: const Duration(days: 30));
   }

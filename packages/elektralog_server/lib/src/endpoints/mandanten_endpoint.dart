@@ -8,16 +8,12 @@ class MandantenEndpoint {
   final Connection db;
   MandantenEndpoint(this.db);
 
-  // GET /api/admin/firmen — Superadmin: list all companies
+  // GET /api/admin/firmen — Superadmin: alle Firmen auflisten
   Future<Response> list(Request request) async {
     final claims = verifyJwt(request);
-    if (claims == null) {
-      return Response(
-        401,
-        body: jsonEncode({'error': 'Nicht authentifiziert'}),
-        headers: {'Content-Type': 'application/json'},
-      );
-    }
+    final err = requireSuperadmin(claims);
+    if (err != null) return err;
+
     try {
       final rows = await db.execute(
         Sql.named(
@@ -45,16 +41,12 @@ class MandantenEndpoint {
     }
   }
 
-  // POST /api/admin/firmen — Superadmin: create company
+  // POST /api/admin/firmen — Superadmin: Firma anlegen
   Future<Response> create(Request request) async {
     final claims = verifyJwt(request);
-    if (claims == null) {
-      return Response(
-        401,
-        body: jsonEncode({'error': 'Nicht authentifiziert'}),
-        headers: {'Content-Type': 'application/json'},
-      );
-    }
+    final err = requireSuperadmin(claims);
+    if (err != null) return err;
+
     try {
       final body =
           jsonDecode(await request.readAsString()) as Map<String, dynamic>;
@@ -71,6 +63,61 @@ class MandantenEndpoint {
       );
     } catch (e, st) {
       print('firmen.create error: $e\n$st');
+      return Response.internalServerError(
+        body: jsonEncode({'error': e.toString()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
+  // PATCH /api/admin/firmen/:id/status — Superadmin: Firma sperren/entsperren
+  // Body: { "status": "gesperrt" | "aktiv" }
+  Future<Response> updateStatus(Request request, String id) async {
+    final claims = verifyJwt(request);
+    final err = requireSuperadmin(claims);
+    if (err != null) return err;
+
+    try {
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final status = body['status'] as String?;
+
+      if (status != 'aktiv' && status != 'gesperrt') {
+        return Response(
+          400,
+          body: jsonEncode(
+              {'error': 'Ungültiger Status. Erlaubt: "aktiv" oder "gesperrt"'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      final result = await db.execute(
+        Sql.named(
+          'UPDATE firmen SET status = @status WHERE id = @id '
+          'RETURNING id, name, status',
+        ),
+        parameters: {'status': status, 'id': id},
+      );
+
+      if (result.isEmpty) {
+        return Response(
+          404,
+          body: jsonEncode({'error': 'Firma nicht gefunden'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      final row = result.first;
+      return Response.ok(
+        jsonEncode({
+          'id': row[0].toString(),
+          'name': row[1],
+          'status': row[2],
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, st) {
+      print('firmen.updateStatus error: $e\n$st');
       return Response.internalServerError(
         body: jsonEncode({'error': e.toString()}),
         headers: {'Content-Type': 'application/json'},

@@ -31,11 +31,14 @@ void main() async {
     ..post('/api/sync', (req) => KundenEndpoint(conn).sync(req))
     // Mandanten (Superadmin only)
     ..get('/api/admin/firmen', (req) => MandantenEndpoint(conn).list(req))
-    ..post('/api/admin/firmen', (req) => MandantenEndpoint(conn).create(req));
+    ..post('/api/admin/firmen', (req) => MandantenEndpoint(conn).create(req))
+    ..patch('/api/admin/firmen/<id>/status',
+        (req, id) => MandantenEndpoint(conn).updateStatus(req, id));
 
   final handler = Pipeline()
       .addMiddleware(logRequests())
       .addMiddleware(corsMiddleware())
+      .addMiddleware(firmaSperreMiddleware(conn))
       .addHandler(router.call);
 
   final server = await shelf_io.serve(

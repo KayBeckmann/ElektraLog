@@ -220,11 +220,13 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 
 ### M2.2 — Superadmin-Portal
 
-- ✅ Superadmin-Login (separater Zugang, kein `firma_id`)
-- ✅ Mandanten-Übersicht: alle Firmen, Status (aktiv / gesperrt)
-- ✅ Mandant anlegen (Firmenname, Admin-E-Mail)
-- ✅ Mandant sperren / entsperren
-- ✅ Mandant-Details: Benutzeranzahl, Tier
+- ✅ Superadmin-Flag (`ist_superadmin`) in `benutzer`-Tabelle (Migration 003)
+- ✅ Superadmin-Login: JWT enthält `istSuperadmin`-Claim; Login gesperrter Firmen wird für Nicht-Superadmins geblockt
+- ✅ Mandanten-Übersicht: `GET /api/admin/firmen` — alle Firmen, Status (aktiv / gesperrt)
+- ✅ Mandant anlegen: `POST /api/admin/firmen`
+- ✅ Mandant sperren / entsperren: `PATCH /api/admin/firmen/:id/status`
+- ✅ Firma-Sperrung sofort wirksam via `firmaSperreMiddleware` (DB-Check pro Request)
+- 📋 Mandant-Details: Benutzeranzahl, Tier (noch offen)
 
 ### M2.3 — Serverpod API-Endpoints
 
