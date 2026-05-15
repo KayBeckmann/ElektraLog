@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../core/models/geraet.dart';
 import '../../core/models/messung.dart';
 import '../../core/models/sichtpruefung.dart';
 import '../../core/models/verteiler.dart';
@@ -39,6 +40,8 @@ class PdfService {
     required List<Sichtpruefung> sichtpruefungen,
     required List<VerteilerKomponente> komponenten,
     required List<Messung> messungen,
+    List<Geraet> geraete = const [],
+    List<Messung> geraeteMessungen = const [],
     Uint8List? signaturPng,
   }) async {
     final doc = pw.Document();
@@ -393,6 +396,81 @@ class PdfService {
         ],
       ),
     );
+
+    // ── Seiten für Geräte (je Gerät eine eigene Seite) ───────────────────────
+    final messungenByGeraet = <String, List<Messung>>{};
+    for (final m in geraeteMessungen) {
+      if (m.geraetUuid != null) {
+        messungenByGeraet.putIfAbsent(m.geraetUuid!, () => []).add(m);
+      }
+    }
+    final geraeteMitMessungen =
+        geraete.where((g) => (messungenByGeraet[g.uuid] ?? []).isNotEmpty).toList();
+
+    for (final g in geraeteMitMessungen) {
+      final gMessungen = messungenByGeraet[g.uuid] ?? [];
+      doc.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.fromLTRB(28, 28, 28, 40),
+          theme: pw.ThemeData.withFont(base: fontR, bold: fontB),
+          header: (ctx) =>
+              _pageHeader(ctx, primary, fontB, fontM, g.bezeichnung),
+          footer: (ctx) => _pageFooter(ctx, fontM),
+          build: (ctx) => [
+            _sectionTitle('GERÄTEPRÜFUNG', primary, fontB),
+            pw.SizedBox(height: 8),
+            // Geräte-Infoblock
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: greyLight, width: 0.5),
+                borderRadius: pw.BorderRadius.circular(4),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  _blockTitle('GERÄT', primary, fontB),
+                  pw.SizedBox(height: 6),
+                  _infoRow('Bezeichnung', g.bezeichnung, fontR, fontM),
+                  if (g.geraetetyp != null)
+                    _infoRow('Typ', g.geraetetyp!, fontR, fontM),
+                  if (g.hersteller != null)
+                    _infoRow('Hersteller', g.hersteller!, fontR, fontM),
+                  if (g.seriennummer != null)
+                    _infoRow('Seriennummer', g.seriennummer!, fontR, fontM),
+                  _infoRow(
+                    'Prüfintervall',
+                    '${g.pruefintervallMonate} Monate',
+                    fontR,
+                    fontM,
+                  ),
+                  if (kundenName != null && kundenName.isNotEmpty)
+                    _infoRow('Kunde', kundenName, fontR, fontM),
+                  if (standortBezeichnung != null &&
+                      standortBezeichnung.isNotEmpty)
+                    _infoRow('Standort', standortBezeichnung, fontR, fontM),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 14),
+            _sectionTitle('MESSWERTE', primary, fontB),
+            pw.SizedBox(height: 8),
+            ...gMessungen.map((m) => pw.Padding(
+                  padding: const pw.EdgeInsets.only(bottom: 12),
+                  child: _messungBlock(
+                    m,
+                    success, successBg,
+                    error, errorBg,
+                    greyLight, surface,
+                    fontR, fontB, fontM,
+                  ),
+                )),
+          ],
+        ),
+      );
+    }
 
     return doc.save();
   }

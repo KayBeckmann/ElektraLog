@@ -9,7 +9,9 @@ import '../../core/providers/standorte_provider.dart';
 import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/sichtpruefung_provider.dart';
 import '../../core/providers/komponenten_provider.dart';
+import '../../core/models/messung.dart';
 import '../../core/providers/messungen_provider.dart';
+import '../../core/providers/geraete_provider.dart';
 import '../../features/pdf/pdf_options_sheet.dart';
 import '../../features/pdf/pdf_service.dart';
 import '../../shared/theme/app_colors.dart';
@@ -206,6 +208,14 @@ class _VerteilerDetailScreenState
           .read(messungenRepositoryProvider)
           .getByKomponenteUuids(kompUuids);
 
+      final geraete = await ref
+          .read(geraeteByStandortProvider(widget.standortUuid).future);
+      final messRepo = ref.read(messungenRepositoryProvider);
+      final geraeteMessungen = <Messung>[];
+      for (final g in geraete) {
+        geraeteMessungen.addAll(await messRepo.getByGeraet(g.uuid));
+      }
+
       final bytes = await PdfService.generateProtokoll(
         prueferName: opts.prueferName,
         firma: opts.firma,
@@ -217,6 +227,8 @@ class _VerteilerDetailScreenState
         sichtpruefungen: sichtpruefungen.cast(),
         komponenten: kompList,
         messungen: messungen,
+        geraete: geraete,
+        geraeteMessungen: geraeteMessungen,
         signaturPng: opts.signaturPng,
       );
 

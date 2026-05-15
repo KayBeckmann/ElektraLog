@@ -5,6 +5,11 @@ import '../database/isar_service.dart';
 import '../models/verteiler_komponente.dart';
 import 'isar_provider.dart';
 
+/// Speichert die zuletzt angelegte Komponente als Vorlage für die nächste.
+/// Wird in KomponenteFormular nach dem Speichern gesetzt.
+final letzteKomponenteTemplateProvider =
+    StateProvider<VerteilerKomponente?>((_) => null);
+
 // ── Repository ────────────────────────────────────────────────────────────────
 
 class KomponentenRepository {

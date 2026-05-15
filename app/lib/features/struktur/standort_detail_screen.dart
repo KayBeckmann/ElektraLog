@@ -10,6 +10,7 @@ import '../../core/providers/standorte_provider.dart';
 import '../../core/providers/verteiler_provider.dart';
 import '../../shared/theme/app_colors.dart';
 import 'package:printing/printing.dart';
+import '../../core/models/messung.dart';
 import '../../core/providers/komponenten_provider.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../core/providers/sichtpruefung_provider.dart';
@@ -459,6 +460,14 @@ class StandortDetailScreen extends ConsumerWidget {
       final sichtpruefungen =
           await ref.read(sichtpruefungenByVerteilerProvider(v.uuid).future);
 
+      final geraete =
+          await ref.read(geraeteByStandortProvider(standortUuid).future);
+      final messRepo = ref.read(messungenRepositoryProvider);
+      final geraeteMessungen = <Messung>[];
+      for (final g in geraete) {
+        geraeteMessungen.addAll(await messRepo.getByGeraet(g.uuid));
+      }
+
       final bytes = await PdfService.generateProtokoll(
         prueferName: opts.prueferName,
         firma: opts.firma,
@@ -470,6 +479,8 @@ class StandortDetailScreen extends ConsumerWidget {
         sichtpruefungen: sichtpruefungen,
         komponenten: kompList,
         messungen: messungen,
+        geraete: geraete,
+        geraeteMessungen: geraeteMessungen,
         signaturPng: opts.signaturPng,
       );
       await Printing.layoutPdf(

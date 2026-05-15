@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/verteiler_komponente.dart';
 import '../../core/providers/komponenten_provider.dart';
+// letzteKomponenteTemplateProvider is exported from komponenten_provider.dart
 import '../../shared/theme/app_colors.dart';
 
 class KomponenteFormular extends ConsumerStatefulWidget {
@@ -67,21 +68,49 @@ class _KomponenteFormularState
     super.initState();
     final k = widget.existingKomponente;
     if (k != null) {
+      // Bestehende Komponente bearbeiten — alle Werte übernehmen
       _typ = k.typ;
       _bezeichnungCtrl.text = k.bezeichnung;
-      if (k.eigenschaftenJson != null) {
-        final data =
-            jsonDecode(k.eigenschaftenJson!) as Map<String, dynamic>;
-        _nennstromCtrl.text =
-            (data['nennstrom'] as num?)?.toString() ?? '';
-        _poleCtrl.text = (data['pole'] as num?)?.toString() ?? '';
-        _charakteristik = data['charakteristik'] as String?;
-        _ausloeseStrom = data['auslösestrom'] as String?;
-        _rcdTyp = data['rcdTyp'] as String?;
-        _nhGroesse = data['nhGroesse'] as String?;
-        _sicherungGroesse = data['sicherungGroesse'] as String?;
-      }
+      _applyEigenschaften(k.eigenschaftenJson);
+    } else {
+      // Neue Komponente — Werte der letzten Komponente als Vorlage laden
+      // (wird nach initState via WidgetsBinding gesetzt, da ref noch nicht verfügbar)
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final template = ref.read(letzteKomponenteTemplateProvider);
+        if (template != null) {
+          setState(() {
+            _typ = template.typ;
+            _nennstromCtrl.clear();
+            _poleCtrl.clear();
+            _karakteristikReset();
+            _applyEigenschaften(template.eigenschaftenJson);
+          });
+        }
+      });
     }
+  }
+
+  void _applyEigenschaften(String? json) {
+    if (json == null) return;
+    try {
+      final data = jsonDecode(json) as Map<String, dynamic>;
+      _nennstromCtrl.text = (data['nennstrom'] as num?)?.toString() ?? '';
+      _poleCtrl.text = (data['pole'] as num?)?.toString() ?? '';
+      _charakteristik = data['charakteristik'] as String?;
+      _ausloeseStrom = data['auslösestrom'] as String?;
+      _rcdTyp = data['rcdTyp'] as String?;
+      _nhGroesse = data['nhGroesse'] as String?;
+      _sicherungGroesse = data['sicherungGroesse'] as String?;
+    } catch (_) {}
+  }
+
+  void _karakteristikReset() {
+    _charakteristik = null;
+    _ausloeseStrom = null;
+    _rcdTyp = null;
+    _nhGroesse = null;
+    _sicherungGroesse = null;
   }
 
   @override
@@ -394,6 +423,9 @@ class _KomponenteFormularState
     }
 
     await ref.read(komponentenRepositoryProvider).save(k);
+
+    // Gespeicherte Komponente als Vorlage für die nächste merken
+    ref.read(letzteKomponenteTemplateProvider.notifier).state = k;
 
     if (mounted) Navigator.pop(context);
   }
