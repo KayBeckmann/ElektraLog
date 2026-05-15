@@ -371,7 +371,7 @@ class _MessungFaelligkeitTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  messung.komponenteUuid,
+                  messung.komponenteUuid ?? messung.geraetUuid ?? '—',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         fontWeight: FontWeight.w600,
                         color: AppColors.primary,

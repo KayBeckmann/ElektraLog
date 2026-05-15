@@ -348,7 +348,7 @@ class _MessungHistorieTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    messung.komponenteUuid.substring(0, 8).toUpperCase(),
+                    (messung.komponenteUuid ?? messung.geraetUuid ?? '').substring(0, 8).toUpperCase(),
                     style: AppTheme.dataMono(
                       fontSize: 11,
                       color: AppColors.outline,

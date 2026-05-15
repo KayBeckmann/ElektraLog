@@ -14,6 +14,7 @@ import '../../core/providers/komponenten_provider.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../core/providers/sichtpruefung_provider.dart';
 import '../../features/geraete/geraet_formular.dart';
+import '../../features/messungen/messung_formular.dart';
 import '../../features/pdf/pdf_options_sheet.dart';
 import '../../features/pdf/pdf_service.dart';
 import 'verteiler_formular.dart';
@@ -272,6 +273,8 @@ class StandortDetailScreen extends ConsumerWidget {
                         _showGeraetFormular(context, ref, geraeteList[i]),
                     onDelete: () =>
                         _deleteGeraet(context, ref, geraeteList[i]),
+                    onPruefung: () =>
+                        _showGeraetPruefung(context, geraeteList[i].uuid),
                   ),
                 );
               },
@@ -279,6 +282,20 @@ class StandortDetailScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _showGeraetPruefung(
+      BuildContext context, String geraetUuid) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: AppColors.surfaceContainerLowest,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => MessungFormular(geraetUuid: geraetUuid),
     );
   }
 
@@ -567,11 +584,13 @@ class _GeraetTile extends StatelessWidget {
     required this.geraet,
     required this.onEdit,
     required this.onDelete,
+    required this.onPruefung,
   });
 
   final Geraet geraet;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onPruefung;
 
   @override
   Widget build(BuildContext context) {
@@ -649,6 +668,13 @@ class _GeraetTile extends StatelessWidget {
                 size: 16, color: AppColors.onSurfaceVariant),
             itemBuilder: (_) => [
               const PopupMenuItem(
+                  value: 'pruefung',
+                  child: Row(children: [
+                    Icon(Icons.science_outlined, size: 16),
+                    SizedBox(width: 8),
+                    Text('Prüfung hinterlegen'),
+                  ])),
+              const PopupMenuItem(
                   value: 'edit',
                   child: Row(children: [
                     Icon(Icons.edit_outlined, size: 16),
@@ -664,6 +690,7 @@ class _GeraetTile extends StatelessWidget {
                   ])),
             ],
             onSelected: (v) {
+              if (v == 'pruefung') onPruefung();
               if (v == 'edit') onEdit();
               if (v == 'delete') onDelete();
             },

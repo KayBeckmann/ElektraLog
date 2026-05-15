@@ -10,6 +10,7 @@ import '../../core/providers/messungen_provider.dart';
 import '../../features/messungen/messung_formular.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/widgets/status_pill.dart';
+import '../../shared/theme/app_theme.dart';
 
 class KomponentenBaumWidget extends ConsumerWidget {
   const KomponentenBaumWidget({
@@ -111,6 +112,126 @@ class _KomponentenNode extends ConsumerStatefulWidget {
 
 class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
   bool _expanded = true;
+
+  /// Alle UUIDs der Komponente selbst und ihrer Nachkommen.
+  Set<String> _descendants(VerteilerKomponente k) {
+    final result = <String>{k.uuid};
+    for (final child
+        in widget.allKomponenten.where((c) => c.parentUuid == k.uuid)) {
+      result.addAll(_descendants(child));
+    }
+    return result;
+  }
+
+  Future<void> _showLoeschenDialog(
+      BuildContext context, VerteilerKomponente k) async {
+    final descs = _descendants(k);
+    final childCount = descs.length - 1;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Bauteil löschen'),
+        content: Text(
+          childCount > 0
+              ? '"${k.bezeichnung}" und $childCount Unterkomponente(n) wirklich löschen?\n\nAlle zugehörigen Messungen werden ebenfalls entfernt.'
+              : '"${k.bezeichnung}" wirklich löschen?\n\nAlle zugehörigen Messungen werden ebenfalls entfernt.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.onError,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final kompRepo = ref.read(komponentenRepositoryProvider);
+    final messRepo = ref.read(messungenRepositoryProvider);
+    for (final uuid in descs) {
+      await messRepo.deleteByKomponente(uuid);
+      await kompRepo.delete(uuid);
+    }
+  }
+
+  Future<void> _showVerschiebenDialog(
+      BuildContext context, VerteilerKomponente k) async {
+    final descs = _descendants(k);
+    // Potenzielle neue Parents: alle anderen Komponenten, die kein Nachkomme sind
+    final potenzielleParents = widget.allKomponenten
+        .where((c) => !descs.contains(c.uuid))
+        .toList();
+
+    String? neuerParentUuid = k.parentUuid;
+    final result = await showDialog<String?>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => AlertDialog(
+          title: Text('"${k.bezeichnung}" verschieben'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                RadioListTile<String?>(
+                  title: const Text('Kein übergeordnetes Element (Wurzel)'),
+                  value: null,
+                  groupValue: neuerParentUuid,
+                  onChanged: (v) => setStateDialog(() => neuerParentUuid = v),
+                ),
+                const Divider(),
+                ...potenzielleParents.map((p) => RadioListTile<String?>(
+                      title: Text(p.bezeichnung),
+                      subtitle: Text(
+                        p.typ.replaceAll('_', ' '),
+                        style: AppTheme.dataMono(
+                            fontSize: 11,
+                            color: AppColors.onSurfaceVariant),
+                      ),
+                      value: p.uuid,
+                      groupValue: neuerParentUuid,
+                      onChanged: (v) =>
+                          setStateDialog(() => neuerParentUuid = v),
+                    )),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Abbrechen'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, neuerParentUuid ?? '__root__'),
+              child: const Text('Verschieben'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    final neuerParent = result == '__root__' ? null : result;
+    if (neuerParent == k.parentUuid) return;
+    final verschoben = VerteilerKomponente(
+      uuid: k.uuid,
+      verteilerUuid: k.verteilerUuid,
+      parentUuid: neuerParent,
+      typ: k.typ,
+      bezeichnung: k.bezeichnung,
+      position: k.position,
+      eigenschaftenJson: k.eigenschaftenJson,
+      erstelltAm: k.erstelltAm,
+    );
+    await ref.read(komponentenRepositoryProvider).save(verschoben);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -254,12 +375,31 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                       Text('Messung hinzufügen'),
                                     ]),
                                   ),
+                                  const PopupMenuItem(
+                                    value: 'verschieben',
+                                    child: Row(children: [
+                                      Icon(Icons.drive_file_move_outlined,
+                                          size: 14),
+                                      SizedBox(width: 8),
+                                      Text('Verschieben'),
+                                    ]),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'loeschen',
+                                    child: Row(children: [
+                                      Icon(Icons.delete_outlined,
+                                          size: 14, color: AppColors.error),
+                                      SizedBox(width: 8),
+                                      Text('Löschen',
+                                          style: TextStyle(
+                                              color: AppColors.error)),
+                                    ]),
+                                  ),
                                 ],
                                 onSelected: (v) {
                                   if (v == 'add_child') {
                                     widget.onAddChild(k.uuid);
                                   } else if (v == 'messung') {
-                                    // Eigenschaften parsen für Formular-Vorbelgung
                                     Map<String, dynamic>? props;
                                     if (k.eigenschaftenJson != null) {
                                       try {
@@ -283,6 +423,10 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                         komponenteEigenschaften: props,
                                       ),
                                     );
+                                  } else if (v == 'verschieben') {
+                                    _showVerschiebenDialog(context, k);
+                                  } else if (v == 'loeschen') {
+                                    _showLoeschenDialog(context, k);
                                   }
                                 },
                               ),

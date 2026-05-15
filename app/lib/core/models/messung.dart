@@ -2,7 +2,12 @@ import 'package:uuid/uuid.dart';
 
 class Messung {
   final String uuid;
-  final String komponenteUuid;
+
+  /// Gesetzt für Verteilerkomponenten (VDE 0100)
+  final String? komponenteUuid;
+
+  /// Gesetzt für portable Geräte (VDE 0701-0702 / DGUV V3)
+  final String? geraetUuid;
 
   /// 'vde_0701_0702'|'dguv_v3'|'vde_0100'
   final String norm;
@@ -24,7 +29,8 @@ class Messung {
 
   Messung({
     String? uuid,
-    required this.komponenteUuid,
+    this.komponenteUuid,
+    this.geraetUuid,
     required this.norm,
     required this.pruefungDatum,
     this.prueferName,
@@ -39,6 +45,7 @@ class Messung {
   Map<String, dynamic> toJson() => {
         'uuid': uuid,
         'komponenteUuid': komponenteUuid,
+        'geraetUuid': geraetUuid,
         'norm': norm,
         'pruefungDatum': pruefungDatum.toIso8601String(),
         'prueferName': prueferName,
@@ -51,7 +58,8 @@ class Messung {
 
   factory Messung.fromJson(Map<String, dynamic> json) => Messung(
         uuid: json['uuid'] as String,
-        komponenteUuid: json['komponenteUuid'] as String,
+        komponenteUuid: json['komponenteUuid'] as String?,
+        geraetUuid: json['geraetUuid'] as String?,
         norm: json['norm'] as String,
         pruefungDatum: DateTime.parse(json['pruefungDatum'] as String),
         prueferName: json['prueferName'] as String?,
@@ -76,6 +84,7 @@ class Messung {
       Messung(
         uuid: uuid,
         komponenteUuid: komponenteUuid,
+        geraetUuid: geraetUuid,
         norm: norm ?? this.norm,
         pruefungDatum: pruefungDatum ?? this.pruefungDatum,
         prueferName: prueferName ?? this.prueferName,

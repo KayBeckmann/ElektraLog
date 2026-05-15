@@ -13,13 +13,19 @@ import '../../shared/theme/app_theme.dart';
 class MessungFormular extends ConsumerStatefulWidget {
   const MessungFormular({
     super.key,
-    required this.komponenteUuid,
+    this.komponenteUuid,
+    this.geraetUuid,
     this.komponenteTyp,
     this.komponenteEigenschaften,
     this.existingMessung,
-  });
+  }) : assert(komponenteUuid != null || geraetUuid != null,
+            'Entweder komponenteUuid oder geraetUuid muss gesetzt sein');
 
-  final String komponenteUuid;
+  /// Gesetzt wenn es sich um eine Anlage/Verteilerkomponente handelt → VDE 0100
+  final String? komponenteUuid;
+
+  /// Gesetzt wenn es sich um ein portables Gerät handelt → VDE 0701-0702 / DGUV V3
+  final String? geraetUuid;
 
   /// Typ der Komponente — steuert welche Felder angezeigt werden
   final String? komponenteTyp;
@@ -36,31 +42,19 @@ class MessungFormular extends ConsumerStatefulWidget {
 class _MessungFormularState extends ConsumerState<MessungFormular> {
   late String _norm;
 
-  // RCD-Typen messen anders als LS/Sicherungen
-  bool get _isRcd =>
-      widget.komponenteTyp == 'rcd';
+  bool get _isGeraetModus => widget.geraetUuid != null;
 
-  bool get _isLsOderSicherung =>
-      const ['ls_schalter', 'vorsicherung', 'nh_sicherung', 'neozed', 'diazed']
-          .contains(widget.komponenteTyp);
-
-  bool get _isFiLs => widget.komponenteTyp == 'fi_ls';
-
-  static const _normen = [
-    ('vde_0701_0702', 'DIN VDE 0701-0702'),
-    ('dguv_v3', 'DGUV V3'),
-    ('vde_0100', 'DIN VDE 0100'),
-  ];
+  /// Für Anlagen: nur VDE 0100. Für Geräte: VDE 0701-0702 + DGUV V3.
+  List<(String, String)> get _verfuegbareNormen => _isGeraetModus
+      ? [('vde_0701_0702', 'DIN VDE 0701-0702'), ('dguv_v3', 'DGUV V3')]
+      : [('vde_0100', 'DIN VDE 0100')];
 
   @override
   void initState() {
     super.initState();
-    // RCD → direkt VDE 0100 vorauswählen
-    if (_isRcd || _isFiLs) {
-      _norm = 'vde_0100';
-    } else {
-      _norm = widget.existingMessung?.norm ?? 'vde_0701_0702';
-    }
+    _norm = _isGeraetModus
+        ? (widget.existingMessung?.norm ?? 'vde_0701_0702')
+        : 'vde_0100';
   }
 
   @override
@@ -85,17 +79,15 @@ class _MessungFormularState extends ConsumerState<MessungFormular> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Messung erfassen',
+                        'Prüfung erfassen',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
-                      if (widget.komponenteTyp != null)
-                        Text(
-                          _typLabel(widget.komponenteTyp!),
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppColors.onSurfaceVariant,
-                                  ),
-                        ),
+                      Text(
+                        _isGeraetModus ? 'Portables Gerät' : (widget.komponenteTyp != null ? _typLabel(widget.komponenteTyp!) : 'Anlage'),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                      ),
                     ],
                   ),
                 ),
@@ -107,8 +99,8 @@ class _MessungFormularState extends ConsumerState<MessungFormular> {
             ),
             const SizedBox(height: 16),
 
-            // Norm-Auswahl — bei reinem RCD nur VDE 0100 zeigen
-            if (!_isRcd) ...[
+            // Norm-Auswahl — nur wenn mehrere Optionen verfügbar
+            if (_verfuegbareNormen.length > 1) ...[
               Text(
                 'Prüfnorm',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -118,7 +110,7 @@ class _MessungFormularState extends ConsumerState<MessungFormular> {
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
-                children: _normen.map((n) {
+                children: _verfuegbareNormen.map((n) {
                   final selected = _norm == n.$1;
                   return ChoiceChip(
                     label: Text(n.$2),
@@ -135,24 +127,44 @@ class _MessungFormularState extends ConsumerState<MessungFormular> {
                 }).toList(),
               ),
               const SizedBox(height: 20),
+            ] else ...[
+              // Norm als Label anzeigen wenn nur eine Option
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryContainer,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  _verfuegbareNormen.first.$2,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: AppColors.onPrimaryContainer,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+              const SizedBox(height: 20),
             ],
 
             // Formular je Norm
             if (_norm == 'vde_0701_0702')
               _Vde07010702Form(
                 komponenteUuid: widget.komponenteUuid,
+                geraetUuid: widget.geraetUuid,
                 existingMessung: widget.existingMessung,
                 onSaved: () => Navigator.pop(context),
               ),
             if (_norm == 'dguv_v3')
               _DguvV3Form(
                 komponenteUuid: widget.komponenteUuid,
+                geraetUuid: widget.geraetUuid,
                 existingMessung: widget.existingMessung,
                 onSaved: () => Navigator.pop(context),
               ),
             if (_norm == 'vde_0100')
               _Vde0100Form(
                 komponenteUuid: widget.komponenteUuid,
+                geraetUuid: widget.geraetUuid,
                 existingMessung: widget.existingMessung,
                 onSaved: () => Navigator.pop(context),
                 komponenteTyp: widget.komponenteTyp,
@@ -237,12 +249,14 @@ String _autoErgebnis(Map<String, dynamic> checks) {
 
 class _Vde07010702Form extends ConsumerStatefulWidget {
   const _Vde07010702Form({
-    required this.komponenteUuid,
     required this.existingMessung,
     required this.onSaved,
+    this.komponenteUuid,
+    this.geraetUuid,
   });
 
-  final String komponenteUuid;
+  final String? komponenteUuid;
+  final String? geraetUuid;
   final Messung? existingMessung;
   final VoidCallback onSaved;
 
@@ -379,6 +393,7 @@ class _Vde07010702FormState extends ConsumerState<_Vde07010702Form> {
     setState(() => _isSaving = true);
     final messung = Messung(
       komponenteUuid: widget.komponenteUuid,
+      geraetUuid: widget.geraetUuid,
       norm: 'vde_0701_0702',
       pruefungDatum: DateTime.now(),
       prueferName:
@@ -412,12 +427,14 @@ class _Vde07010702FormState extends ConsumerState<_Vde07010702Form> {
 
 class _DguvV3Form extends ConsumerStatefulWidget {
   const _DguvV3Form({
-    required this.komponenteUuid,
     required this.existingMessung,
     required this.onSaved,
+    this.komponenteUuid,
+    this.geraetUuid,
   });
 
-  final String komponenteUuid;
+  final String? komponenteUuid;
+  final String? geraetUuid;
   final Messung? existingMessung;
   final VoidCallback onSaved;
 
@@ -540,6 +557,7 @@ class _DguvV3FormState extends ConsumerState<_DguvV3Form> {
     setState(() => _isSaving = true);
     final messung = Messung(
       komponenteUuid: widget.komponenteUuid,
+      geraetUuid: widget.geraetUuid,
       norm: 'dguv_v3',
       pruefungDatum: DateTime.now(),
       prueferName:
@@ -568,14 +586,16 @@ class _DguvV3FormState extends ConsumerState<_DguvV3Form> {
 
 class _Vde0100Form extends ConsumerStatefulWidget {
   const _Vde0100Form({
-    required this.komponenteUuid,
     required this.existingMessung,
     required this.onSaved,
+    this.komponenteUuid,
+    this.geraetUuid,
     this.komponenteTyp,
     this.komponenteEigenschaften,
   });
 
-  final String komponenteUuid;
+  final String? komponenteUuid;
+  final String? geraetUuid;
   final Messung? existingMessung;
   final VoidCallback onSaved;
   final String? komponenteTyp;
@@ -1033,6 +1053,7 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
     setState(() => _isSaving = true);
     final messung = Messung(
       komponenteUuid: widget.komponenteUuid,
+      geraetUuid: widget.geraetUuid,
       norm: 'vde_0100',
       pruefungDatum: DateTime.now(),
       prueferName:

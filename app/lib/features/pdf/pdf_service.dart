@@ -78,13 +78,18 @@ class PdfService {
 
     final messungenByKomponente = <String, List<Messung>>{};
     for (final m in messungen) {
-      messungenByKomponente.putIfAbsent(m.komponenteUuid, () => []).add(m);
+      if (m.komponenteUuid != null) {
+        messungenByKomponente.putIfAbsent(m.komponenteUuid!, () => []).add(m);
+      }
     }
 
-    // Nur Komponenten mit Messungen auf Seite 2+
-    final komponentenMitMessungen = komponenten
-        .where((k) =>
-            (messungenByKomponente[k.uuid] ?? []).isNotEmpty)
+    // Komponenten in Baumreihenfolge (depth-first) sortieren
+    final geordnet = _flattenTree(komponenten);
+
+    // Nur Komponenten mit Messungen auf Seite 2+, Reihenfolge beibehalten
+    final komponentenMitMessungen = geordnet
+        .where((entry) =>
+            (messungenByKomponente[entry.komponente.uuid] ?? []).isNotEmpty)
         .toList();
 
     // Datum und Ort trennen (Format: "TT.MM.JJJJ, Ort" oder nur Datum)
@@ -372,11 +377,13 @@ class PdfService {
                   font: fontR, fontSize: 9, color: PdfColors.grey600),
             ),
             pw.SizedBox(height: 12),
-            ...komponentenMitMessungen.expand((k) {
-              final kMessungen = messungenByKomponente[k.uuid] ?? [];
+            ...komponentenMitMessungen.expand((entry) {
+              final kMessungen =
+                  messungenByKomponente[entry.komponente.uuid] ?? [];
               return [
                 _komponenteMitMesswerten(
-                  k, kMessungen, primary, surface, success, successBg,
+                  entry.komponente, kMessungen, entry.depth,
+                  primary, surface, success, successBg,
                   error, errorBg, greyLight, fontR, fontB, fontM,
                 ),
                 pw.SizedBox(height: 12),
@@ -388,6 +395,27 @@ class PdfService {
     );
 
     return doc.save();
+  }
+
+  // ── Baum-Helfer ───────────────────────────────────────────────────────────
+
+  static List<({VerteilerKomponente komponente, int depth})> _flattenTree(
+      List<VerteilerKomponente> alle) {
+    final result = <({VerteilerKomponente komponente, int depth})>[];
+
+    void visit(String? parentUuid, int depth) {
+      final kinder = alle
+          .where((k) => k.parentUuid == parentUuid)
+          .toList()
+        ..sort((a, b) => a.position.compareTo(b.position));
+      for (final k in kinder) {
+        result.add((komponente: k, depth: depth));
+        visit(k.uuid, depth + 1);
+      }
+    }
+
+    visit(null, 0);
+    return result;
   }
 
   // ── Etiketten-PDF (unverändert) ───────────────────────────────────────────
@@ -597,6 +625,7 @@ class PdfService {
   static pw.Widget _komponenteMitMesswerten(
     VerteilerKomponente k,
     List<Messung> kMessungen,
+    int depth,
     PdfColor primary,
     PdfColor surface,
     PdfColor success,
@@ -629,15 +658,37 @@ class PdfService {
     if (props['sicherungGroesse'] != null)
       propParts.add(props['sicherungGroesse'].toString());
 
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
+    // Tiefe als linken Einzug + farbigen Balken darstellen
+    final indentColor = depth == 0
+        ? primary
+        : depth == 1
+            ? PdfColor.fromHex('#1E3A5F')
+            : PdfColor.fromHex('#2E5C8A');
+    final leftIndent = depth * 12.0;
+
+    return pw.Padding(
+      padding: pw.EdgeInsets.only(left: leftIndent),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+        // Baum-Einzugs-Indikator
+        if (depth > 0)
+          pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            color: PdfColor.fromHex('#EEF2F7'),
+            child: pw.Text(
+              '${List.filled(depth, '  ').join()}↳ Unterkomponente (Ebene $depth)',
+              style: pw.TextStyle(
+                  font: fontR, fontSize: 7, color: PdfColors.grey600),
+            ),
+          ),
         // Komponenten-Header
         pw.Container(
           width: double.infinity,
           padding:
               const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          color: primary,
+          color: indentColor,
           child: pw.Row(
             children: [
               pw.Text(
@@ -684,6 +735,7 @@ class PdfService {
             m, success, successBg, error, errorBg, grey, surface,
             fontR, fontB, fontM)),
       ],
+      ),
     );
   }
 
