@@ -1068,33 +1068,45 @@ class PdfService {
         final phase = ph['phase'] as String? ?? '';
         final suffix = phase.isEmpty ? '' : ' ($phase)';
 
+        // L-PE
         if (eingabe == 'kurzschlussstrom') {
-          final ik = ph['kurzschlussstrom_a'];
+          final ik = ph['kurzschlussstrom_l_pe_a'] ?? ph['kurzschlussstrom_a'];
           if (ik != null) {
             final minLabel = minIk != null
                 ? '≥ ${_fmt(minIk)} A ($char${nenn != null ? _fmt(nenn) : '?'}: '
                     '${char == 'C' ? '10' : char == 'D' ? '20' : '5'}×)'
                 : '—';
             rows.add(_MwRow(
-              'Kurzschlussstrom Ik$suffix',
+              'Ik L-PE$suffix',
               '${_fmt(ik)} A',
               minLabel,
               ik is num && minIk is num ? ik >= (minIk as num) : null,
             ));
           }
         } else {
-          final zs = ph['schleifenimpedanz_ohm'];
+          final zs = ph['schleifenimpedanz_l_pe_ohm'] ?? ph['schleifenimpedanz_ohm'];
           if (zs != null) {
             final maxZs = (minIk is num && (minIk as num) > 0)
                 ? 230.0 / (minIk as num)
                 : null;
             rows.add(_MwRow(
-              'Schleifenimpedanz Zs$suffix',
+              'Zs L-PE$suffix',
               '${_fmt(zs)} Ω',
               maxZs != null ? '≤ ${maxZs.toStringAsFixed(3)} Ω' : '—',
               zs is num && maxZs != null ? zs <= maxZs : null,
             ));
           }
+        }
+
+        // L-N (optional)
+        if (eingabe == 'kurzschlussstrom') {
+          final ikLn = ph['kurzschlussstrom_l_n_a'];
+          if (ikLn != null)
+            rows.add(_MwRow('Ik L-N$suffix', '${_fmt(ikLn)} A', '—', null));
+        } else {
+          final zsLn = ph['schleifenimpedanz_l_n_ohm'];
+          if (zsLn != null)
+            rows.add(_MwRow('Zs L-N$suffix', '${_fmt(zsLn)} Ω', '—', null));
         }
 
         final iso = ph['isolationswiderstand_mohm'];
@@ -1105,6 +1117,17 @@ class PdfService {
             '≥ 1 MΩ',
             iso is num ? iso >= 1.0 : null,
           ));
+      }
+    }
+
+    // L-L Messungen (3-phasig)
+    final llMessungen = mw['l_l_messungen'] as List<dynamic>?;
+    if (llMessungen != null) {
+      for (final ll in llMessungen) {
+        final phasen = ll['phasen'] as String? ?? '';
+        final ik = ll['kurzschlussstrom_a'];
+        if (ik != null)
+          rows.add(_MwRow('Ik $phasen', '${_fmt(ik)} A', '—', null));
       }
     }
 

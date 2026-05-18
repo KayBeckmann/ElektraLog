@@ -132,6 +132,7 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 - ✅ Ergebnis-Berechnung: bestanden / mit Mängeln — „Nicht zutreffend" zählt als bestanden
 - ✅ Pflicht-Sperre: Messerfassung erst nach abgeschlossener Sichtprüfung freigeschalten
 - ✅ Sichtprüfungs-Verlauf pro Verteiler (Datum, Prüfer, Ergebnis)
+- ✅ Sichtprüfung nachträglich bearbeiten (Bearbeiten-Button im Verlauf, Formular vorausgefüllt)
 - ✅ Rückwärtskompatibilität: alte `ok`/`mangel`-Schlüssel werden migriert
 
 ### M1.6 — Geräteverwaltung (DGUV V3)
@@ -178,6 +179,9 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 - ✅ Drehfeldrichtung: **nur bei Mehrpoligen** (≥ 3-polig); bei Einpolschaltern ausgeblendet
 - ✅ Erdungswiderstand (optional)
 - ✅ Automatische Gesamtbewertung (alle Phasen + RCD-Grenzwerte)
+- ✅ Kurzschlussstrom getrennt nach **L-PE** (Schutznachweis) und **L-N** (optional) je Phase
+- ✅ Bei 3-phasig: **L-L-Messungen** (L1-L2, L2-L3, L1-L3) als optionale Felder
+- ✅ Bewertung basiert auf L-PE-Messung (normgerecht)
 
 #### Allgemein
 
@@ -201,6 +205,8 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 - ✅ Dialog: Prüfer-Name + Datum/Ort vor Generierung abfragbar
 - ✅ Printing.layoutPdf — Browser-Print-Dialog (Web) / System-Druck (Android)
 - ✅ PDF teilen (System-Share-Dialog)
+- ✅ **Prüfverlauf**: Nach PDF-Export wird ein `Pruefprotokoll`-Eintrag gespeichert (Datum, Prüfer, Firma)
+- ✅ **Nächste Prüfung**: Termin wird aus letztem Protokolldatum + Prüfintervall berechnet und in der Verteiler-Detailansicht angezeigt (grün / orange / rot)
 
 ---
 

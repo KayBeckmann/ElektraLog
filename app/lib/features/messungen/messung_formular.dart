@@ -613,10 +613,15 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
   final _erdungCtrl = TextEditingController();
   final _bemerkungCtrl = TextEditingController();
 
-  // Pro Phase — werden in initState() befüllt
-  late final List<TextEditingController> _ikCtrls;
-  late final List<TextEditingController> _zsCtrls;
+  // Pro Phase — L-PE (Pflicht) + L-N (optional) + Isolation
+  late final List<TextEditingController> _ikLpeCtrls;
+  late final List<TextEditingController> _zsLpeCtrls;
+  late final List<TextEditingController> _ikLnCtrls;
+  late final List<TextEditingController> _zsLnCtrls;
   late final List<TextEditingController> _isoCtrls;
+
+  // L-L Paare (nur 3-phasig): L1-L2, L2-L3, L1-L3
+  late final List<TextEditingController> _ikLlCtrls;
 
   bool _useIk = true;
   bool _drehfeldRichtig = true;
@@ -672,13 +677,18 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
   /// Drehfeld nur sinnvoll bei 3-phasig
   bool get _showDrehfeld => _poleCount >= 3;
 
+  static const _llPaare = ['L1-L2', 'L2-L3', 'L1-L3'];
+
   @override
   void initState() {
     super.initState();
     final count = _poleCount;
-    _ikCtrls  = List.generate(count, (_) => TextEditingController());
-    _zsCtrls  = List.generate(count, (_) => TextEditingController());
-    _isoCtrls = List.generate(count, (_) => TextEditingController());
+    _ikLpeCtrls = List.generate(count, (_) => TextEditingController());
+    _zsLpeCtrls = List.generate(count, (_) => TextEditingController());
+    _ikLnCtrls  = List.generate(count, (_) => TextEditingController());
+    _zsLnCtrls  = List.generate(count, (_) => TextEditingController());
+    _isoCtrls   = List.generate(count, (_) => TextEditingController());
+    _ikLlCtrls  = List.generate(3, (_) => TextEditingController());
 
     final nennDiff = _nennDifferenzstromFromKomponente;
     if (nennDiff != null) _rcdNennCtrl.text = nennDiff;
@@ -697,17 +707,18 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
         'rcd_ausloesezeit': zeit == null || zeit <= 300,
       });
     } else if (_isLs && !_isRcd) {
+      // Bewertung auf Basis der L-PE-Messung
       final minIk = _minIk;
       final checks = <String, bool>{};
       for (int i = 0; i < _poleCount; i++) {
         if (_useIk) {
-          final ik = double.tryParse(_ikCtrls[i].text.replaceAll(',', '.'));
-          checks['phase_${i + 1}_ik'] =
+          final ik = double.tryParse(_ikLpeCtrls[i].text.replaceAll(',', '.'));
+          checks['phase_${i + 1}_l_pe'] =
               ik == null || minIk == null || ik >= minIk;
         } else {
-          final zs = double.tryParse(_zsCtrls[i].text.replaceAll(',', '.'));
+          final zs = double.tryParse(_zsLpeCtrls[i].text.replaceAll(',', '.'));
           if (zs != null && zs > 0 && minIk != null) {
-            checks['phase_${i + 1}_zs'] = 230.0 / zs >= minIk;
+            checks['phase_${i + 1}_l_pe'] = 230.0 / zs >= minIk;
           }
         }
       }
@@ -726,9 +737,12 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
     _rcdZeitCtrl.dispose();
     _erdungCtrl.dispose();
     _bemerkungCtrl.dispose();
-    for (final c in _ikCtrls) c.dispose();
-    for (final c in _zsCtrls) c.dispose();
+    for (final c in _ikLpeCtrls) c.dispose();
+    for (final c in _zsLpeCtrls) c.dispose();
+    for (final c in _ikLnCtrls) c.dispose();
+    for (final c in _zsLnCtrls) c.dispose();
     for (final c in _isoCtrls) c.dispose();
+    for (final c in _ikLlCtrls) c.dispose();
     super.dispose();
   }
 
@@ -778,8 +792,7 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
           for (int i = 0; i < _poleCount; i++) ...[
             if (_poleCount > 1) ...[
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(4),
@@ -796,62 +809,68 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
               const SizedBox(height: 8),
             ],
 
+            // ── L-PE ──────────────────────────────────────────────────────
+            _SubLabel('Phase–PE (${_phaseLabels[i]}-PE)'),
+            const SizedBox(height: 4),
             if (_useIk) ...[
               _LimitField(
-                controller: _ikCtrls[i],
-                label: _poleCount > 1
-                    ? 'Kurzschlussstrom Ik ${_phaseLabels[i]}'
-                    : 'Kurzschlussstrom Ik',
+                controller: _ikLpeCtrls[i],
+                label: 'Ik L-PE',
                 unit: 'A',
                 limitHint: _minIk != null
-                    ? 'min. ${_minIk!.toStringAsFixed(0)} A  '
-                        '(${_charakteristik}${_nennstrom?.toStringAsFixed(0) ?? '?'}: '
-                        '${_charakteristik == 'C' ? '10' : _charakteristik == 'D' ? '20' : '5'}×'
-                        '${_nennstrom?.toStringAsFixed(0) ?? '?'} A)'
-                    : 'gemessener Kurzschlussstrom',
+                    ? 'min. ${_minIk!.toStringAsFixed(0)} A'
+                        ' (${_charakteristik}${_nennstrom?.toStringAsFixed(0) ?? '?'}: '
+                        '${_charakteristik == 'C' ? '10' : _charakteristik == 'D' ? '20' : '5'}×)'
+                    : 'Kurzschlussstrom L-PE',
                 onChanged: (_) => setState(() {}),
               ),
               if (_minIk != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 Builder(builder: (ctx) {
-                  final ik = double.tryParse(
-                      _ikCtrls[i].text.replaceAll(',', '.'));
-                  if (ik == null) return const SizedBox();
+                  final ik = double.tryParse(_ikLpeCtrls[i].text.replaceAll(',', '.'));
+                  if (ik == null) return const SizedBox.shrink();
                   final ok = ik >= _minIk!;
-                  return Row(children: [
-                    Icon(
-                      ok ? Icons.check_circle_outline : Icons.cancel_outlined,
-                      size: 14,
-                      color: ok ? AppColors.success : AppColors.error,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      ok
-                          ? 'Ausreichend (≥ ${_minIk!.toStringAsFixed(0)} A)'
-                          : 'Zu gering! Min. ${_minIk!.toStringAsFixed(0)} A',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: ok ? AppColors.success : AppColors.error),
-                    ),
-                  ]);
+                  return _InlineCheck(
+                    ok: ok,
+                    label: ok
+                        ? 'i.O. (≥ ${_minIk!.toStringAsFixed(0)} A)'
+                        : 'Zu gering! Min. ${_minIk!.toStringAsFixed(0)} A',
+                  );
                 }),
               ],
             ] else ...[
               _LimitField(
-                controller: _zsCtrls[i],
-                label: _poleCount > 1
-                    ? 'Schleifenimpedanz Zs ${_phaseLabels[i]}'
-                    : 'Schleifenimpedanz Zs',
+                controller: _zsLpeCtrls[i],
+                label: 'Zs L-PE',
                 unit: 'Ω',
                 limitHint: _minIk != null
                     ? 'max. ${(230.0 / _minIk!).toStringAsFixed(3)} Ω'
-                        '  (230 V ÷ ${_minIk!.toStringAsFixed(0)} A)'
-                    : 'gemessener Wert',
+                    : 'Schleifenimpedanz L-PE',
                 onChanged: (_) => setState(() {}),
               ),
             ],
             const SizedBox(height: 8),
 
+            // ── L-N ───────────────────────────────────────────────────────
+            _SubLabel('Phase–N (${_phaseLabels[i]}-N) – optional'),
+            const SizedBox(height: 4),
+            if (_useIk)
+              _LimitField(
+                controller: _ikLnCtrls[i],
+                label: 'Ik L-N',
+                unit: 'A',
+                limitHint: 'Kurzschlussstrom L-N (optional)',
+              )
+            else
+              _LimitField(
+                controller: _zsLnCtrls[i],
+                label: 'Zs L-N',
+                unit: 'Ω',
+                limitHint: 'Schleifenimpedanz L-N (optional)',
+              ),
+            const SizedBox(height: 8),
+
+            // ── Isolation ─────────────────────────────────────────────────
             _LimitField(
               controller: _isoCtrls[i],
               label: _poleCount > 1
@@ -860,7 +879,23 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
               unit: 'MΩ',
               limitHint: 'min. 1 MΩ',
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
+          ],
+
+          // ── L-L Messungen (nur 3-phasig) ─────────────────────────────────
+          if (_showDrehfeld) ...[
+            _SectionHeader('Kurzschluss Phase–Phase (L-L) – optional'),
+            const SizedBox(height: 8),
+            for (int j = 0; j < 3; j++) ...[
+              _LimitField(
+                controller: _ikLlCtrls[j],
+                label: 'Ik ${_llPaare[j]}',
+                unit: 'A',
+                limitHint: 'Kurzschlussstrom Phase–Phase',
+              ),
+              const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 4),
           ],
 
           // Drehfeld: nur bei 3-phasig sinnvoll
@@ -1011,7 +1046,7 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
         // Generischer Fallback wenn kein Typ bekannt
         if (!_isLs && !_isRcd) ...[
           _LimitField(
-            controller: _zsCtrls[0],
+            controller: _zsLpeCtrls[0],
             label: 'Schleifenimpedanz Zs',
             unit: 'Ω',
             limitHint: 'gemessener Wert',
@@ -1073,17 +1108,40 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
             for (int i = 0; i < _poleCount; i++)
               {
                 'phase': _phaseLabels[i],
-                if (_useIk)
-                  'kurzschlussstrom_a': double.tryParse(
-                      _ikCtrls[i].text.replaceAll(',', '.')),
-                if (!_useIk)
-                  'schleifenimpedanz_ohm': double.tryParse(
-                      _zsCtrls[i].text.replaceAll(',', '.')),
+                // L-PE (Pflicht-Messung für Kurzschlussschutznachweis)
+                if (_useIk) ...{
+                  'kurzschlussstrom_a':
+                      double.tryParse(_ikLpeCtrls[i].text.replaceAll(',', '.')),
+                  'kurzschlussstrom_l_pe_a':
+                      double.tryParse(_ikLpeCtrls[i].text.replaceAll(',', '.')),
+                  if (_ikLnCtrls[i].text.isNotEmpty)
+                    'kurzschlussstrom_l_n_a':
+                        double.tryParse(_ikLnCtrls[i].text.replaceAll(',', '.')),
+                } else ...{
+                  'schleifenimpedanz_ohm':
+                      double.tryParse(_zsLpeCtrls[i].text.replaceAll(',', '.')),
+                  'schleifenimpedanz_l_pe_ohm':
+                      double.tryParse(_zsLpeCtrls[i].text.replaceAll(',', '.')),
+                  if (_zsLnCtrls[i].text.isNotEmpty)
+                    'schleifenimpedanz_l_n_ohm':
+                        double.tryParse(_zsLnCtrls[i].text.replaceAll(',', '.')),
+                },
                 'isolationswiderstand_mohm': double.tryParse(
                     _isoCtrls[i].text.replaceAll(',', '.')),
               }
           ],
-          if (_showDrehfeld) 'drehfeld_richtig': _drehfeldRichtig,
+          if (_showDrehfeld) ...{
+            'drehfeld_richtig': _drehfeldRichtig,
+            'l_l_messungen': [
+              for (int j = 0; j < 3; j++)
+                if (_ikLlCtrls[j].text.isNotEmpty)
+                  {
+                    'phasen': _llPaare[j],
+                    'kurzschlussstrom_a': double.tryParse(
+                        _ikLlCtrls[j].text.replaceAll(',', '.')),
+                  }
+            ],
+          },
           'erdungswiderstand_ohm': _erdungCtrl.text.isEmpty
               ? null
               : double.tryParse(_erdungCtrl.text.replaceAll(',', '.')),
@@ -1098,7 +1156,7 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
         },
         if (!_isLs && !_isRcd) ...{
           'schleifenimpedanz_ohm':
-              double.tryParse(_zsCtrls[0].text.replaceAll(',', '.')),
+              double.tryParse(_zsLpeCtrls[0].text.replaceAll(',', '.')),
           'isolationswiderstand_mohm':
               double.tryParse(_isoCtrls[0].text.replaceAll(',', '.')),
           'rcd_ausloesezeit_ms': _rcdZeitCtrl.text.isEmpty
@@ -1152,6 +1210,43 @@ class _SaveButton extends StatelessWidget {
             : const Text('Messung speichern'),
       ),
     );
+  }
+}
+
+class _SubLabel extends StatelessWidget {
+  const _SubLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: AppColors.onSurfaceVariant,
+            letterSpacing: 0.3,
+          ),
+    );
+  }
+}
+
+class _InlineCheck extends StatelessWidget {
+  const _InlineCheck({required this.ok, required this.label});
+  final bool ok;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Icon(
+        ok ? Icons.check_circle_outline : Icons.cancel_outlined,
+        size: 14,
+        color: ok ? AppColors.success : AppColors.error,
+      ),
+      const SizedBox(width: 4),
+      Text(label,
+          style: TextStyle(
+              fontSize: 11, color: ok ? AppColors.success : AppColors.error)),
+    ]);
   }
 }
 

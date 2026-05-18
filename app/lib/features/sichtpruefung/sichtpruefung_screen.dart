@@ -115,10 +115,31 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
   final _maengelCtrl = TextEditingController();
   bool _isSaving = false;
 
+  /// Wenn gesetzt, wird diese Sichtprüfung überschrieben statt eine neue angelegt.
+  String? _editingUuid;
+
   @override
   void dispose() {
     _maengelCtrl.dispose();
     super.dispose();
+  }
+
+  void _loadForEdit(Sichtpruefung sp) {
+    Map<String, dynamic> checklist = {};
+    if (sp.checklisteJson != null) {
+      try {
+        checklist = jsonDecode(sp.checklisteJson!) as Map<String, dynamic>;
+      } catch (_) {}
+    }
+    setState(() {
+      _editingUuid = sp.uuid;
+      _maengelCtrl.text = sp.maengel ?? '';
+      for (final p in ChecklistePunkt.values) {
+        final raw = checklist[p.key] as String?;
+        _checkliste[p] =
+            raw != null ? PunktStatusLabel.fromKey(raw) : PunktStatus.nichtZutreffend;
+      }
+    });
   }
 
   String _berechneErgebnis() {
@@ -151,6 +172,7 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
           entry.key.key: entry.value.key,
       };
       final sichtpruefung = Sichtpruefung(
+        uuid: _editingUuid, // null → neu, gesetzt → überschreiben
         verteilerUuid: widget.verteilerUuid,
         pruefungDatum: DateTime.now(),
         checklisteJson: jsonEncode(checklisteMap),
@@ -163,13 +185,22 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
       await repo.save(sichtpruefung);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sichtprüfung gespeichert'),
+          SnackBar(
+            content: Text(_editingUuid != null
+                ? 'Sichtprüfung aktualisiert'
+                : 'Sichtprüfung gespeichert'),
             backgroundColor: AppColors.success,
             behavior: SnackBarBehavior.floating,
           ),
         );
-        Navigator.of(context).pop();
+        // Edit-Zustand zurücksetzen
+        setState(() {
+          _editingUuid = null;
+          for (final p in ChecklistePunkt.values) {
+            _checkliste[p] = PunktStatus.nichtZutreffend;
+          }
+          _maengelCtrl.clear();
+        });
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -306,15 +337,70 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.check_circle_outlined),
-                label: const Text('Sichtprüfung abschließen'),
+                    : Icon(_editingUuid != null
+                        ? Icons.save_outlined
+                        : Icons.check_circle_outlined),
+                label: Text(_editingUuid != null
+                    ? 'Änderungen speichern'
+                    : 'Sichtprüfung abschließen'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: _editingUuid != null
+                      ? AppColors.secondary
+                      : AppColors.primary,
                   foregroundColor: AppColors.onPrimary,
                 ),
               ),
             ),
+            if (_editingUuid != null) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => setState(() {
+                  _editingUuid = null;
+                  for (final p in ChecklistePunkt.values) {
+                    _checkliste[p] = PunktStatus.nichtZutreffend;
+                  }
+                  _maengelCtrl.clear();
+                }),
+                child: const Text('Bearbeitung abbrechen'),
+              ),
+            ],
+
+            // ── Verlauf ────────────────────────────────────────────────
+            const SizedBox(height: 28),
+            Text(
+              'VERLAUF',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                    letterSpacing: 0.8,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            sichtpruefungenAsync.when(
+              data: (list) {
+                if (list.isEmpty) {
+                  return Text(
+                    'Noch keine Sichtprüfungen vorhanden.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                        ),
+                  );
+                }
+                return Column(
+                  children: list
+                      .map((sp) => _VerlaufTile(
+                            sichtpruefung: sp,
+                            isEditing: sp.uuid == _editingUuid,
+                            onEdit: () => _loadForEdit(sp),
+                          ))
+                      .toList(),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Text('Fehler: $e'),
+            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -480,6 +566,91 @@ class _ChecklisteTile extends StatelessWidget {
             color: AppColors.outlineVariant,
           ),
       ],
+    );
+  }
+}
+
+// ── Verlauf-Tile ──────────────────────────────────────────────────────────────
+
+class _VerlaufTile extends StatelessWidget {
+  const _VerlaufTile({
+    required this.sichtpruefung,
+    required this.isEditing,
+    required this.onEdit,
+  });
+
+  final Sichtpruefung sichtpruefung;
+  final bool isEditing;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final sp = sichtpruefung;
+    final datStr =
+        '${sp.pruefungDatum.day.toString().padLeft(2, '0')}.${sp.pruefungDatum.month.toString().padLeft(2, '0')}.${sp.pruefungDatum.year}';
+
+    Color statusColor;
+    IconData statusIcon;
+    String statusLabel;
+    switch (sp.ergebnis) {
+      case 'bestanden':
+        statusColor = AppColors.success;
+        statusIcon = Icons.check_circle_outline;
+        statusLabel = 'Bestanden';
+      case 'mit_maengeln':
+        statusColor = AppColors.warning;
+        statusIcon = Icons.warning_amber_outlined;
+        statusLabel = 'Mit Mängeln';
+      default:
+        statusColor = AppColors.error;
+        statusIcon = Icons.cancel_outlined;
+        statusLabel = 'Nicht bestanden';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isEditing
+            ? AppColors.secondaryContainer
+            : AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isEditing ? AppColors.secondary : AppColors.outlineVariant,
+        ),
+      ),
+      child: ListTile(
+        dense: true,
+        leading: Icon(statusIcon, color: statusColor, size: 20),
+        title: Text(
+          '$datStr — $statusLabel',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+        subtitle: sp.maengel != null
+            ? Text(
+                sp.maengel!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.error,
+                    ),
+              )
+            : null,
+        trailing: isEditing
+            ? Chip(
+                label: const Text('In Bearbeitung'),
+                backgroundColor: AppColors.secondaryContainer,
+                labelStyle: const TextStyle(
+                    fontSize: 11, color: AppColors.onSecondaryContainer),
+              )
+            : IconButton(
+                icon: const Icon(Icons.edit_outlined,
+                    size: 18, color: AppColors.onSurfaceVariant),
+                tooltip: 'Bearbeiten',
+                onPressed: onEdit,
+              ),
+      ),
     );
   }
 }

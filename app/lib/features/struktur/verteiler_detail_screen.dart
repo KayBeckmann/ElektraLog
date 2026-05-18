@@ -10,8 +10,10 @@ import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/sichtpruefung_provider.dart';
 import '../../core/providers/komponenten_provider.dart';
 import '../../core/models/messung.dart';
+import '../../core/models/pruefprotokoll.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../core/providers/geraete_provider.dart';
+import '../../core/providers/pruefprotokoll_provider.dart';
 import '../../features/pdf/pdf_options_sheet.dart';
 import '../../features/pdf/pdf_service.dart';
 import '../../shared/theme/app_colors.dart';
@@ -169,10 +171,21 @@ class _VerteilerDetailScreenState
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              child: KomponentenBaumWidget(
-                verteilerUuid: widget.verteilerUuid,
-                onAddKomponente: (parentUuid) =>
-                    _showKomponenteFormular(context, parentUuid),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Prüfverlauf-Karte ─────────────────────────────────
+                  _PruefverlaufKarte(
+                    verteilerUuid: widget.verteilerUuid,
+                    pruefintervallJahre: verteiler?.pruefintervallJahre ?? 4,
+                  ),
+                  const SizedBox(height: 16),
+                  KomponentenBaumWidget(
+                    verteilerUuid: widget.verteilerUuid,
+                    onAddKomponente: (parentUuid) =>
+                        _showKomponenteFormular(context, parentUuid),
+                  ),
+                ],
               ),
             ),
           ),
@@ -231,6 +244,14 @@ class _VerteilerDetailScreenState
         geraeteMessungen: geraeteMessungen,
         signaturPng: opts.signaturPng,
       );
+
+      // Protokoll-Eintrag im Verlauf speichern
+      await ref.read(pruefprotokollRepositoryProvider).save(Pruefprotokoll(
+            verteilerUuid: widget.verteilerUuid,
+            protokollDatum: DateTime.now(),
+            prueferName: opts.prueferName.isEmpty ? null : opts.prueferName,
+            firma: (opts.firma?.isEmpty ?? true) ? null : opts.firma,
+          ));
 
       await Printing.layoutPdf(
         onLayout: (_) async => bytes,
@@ -333,6 +354,130 @@ class _SichtpruefungLockBanner extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Prüfverlauf-Karte ─────────────────────────────────────────────────────────
+
+class _PruefverlaufKarte extends ConsumerWidget {
+  const _PruefverlaufKarte({
+    required this.verteilerUuid,
+    required this.pruefintervallJahre,
+  });
+
+  final String verteilerUuid;
+  final int pruefintervallJahre;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final protokolleAsync =
+        ref.watch(pruefprotokolleByVerteilerProvider(verteilerUuid));
+
+    return protokolleAsync.when(
+      loading: () => const SizedBox.shrink(),
+      error: (_, __) => const SizedBox.shrink(),
+      data: (protokolle) {
+        final letztes = protokolle.isEmpty ? null : protokolle.first;
+        final naechste = letztes == null
+            ? null
+            : DateTime(
+                letztes.protokollDatum.year + pruefintervallJahre,
+                letztes.protokollDatum.month,
+                letztes.protokollDatum.day,
+              );
+        final istUeberfaellig =
+            naechste != null && naechste.isBefore(DateTime.now());
+        final istBaldFaellig = naechste != null &&
+            !istUeberfaellig &&
+            naechste
+                .isBefore(DateTime.now().add(const Duration(days: 90)));
+
+        String _fmt(DateTime d) =>
+            '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+
+        Color borderColor = AppColors.outlineVariant;
+        Color bgColor = AppColors.surfaceContainerLowest;
+        if (istUeberfaellig) {
+          borderColor = AppColors.error;
+          bgColor = AppColors.errorContainer;
+        } else if (istBaldFaellig) {
+          borderColor = AppColors.warning;
+          bgColor = AppColors.warningContainer;
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                istUeberfaellig
+                    ? Icons.warning_amber_outlined
+                    : Icons.history_outlined,
+                size: 20,
+                color: istUeberfaellig
+                    ? AppColors.error
+                    : AppColors.onSurfaceVariant,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (letztes == null)
+                      Text(
+                        'Noch kein Prüfprotokoll erstellt',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: AppColors.onSurfaceVariant),
+                      )
+                    else ...[
+                      Text(
+                        'Letztes Protokoll: ${_fmt(letztes.protokollDatum)}'
+                        '${letztes.prueferName != null ? " · ${letztes.prueferName}" : ""}',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      if (naechste != null)
+                        Text(
+                          istUeberfaellig
+                              ? 'Prüfung überfällig seit ${_fmt(naechste)}!'
+                              : 'Nächste Prüfung: ${_fmt(naechste)}',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: istUeberfaellig
+                                        ? AppColors.error
+                                        : istBaldFaellig
+                                            ? AppColors.warning
+                                            : AppColors.onSurfaceVariant,
+                                    fontWeight: istUeberfaellig
+                                        ? FontWeight.w700
+                                        : FontWeight.normal,
+                                  ),
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+              if (protokolle.length > 1)
+                Text(
+                  '${protokolle.length}×',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
