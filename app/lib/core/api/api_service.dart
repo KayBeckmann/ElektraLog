@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -75,5 +77,71 @@ class ApiService {
       headers: await _headers(auth: true),
       body: jsonEncode({'type': 'kunden', 'items': kunden}),
     );
+  }
+
+  /// Lädt ein Prüfprotokoll (PDF + Metadaten) in das Backend hoch.
+  /// Gibt die Backend-UUID zurück oder null bei Fehler.
+  /// Nicht-blockierend — Fehler werden geloggt, nicht geworfen.
+  static Future<String?> uploadProtokoll({
+    required Uint8List pdfBytes,
+    required String verteilerBezeichnung,
+    String? standortBezeichnung,
+    String? kundenBezeichnung,
+    String? prueferName,
+    String? firmaName,
+    required DateTime protokollDatum,
+    String? messdatenJson,
+  }) async {
+    try {
+      final token = await _getToken();
+      if (token == null) return null; // Nicht eingeloggt → kein Upload
+
+      final pdfHash = sha256.convert(pdfBytes).toString();
+      final pdfBase64 = base64Encode(pdfBytes);
+
+      final resp = await http
+          .post(
+            Uri.parse('$baseUrl/protokolle'),
+            headers: await _headers(auth: true),
+            body: jsonEncode({
+              'verteilerBezeichnung': verteilerBezeichnung,
+              'standortBezeichnung': standortBezeichnung,
+              'kundenBezeichnung': kundenBezeichnung,
+              'prueferName': prueferName,
+              'firmaName': firmaName,
+              'protokollDatum': protokollDatum.toIso8601String(),
+              'messdatenJson': messdatenJson,
+              'pdfBase64': pdfBase64,
+              'pdfHash': pdfHash,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (resp.statusCode == 200) {
+        final body = jsonDecode(resp.body) as Map<String, dynamic>;
+        return body['id'] as String?;
+      }
+      debugPrint('Protokoll-Upload: HTTP ${resp.statusCode}');
+      return null;
+    } catch (e) {
+      debugPrint('Protokoll-Upload fehlgeschlagen (offline?): $e');
+      return null;
+    }
+  }
+
+  /// Gibt die Protokoll-Liste der eigenen Firma zurück.
+  static Future<List<Map<String, dynamic>>> getProtokolle() async {
+    try {
+      final resp = await http.get(
+        Uri.parse('$baseUrl/protokolle'),
+        headers: await _headers(auth: true),
+      );
+      if (resp.statusCode == 200) {
+        return (jsonDecode(resp.body) as List<dynamic>)
+            .map((e) => e as Map<String, dynamic>)
+            .toList();
+      }
+    } catch (_) {}
+    return [];
   }
 }

@@ -6,3 +6,4 @@ export 'src/middleware/auth_middleware.dart';
 export 'src/endpoints/auth_endpoint.dart';
 export 'src/endpoints/kunden_endpoint.dart';
 export 'src/endpoints/mandanten_endpoint.dart';
+export 'src/endpoints/protokoll_endpoint.dart';

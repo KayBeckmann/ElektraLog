@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,8 +10,12 @@ import '../../core/providers/standorte_provider.dart';
 import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/sichtpruefung_provider.dart';
 import '../../core/providers/komponenten_provider.dart';
+import '../../core/api/api_service.dart';
+import '../../core/models/geraet.dart';
 import '../../core/models/messung.dart';
 import '../../core/models/pruefprotokoll.dart';
+import '../../core/models/sichtpruefung.dart';
+import '../../core/models/verteiler_komponente.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../core/providers/geraete_provider.dart';
 import '../../core/providers/pruefprotokoll_provider.dart';
@@ -245,13 +250,44 @@ class _VerteilerDetailScreenState
         signaturPng: opts.signaturPng,
       );
 
+      // Messdaten-Snapshot einfrieren
+      final snapshot = _buildSnapshot(
+        komponenten: kompList,
+        messungen: messungen,
+        sichtpruefungen: sichtpruefungen.cast(),
+        geraete: geraete,
+        geraeteMessungen: geraeteMessungen,
+      );
+
       // Protokoll-Eintrag im Verlauf speichern
-      await ref.read(pruefprotokollRepositoryProvider).save(Pruefprotokoll(
-            verteilerUuid: widget.verteilerUuid,
-            protokollDatum: DateTime.now(),
-            prueferName: opts.prueferName.isEmpty ? null : opts.prueferName,
-            firma: (opts.firma?.isEmpty ?? true) ? null : opts.firma,
-          ));
+      final protokoll = Pruefprotokoll(
+        verteilerUuid: widget.verteilerUuid,
+        protokollDatum: DateTime.now(),
+        prueferName: opts.prueferName.isEmpty ? null : opts.prueferName,
+        firma: (opts.firma?.isEmpty ?? true) ? null : opts.firma,
+        verteilerBezeichnung: verteiler.bezeichnung,
+        standortBezeichnung: standortBezeichnung,
+        kundenBezeichnung: kundenName,
+        messdatenSnapshot: snapshot,
+      );
+      final repo = ref.read(pruefprotokollRepositoryProvider);
+      await repo.save(protokoll);
+
+      // Im Hintergrund ins Backend hochladen (non-blocking, offline-tolerant)
+      ApiService.uploadProtokoll(
+        pdfBytes: bytes,
+        verteilerBezeichnung: verteiler.bezeichnung,
+        standortBezeichnung: standortBezeichnung,
+        kundenBezeichnung: kundenName,
+        prueferName: opts.prueferName.isEmpty ? null : opts.prueferName,
+        firmaName: opts.firma?.isEmpty ?? true ? null : opts.firma,
+        protokollDatum: protokoll.protokollDatum,
+        messdatenJson: snapshot,
+      ).then((backendUuid) async {
+        if (backendUuid != null) {
+          await repo.save(protokoll.mitBackendUuid(backendUuid));
+        }
+      });
 
       await Printing.layoutPdf(
         onLayout: (_) async => bytes,
@@ -269,6 +305,90 @@ class _VerteilerDetailScreenState
     } finally {
       if (mounted) setState(() => _pdfLoading = false);
     }
+  }
+
+  /// Baut einen unveränderlichen Messdaten-Snapshot für den Prüfverlauf.
+  static String _buildSnapshot({
+    required List<VerteilerKomponente> komponenten,
+    required List<Messung> messungen,
+    required List<Sichtpruefung> sichtpruefungen,
+    required List<Geraet> geraete,
+    required List<Messung> geraeteMessungen,
+  }) {
+    final messungenByKomponente = <String, List<Map<String, dynamic>>>{};
+    for (final m in messungen) {
+      if (m.komponenteUuid != null) {
+        messungenByKomponente
+            .putIfAbsent(m.komponenteUuid!, () => [])
+            .add({
+          'uuid': m.uuid,
+          'norm': m.norm,
+          'pruefungDatum': m.pruefungDatum.toIso8601String(),
+          'prueferName': m.prueferName,
+          'ergebnis': m.ergebnis,
+          'messwertJson': m.messwertJson,
+          'bemerkung': m.bemerkung,
+        });
+      }
+    }
+
+    final messungenByGeraet = <String, List<Map<String, dynamic>>>{};
+    for (final m in geraeteMessungen) {
+      if (m.geraetUuid != null) {
+        messungenByGeraet
+            .putIfAbsent(m.geraetUuid!, () => [])
+            .add({
+          'uuid': m.uuid,
+          'norm': m.norm,
+          'pruefungDatum': m.pruefungDatum.toIso8601String(),
+          'prueferName': m.prueferName,
+          'ergebnis': m.ergebnis,
+          'messwertJson': m.messwertJson,
+          'bemerkung': m.bemerkung,
+        });
+      }
+    }
+
+    final latestSichtpruefung =
+        sichtpruefungen.isEmpty ? null : sichtpruefungen.first;
+
+    return jsonEncode({
+      'komponenten': [
+        for (final k in komponenten)
+          if ((messungenByKomponente[k.uuid] ?? []).isNotEmpty)
+            {
+              'uuid': k.uuid,
+              'bezeichnung': k.bezeichnung,
+              'typ': k.typ,
+              'parentUuid': k.parentUuid,
+              'eigenschaftenJson': k.eigenschaftenJson,
+              'messungen': messungenByKomponente[k.uuid],
+            }
+      ],
+      'sichtpruefung': latestSichtpruefung == null
+          ? null
+          : {
+              'uuid': latestSichtpruefung.uuid,
+              'pruefungDatum':
+                  latestSichtpruefung.pruefungDatum.toIso8601String(),
+              'prueferName': latestSichtpruefung.prueferName,
+              'ergebnis': latestSichtpruefung.ergebnis,
+              'checklisteJson': latestSichtpruefung.checklisteJson,
+              'maengel': latestSichtpruefung.maengel,
+            },
+      'geraete': [
+        for (final g in geraete)
+          if ((messungenByGeraet[g.uuid] ?? []).isNotEmpty)
+            {
+              'uuid': g.uuid,
+              'bezeichnung': g.bezeichnung,
+              'geraetetyp': g.geraetetyp,
+              'hersteller': g.hersteller,
+              'seriennummer': g.seriennummer,
+              'messungen': messungenByGeraet[g.uuid],
+            }
+      ],
+    });
   }
 
   Future<void> _showKomponenteFormular(
@@ -369,6 +489,9 @@ class _PruefverlaufKarte extends ConsumerWidget {
   final String verteilerUuid;
   final int pruefintervallJahre;
 
+  String _fmt(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final protokolleAsync =
@@ -390,11 +513,7 @@ class _PruefverlaufKarte extends ConsumerWidget {
             naechste != null && naechste.isBefore(DateTime.now());
         final istBaldFaellig = naechste != null &&
             !istUeberfaellig &&
-            naechste
-                .isBefore(DateTime.now().add(const Duration(days: 90)));
-
-        String _fmt(DateTime d) =>
-            '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+            naechste.isBefore(DateTime.now().add(const Duration(days: 90)));
 
         Color borderColor = AppColors.outlineVariant;
         Color bgColor = AppColors.surfaceContainerLowest;
@@ -406,53 +525,59 @@ class _PruefverlaufKarte extends ConsumerWidget {
           bgColor = AppColors.warningContainer;
         }
 
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: bgColor,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: borderColor),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                istUeberfaellig
-                    ? Icons.warning_amber_outlined
-                    : Icons.history_outlined,
-                size: 20,
-                color: istUeberfaellig
-                    ? AppColors.error
-                    : AppColors.onSurfaceVariant,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Nächste-Prüfung-Statusleiste ─────────────────────────
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: borderColor),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (letztes == null)
-                      Text(
-                        'Noch kein Prüfprotokoll erstellt',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: AppColors.onSurfaceVariant),
-                      )
-                    else ...[
-                      Text(
-                        'Letztes Protokoll: ${_fmt(letztes.protokollDatum)}'
-                        '${letztes.prueferName != null ? " · ${letztes.prueferName}" : ""}',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      if (naechste != null)
-                        Text(
-                          istUeberfaellig
-                              ? 'Prüfung überfällig seit ${_fmt(naechste)}!'
-                              : 'Nächste Prüfung: ${_fmt(naechste)}',
-                          style:
-                              Theme.of(context).textTheme.bodySmall?.copyWith(
+              child: Row(
+                children: [
+                  Icon(
+                    istUeberfaellig
+                        ? Icons.warning_amber_outlined
+                        : Icons.history_outlined,
+                    size: 20,
+                    color: istUeberfaellig
+                        ? AppColors.error
+                        : AppColors.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (letztes == null)
+                          Text(
+                            'Noch kein Prüfprotokoll erstellt',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: AppColors.onSurfaceVariant),
+                          )
+                        else ...[
+                          Text(
+                            'Letztes Protokoll: ${_fmt(letztes.protokollDatum)}'
+                            '${letztes.prueferName != null ? " · ${letztes.prueferName}" : ""}',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                          if (naechste != null)
+                            Text(
+                              istUeberfaellig
+                                  ? 'Prüfung überfällig seit ${_fmt(naechste)}!'
+                                  : 'Nächste Prüfung: ${_fmt(naechste)}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
                                     color: istUeberfaellig
                                         ? AppColors.error
                                         : istBaldFaellig
@@ -462,22 +587,321 @@ class _PruefverlaufKarte extends ConsumerWidget {
                                         ? FontWeight.w700
                                         : FontWeight.normal,
                                   ),
-                        ),
-                    ],
-                  ],
-                ),
+                            ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (protokolle.length > 1)
+                    Text(
+                      '${protokolle.length}×',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                    ),
+                ],
               ),
-              if (protokolle.length > 1)
-                Text(
-                  '${protokolle.length}×',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                ),
+            ),
+
+            // ── Verlaufs-Liste ────────────────────────────────────────
+            if (protokolle.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              ...protokolle.map((p) => _ProtokollVerlaufTile(protokoll: p)),
             ],
-          ),
+          ],
         );
       },
+    );
+  }
+}
+
+// ── Protokoll-Verlauf-Tile ────────────────────────────────────────────────────
+
+class _ProtokollVerlaufTile extends StatefulWidget {
+  const _ProtokollVerlaufTile({required this.protokoll});
+  final Pruefprotokoll protokoll;
+
+  @override
+  State<_ProtokollVerlaufTile> createState() => _ProtokollVerlaufTileState();
+}
+
+class _ProtokollVerlaufTileState extends State<_ProtokollVerlaufTile> {
+  bool _expanded = false;
+
+  String _fmt(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final p = widget.protokoll;
+    final hasSnapshot = p.messdatenSnapshot != null;
+
+    Map<String, dynamic>? snapshot;
+    if (hasSnapshot) {
+      try {
+        snapshot = jsonDecode(p.messdatenSnapshot!) as Map<String, dynamic>;
+      } catch (_) {}
+    }
+
+    final komponenten = (snapshot?['komponenten'] as List<dynamic>?) ?? [];
+    final geraete = (snapshot?['geraete'] as List<dynamic>?) ?? [];
+    final sichtpruefung = snapshot?['sichtpruefung'] as Map<String, dynamic>?;
+    final istSynced = p.backendUuid != null;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: hasSnapshot
+                ? () => setState(() => _expanded = !_expanded)
+                : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.description_outlined,
+                    size: 16,
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _fmt(p.protokollDatum),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        if (p.prueferName != null)
+                          Text(
+                            p.prueferName!,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: AppColors.onSurfaceVariant),
+                          ),
+                      ],
+                    ),
+                  ),
+                  // Sync-Status
+                  Tooltip(
+                    message: istSynced
+                        ? 'Im Backend archiviert'
+                        : 'Noch nicht synchronisiert',
+                    child: Icon(
+                      istSynced
+                          ? Icons.cloud_done_outlined
+                          : Icons.cloud_off_outlined,
+                      size: 16,
+                      color: istSynced
+                          ? AppColors.success
+                          : AppColors.outlineVariant,
+                    ),
+                  ),
+                  if (hasSnapshot) ...[
+                    const SizedBox(width: 4),
+                    Icon(
+                      _expanded
+                          ? Icons.expand_less
+                          : Icons.expand_more,
+                      size: 16,
+                      color: AppColors.onSurfaceVariant,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+
+          // ── Aufgeklappte Messdaten ──────────────────────────────────
+          if (_expanded && snapshot != null) ...[
+            const Divider(height: 1, color: AppColors.outlineVariant),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Sichtprüfung
+                  if (sichtpruefung != null) ...[
+                    _SnapshotSection(
+                      label: 'Sichtprüfung',
+                      ergebnis: sichtpruefung['ergebnis'] as String? ?? '—',
+                      datum: sichtpruefung['pruefungDatum'] as String?,
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  // Komponenten
+                  if (komponenten.isNotEmpty) ...[
+                    Text(
+                      'ANLAGE — ${komponenten.length} Komponente(n)',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                            letterSpacing: 0.6,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    ...komponenten.map((k) {
+                      final kMap = k as Map<String, dynamic>;
+                      final messungen =
+                          (kMap['messungen'] as List<dynamic>?) ?? [];
+                      return _SnapshotKomponenteRow(
+                        bezeichnung: kMap['bezeichnung'] as String? ?? '—',
+                        typ: kMap['typ'] as String? ?? '',
+                        messungen: messungen
+                            .map((m) => m as Map<String, dynamic>)
+                            .toList(),
+                      );
+                    }),
+                  ],
+                  // Geräte
+                  if (geraete.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'GERÄTE — ${geraete.length} Gerät(e)',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                            letterSpacing: 0.6,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    ...geraete.map((g) {
+                      final gMap = g as Map<String, dynamic>;
+                      final messungen =
+                          (gMap['messungen'] as List<dynamic>?) ?? [];
+                      return _SnapshotKomponenteRow(
+                        bezeichnung: gMap['bezeichnung'] as String? ?? '—',
+                        typ: gMap['geraetetyp'] as String? ?? 'Gerät',
+                        messungen: messungen
+                            .map((m) => m as Map<String, dynamic>)
+                            .toList(),
+                      );
+                    }),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SnapshotSection extends StatelessWidget {
+  const _SnapshotSection({
+    required this.label,
+    required this.ergebnis,
+    this.datum,
+  });
+  final String label;
+  final String ergebnis;
+  final String? datum;
+
+  @override
+  Widget build(BuildContext context) {
+    Color color;
+    IconData icon;
+    switch (ergebnis) {
+      case 'bestanden':
+        color = AppColors.success;
+        icon = Icons.check_circle_outline;
+      case 'mit_maengeln':
+        color = AppColors.warning;
+        icon = Icons.warning_amber_outlined;
+      default:
+        color = AppColors.error;
+        icon = Icons.cancel_outlined;
+    }
+    String? datumStr;
+    if (datum != null) {
+      try {
+        final d = DateTime.parse(datum!);
+        datumStr =
+            '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+      } catch (_) {}
+    }
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 6),
+        Text(
+          '$label${datumStr != null ? " · $datumStr" : ""}',
+          style: Theme.of(context)
+              .textTheme
+              .bodySmall
+              ?.copyWith(color: color, fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+}
+
+class _SnapshotKomponenteRow extends StatelessWidget {
+  const _SnapshotKomponenteRow({
+    required this.bezeichnung,
+    required this.typ,
+    required this.messungen,
+  });
+  final String bezeichnung;
+  final String typ;
+  final List<Map<String, dynamic>> messungen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              bezeichnung,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          ...messungen.map((m) {
+            final ergebnis = m['ergebnis'] as String? ?? '';
+            final norm = m['norm'] as String? ?? '';
+            final normShort = switch (norm) {
+              'vde_0100' => '0100',
+              'vde_0701_0702' => '0701',
+              'dguv_v3' => 'DGUV',
+              _ => norm,
+            };
+            final ok = ergebnis == 'bestanden';
+            return Container(
+              margin: const EdgeInsets.only(left: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: ok
+                    ? AppColors.successContainer
+                    : AppColors.errorContainer,
+                borderRadius: BorderRadius.circular(3),
+              ),
+              child: Text(
+                '$normShort ${ok ? '✓' : '✗'}',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: ok ? AppColors.success : AppColors.error,
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 }

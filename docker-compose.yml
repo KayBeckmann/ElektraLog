@@ -25,6 +25,7 @@ services:
       - ./packages/elektralog_server/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
       - ./packages/elektralog_server/migrations/002_seed_permissions.sql:/docker-entrypoint-initdb.d/002_seed_permissions.sql:ro
       - ./packages/elektralog_server/migrations/003_superadmin.sql:/docker-entrypoint-initdb.d/003_superadmin.sql:ro
+      - ./packages/elektralog_server/migrations/004_protokolle.sql:/docker-entrypoint-initdb.d/004_protokolle.sql:ro
     ports:
       - "127.0.0.1:${POSTGRES_PORT}:5432"
     healthcheck:

@@ -7,6 +7,7 @@ import '../lib/src/middleware/auth_middleware.dart';
 import '../lib/src/endpoints/auth_endpoint.dart';
 import '../lib/src/endpoints/kunden_endpoint.dart';
 import '../lib/src/endpoints/mandanten_endpoint.dart';
+import '../lib/src/endpoints/protokoll_endpoint.dart';
 import '../lib/src/db.dart';
 
 void main() async {
@@ -33,7 +34,14 @@ void main() async {
     ..get('/api/admin/firmen', (req) => MandantenEndpoint(conn).list(req))
     ..post('/api/admin/firmen', (req) => MandantenEndpoint(conn).create(req))
     ..patch('/api/admin/firmen/<id>/status',
-        (req, id) => MandantenEndpoint(conn).updateStatus(req, id));
+        (req, id) => MandantenEndpoint(conn).updateStatus(req, id))
+    // Protokoll-Archiv (append-only, rechtssicher)
+    ..post('/api/protokolle', (req) => ProtokollEndpoint(conn).create(req))
+    ..get('/api/protokolle', (req) => ProtokollEndpoint(conn).list(req))
+    ..get('/api/protokolle/<id>',
+        (req, id) => ProtokollEndpoint(conn).get(req, id))
+    ..get('/api/protokolle/<id>/pdf',
+        (req, id) => ProtokollEndpoint(conn).getPdf(req, id));
 
   final handler = Pipeline()
       .addMiddleware(logRequests())
