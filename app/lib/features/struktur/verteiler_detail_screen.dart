@@ -184,6 +184,12 @@ class _VerteilerDetailScreenState
                     pruefintervallJahre: verteiler?.pruefintervallJahre ?? 4,
                   ),
                   const SizedBox(height: 16),
+                  // ── Bemerkung ─────────────────────────────────────────
+                  if (verteiler?.bemerkung != null &&
+                      verteiler!.bemerkung!.isNotEmpty) ...[
+                    _BemerkungsKarte(text: verteiler.bemerkung!),
+                    const SizedBox(height: 16),
+                  ],
                   // ── Sichtprüfung-Karte ────────────────────────────────
                   _SichtpruefungKarte(
                     verteilerUuid: widget.verteilerUuid,
@@ -258,6 +264,7 @@ class _VerteilerDetailScreenState
         geraete: geraete,
         geraeteMessungen: geraeteMessungen,
         signaturPng: opts.signaturPng,
+        bemerkung: opts.bemerkung,
       );
 
       // Messdaten-Snapshot einfrieren
@@ -1011,6 +1018,38 @@ class _SnapshotKomponenteRow extends StatelessWidget {
               ),
             );
           }),
+        ],
+      ),
+    );
+  }
+}
+
+class _BemerkungsKarte extends StatelessWidget {
+  const _BemerkungsKarte({required this.text});
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Bemerkung',
+            style: Theme.of(context)
+                .textTheme
+                .labelSmall
+                ?.copyWith(color: AppColors.onSurfaceVariant),
+          ),
+          const SizedBox(height: 4),
+          Text(text, style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );

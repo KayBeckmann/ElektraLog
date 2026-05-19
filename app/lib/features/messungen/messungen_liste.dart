@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/models/messung.dart';
 import '../../core/providers/messungen_provider.dart';
+import '../../core/providers/pruefprotokoll_provider.dart';
 import '../../shared/theme/app_colors.dart';
 import 'messung_formular.dart';
 
@@ -12,14 +13,27 @@ class MessungenListe extends ConsumerWidget {
   const MessungenListe({
     super.key,
     required this.komponenteUuid,
+    this.verteilerUuid,
   });
 
   final String komponenteUuid;
+  final String? verteilerUuid;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final messungenAsync =
         ref.watch(messungenByKomponenteProvider(komponenteUuid));
+
+    // Protokolle beobachten wenn verteilerUuid gesetzt
+    final protokolleAsync = verteilerUuid != null
+        ? ref.watch(pruefprotokolleByVerteilerProvider(verteilerUuid!))
+        : null;
+    final keinProtokoll = protokolleAsync == null ||
+        protokolleAsync.when(
+          data: (list) => list.isEmpty,
+          loading: () => false,
+          error: (_, __) => false,
+        );
 
     return messungenAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -67,8 +81,10 @@ class MessungenListe extends ConsumerWidget {
             else
               ...messungen.map((m) => _MessungTile(
                     messung: m,
-                    onTap: () =>
-                        _showMesswertDetail(context, m),
+                    keinProtokoll: keinProtokoll,
+                    onTap: () => _showMesswertDetail(context, m),
+                    onEditMessung: () =>
+                        _showMessungFormular(context, m),
                   )),
           ],
         );
@@ -111,17 +127,21 @@ class MessungenListe extends ConsumerWidget {
 
 // ── Messung Tile ──────────────────────────────────────────────────────────────
 
-class _MessungTile extends StatelessWidget {
+class _MessungTile extends ConsumerWidget {
   const _MessungTile({
     required this.messung,
+    required this.keinProtokoll,
     required this.onTap,
+    required this.onEditMessung,
   });
 
   final Messung messung;
+  final bool keinProtokoll;
   final VoidCallback onTap;
+  final VoidCallback onEditMessung;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final bool passed = messung.ergebnis == 'bestanden';
     final bool failed = messung.ergebnis == 'nicht_bestanden';
 
@@ -220,10 +240,66 @@ class _MessungTile extends StatelessWidget {
                 ],
               ),
             ),
+            // Bemerkung bearbeiten
+            IconButton(
+              icon: const Icon(Icons.edit_note_outlined, size: 16),
+              tooltip: 'Bemerkung bearbeiten',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              color: AppColors.onSurfaceVariant,
+              onPressed: () => _showBemerkungSheet(context, ref),
+            ),
+            // Messung bearbeiten (nur wenn kein Protokoll erstellt)
+            if (keinProtokoll)
+              IconButton(
+                icon: const Icon(Icons.open_in_new_outlined, size: 16),
+                tooltip: 'Messung bearbeiten',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                color: AppColors.onSurfaceVariant,
+                onPressed: () => _confirmEditMessung(context),
+              ),
           ],
         ),
       ),
     );
+  }
+
+  void _showBemerkungSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => _BemerkungEditSheet(messung: messung),
+    );
+  }
+
+  Future<void> _confirmEditMessung(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Messung bearbeiten?'),
+        content: const Text(
+            'Änderungen können das Prüfprotokoll beeinflussen. Fortfahren?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Fortfahren'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      onEditMessung();
+    }
   }
 
   String _dateStr(DateTime dt) {
@@ -314,5 +390,110 @@ class _MesswertDetailSheet extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// ── Bemerkung Edit Sheet ──────────────────────────────────────────────────────
+
+class _BemerkungEditSheet extends ConsumerStatefulWidget {
+  const _BemerkungEditSheet({required this.messung});
+  final Messung messung;
+
+  @override
+  ConsumerState<_BemerkungEditSheet> createState() =>
+      _BemerkungEditSheetState();
+}
+
+class _BemerkungEditSheetState extends ConsumerState<_BemerkungEditSheet> {
+  late final TextEditingController _ctrl;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.messung.bemerkung ?? '');
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Bemerkung bearbeiten',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const Spacer(),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _ctrl,
+            decoration: const InputDecoration(
+              labelText: 'Bemerkung',
+              hintText: 'Optionale Anmerkung zur Messung',
+            ),
+            maxLines: 4,
+            minLines: 2,
+            autofocus: true,
+            textCapitalization: TextCapitalization.sentences,
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isSaving ? null : _save,
+              child: _isSaving
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: AppColors.onPrimary),
+                    )
+                  : const Text('Speichern'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    setState(() => _isSaving = true);
+    try {
+      final trimmed = _ctrl.text.trim();
+      final updated = widget.messung.copyWith(
+        bemerkung: trimmed.isEmpty ? null : trimmed,
+      );
+      await ref.read(messungenRepositoryProvider).save(updated);
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bemerkung gespeichert')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 }

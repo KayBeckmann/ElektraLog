@@ -233,6 +233,49 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
     await ref.read(komponentenRepositoryProvider).save(verschoben);
   }
 
+  Future<void> _moveKomponente(
+    WidgetRef ref,
+    VerteilerKomponente k,
+    int delta,
+    List<VerteilerKomponente> all,
+  ) async {
+    // Geschwister: gleiche Ebene (gleicher parentUuid)
+    final siblings = all
+        .where((c) =>
+            c.parentUuid == k.parentUuid && c.verteilerUuid == k.verteilerUuid)
+        .toList()
+      ..sort((a, b) => a.position.compareTo(b.position));
+
+    final idx = siblings.indexWhere((c) => c.uuid == k.uuid);
+    final newIdx = idx + delta;
+    if (newIdx < 0 || newIdx >= siblings.length) return; // schon am Rand
+
+    final other = siblings[newIdx];
+    final repo = ref.read(komponentenRepositoryProvider);
+
+    // Positionen tauschen
+    await repo.save(VerteilerKomponente(
+      uuid: k.uuid,
+      verteilerUuid: k.verteilerUuid,
+      parentUuid: k.parentUuid,
+      typ: k.typ,
+      bezeichnung: k.bezeichnung,
+      position: other.position,
+      eigenschaftenJson: k.eigenschaftenJson,
+      erstelltAm: k.erstelltAm,
+    ));
+    await repo.save(VerteilerKomponente(
+      uuid: other.uuid,
+      verteilerUuid: other.verteilerUuid,
+      parentUuid: other.parentUuid,
+      typ: other.typ,
+      bezeichnung: other.bezeichnung,
+      position: k.position,
+      eigenschaftenJson: other.eigenschaftenJson,
+      erstelltAm: other.erstelltAm,
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final k = widget.komponente;
@@ -376,6 +419,24 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                     ]),
                                   ),
                                   const PopupMenuItem(
+                                    value: 'nach_oben',
+                                    child: Row(children: [
+                                      Icon(Icons.arrow_upward_outlined,
+                                          size: 14),
+                                      SizedBox(width: 8),
+                                      Text('Nach oben'),
+                                    ]),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'nach_unten',
+                                    child: Row(children: [
+                                      Icon(Icons.arrow_downward_outlined,
+                                          size: 14),
+                                      SizedBox(width: 8),
+                                      Text('Nach unten'),
+                                    ]),
+                                  ),
+                                  const PopupMenuItem(
                                     value: 'verschieben',
                                     child: Row(children: [
                                       Icon(Icons.drive_file_move_outlined,
@@ -396,7 +457,7 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                     ]),
                                   ),
                                 ],
-                                onSelected: (v) {
+                                onSelected: (v) async {
                                   if (v == 'add_child') {
                                     widget.onAddChild(k.uuid);
                                   } else if (v == 'messung') {
@@ -423,6 +484,12 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                         komponenteEigenschaften: props,
                                       ),
                                     );
+                                  } else if (v == 'nach_oben') {
+                                    await _moveKomponente(ref, k, -1,
+                                        widget.allKomponenten);
+                                  } else if (v == 'nach_unten') {
+                                    await _moveKomponente(ref, k, 1,
+                                        widget.allKomponenten);
                                   } else if (v == 'verschieben') {
                                     _showVerschiebenDialog(context, k);
                                   } else if (v == 'loeschen') {

@@ -323,7 +323,10 @@ class _Vde07010702FormState extends ConsumerState<_Vde07010702Form> {
             ],
             onChanged: (v) => setState(() => _schutzklasse = v!),
           ),
-          const SizedBox(height: 12),
+          const _SektionsHeader(
+            label: 'Schutzleiter',
+            icon: Icons.electrical_services_outlined,
+          ),
           _LimitField(
             controller: _schutzleiterCtrl,
             label: 'Schutzleiterwiderstand',
@@ -331,7 +334,10 @@ class _Vde07010702FormState extends ConsumerState<_Vde07010702Form> {
             limitHint: 'max. 0,3 Ω',
             onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(height: 12),
+          const _SektionsHeader(
+            label: 'Isolation',
+            icon: Icons.shield_outlined,
+          ),
           _LimitField(
             controller: _isolationCtrl,
             label: 'Isolationswiderstand',
@@ -347,7 +353,10 @@ class _Vde07010702FormState extends ConsumerState<_Vde07010702Form> {
             value: _messbereichsendwert,
             onChanged: (v) => setState(() => _messbereichsendwert = v!),
           ),
-          const SizedBox(height: 8),
+          const _SektionsHeader(
+            label: 'Ableitstrom',
+            icon: Icons.electric_bolt_outlined,
+          ),
           _LimitField(
             controller: _ableitstromCtrl,
             label: 'Ableitstrom',
@@ -478,7 +487,10 @@ class _DguvV3FormState extends ConsumerState<_DguvV3Form> {
           controller: _prueferCtrl,
           decoration: const InputDecoration(labelText: 'Prüfer'),
         ),
-        const SizedBox(height: 12),
+        const _SektionsHeader(
+          label: 'Schutzleiter',
+          icon: Icons.electrical_services_outlined,
+        ),
         _LimitField(
           controller: _schutzleiterCtrl,
           label: 'Schutzleiterwiderstand',
@@ -486,7 +498,10 @@ class _DguvV3FormState extends ConsumerState<_DguvV3Form> {
           limitHint: 'max. 0,3 Ω',
           onChanged: (_) => setState(() {}),
         ),
-        const SizedBox(height: 12),
+        const _SektionsHeader(
+          label: 'Isolation',
+          icon: Icons.shield_outlined,
+        ),
         _LimitField(
           controller: _isolationCtrl,
           label: 'Isolationswiderstand',
@@ -494,7 +509,10 @@ class _DguvV3FormState extends ConsumerState<_DguvV3Form> {
           limitHint: 'min. 1 MΩ',
           onChanged: (_) => setState(() {}),
         ),
-        const SizedBox(height: 12),
+        const _SektionsHeader(
+          label: 'Ableitstrom',
+          icon: Icons.electric_bolt_outlined,
+        ),
         _LimitField(
           controller: _ableitstromCtrl,
           label: 'Ableitstrom',
@@ -754,6 +772,10 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
 
         // ── Schleifenimpedanz / Kurzschlussstrom (nur für LS/Sicherungen) ──
         if (_isLs) ...[
+          const _SektionsHeader(
+            label: 'Schleifenimpedanz',
+            icon: Icons.loop_outlined,
+          ),
           _SectionHeader(
             _poleCount > 1
                 ? 'Kurzschlussschutz — $_poleCount Phasen'
@@ -895,6 +917,10 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
 
           // Drehfeld: nur bei 3-phasig sinnvoll
           if (_showDrehfeld) ...[
+            const _SektionsHeader(
+              label: 'Weitere Prüfungen',
+              icon: Icons.more_outlined,
+            ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Drehfeldrichtung korrekt'),
@@ -914,6 +940,10 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
 
         // ── RCD-Prüfung (nur für RCD / FI-Typen) ───────────────────────────
         if (_isRcd) ...[
+          const _SektionsHeader(
+            label: 'RCD-Prüfung',
+            icon: Icons.gpp_good_outlined,
+          ),
           _SectionHeader('RCD-Prüfung'),
           const SizedBox(height: 8),
 
@@ -1180,6 +1210,34 @@ class _SectionHeader extends StatelessWidget {
             letterSpacing: 0.8,
             fontWeight: FontWeight.w700,
           ),
+    );
+  }
+}
+
+class _SektionsHeader extends StatelessWidget {
+  const _SektionsHeader({required this.label, required this.icon});
+  final String label;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 20, bottom: 8),
+      child: Row(children: [
+        Icon(icon, size: 14, color: AppColors.primary),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
+              ),
+        ),
+        const SizedBox(width: 8),
+        const Expanded(
+            child: Divider(color: AppColors.outlineVariant, height: 1)),
+      ]),
     );
   }
 }

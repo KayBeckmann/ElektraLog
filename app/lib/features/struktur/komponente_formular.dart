@@ -230,7 +230,21 @@ class _KomponenteFormularState
                     .toList(),
                 onChanged: (v) => _poleCtrl.text = v ?? '',
               ),
-              const SizedBox(height: 12),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Row(children: [
+                  Expanded(child: Divider(color: AppColors.outlineVariant)),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text(
+                      'Typ-Eigenschaften',
+                      style: TextStyle(
+                          fontSize: 11, color: AppColors.onSurfaceVariant),
+                    ),
+                  ),
+                  Expanded(child: Divider(color: AppColors.outlineVariant)),
+                ]),
+              ),
 
               // ── Charakteristik (LS / Vorsicherung) ───────────────────────
               if (showCharakteristik) ...[

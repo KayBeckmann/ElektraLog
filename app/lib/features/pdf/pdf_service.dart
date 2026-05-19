@@ -43,6 +43,7 @@ class PdfService {
     List<Geraet> geraete = const [],
     List<Messung> geraeteMessungen = const [],
     Uint8List? signaturPng,
+    String? bemerkung,
   }) async {
     final doc = pw.Document();
 
@@ -169,6 +170,18 @@ class PdfService {
                         _infoRow('Ort', ort, fontR, fontM),
                       if (pruefgeraet != null && pruefgeraet.isNotEmpty)
                         _infoRow('Prüfgerät', pruefgeraet, fontR, fontM),
+                      if (bemerkung != null && bemerkung.isNotEmpty)
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.only(top: 8),
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('Bemerkung', style: pw.TextStyle(font: fontB, fontSize: 8, color: PdfColors.grey700)),
+                              pw.SizedBox(height: 2),
+                              pw.Text(bemerkung, style: pw.TextStyle(font: fontR, fontSize: 9)),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),

@@ -17,6 +17,7 @@ class PdfOptions {
     this.pruefgeraet,
     required this.datumOrt,
     this.signaturPng,
+    this.bemerkung,
   });
 
   final String prueferName;
@@ -24,6 +25,7 @@ class PdfOptions {
   final String? pruefgeraet;
   final String datumOrt;
   final Uint8List? signaturPng;
+  final String? bemerkung;
 }
 
 // ── Bottom-Sheet ──────────────────────────────────────────────────────────────
@@ -58,6 +60,7 @@ class _PdfOptionsSheetState extends ConsumerState<PdfOptionsSheet> {
   final _firmaCtrl = TextEditingController();
   final _pruefgeraetCtrl = TextEditingController();
   final _datumOrtCtrl = TextEditingController();
+  final _bemerkungCtrl = TextEditingController();
   final _signatureKey = GlobalKey();
   final List<Offset?> _points = [];
   bool _isGenerating = false;
@@ -92,6 +95,7 @@ class _PdfOptionsSheetState extends ConsumerState<PdfOptionsSheet> {
     _firmaCtrl.dispose();
     _pruefgeraetCtrl.dispose();
     _datumOrtCtrl.dispose();
+    _bemerkungCtrl.dispose();
     super.dispose();
   }
 
@@ -180,6 +184,17 @@ class _PdfOptionsSheetState extends ConsumerState<PdfOptionsSheet> {
                 hintText: 'z.B. Metrel MI 3152 / Fluke 1664 FC',
                 prefixIcon: Icon(Icons.device_hub_outlined, size: 18),
               ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _bemerkungCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Bemerkung (optional)',
+                prefixIcon: Icon(Icons.notes_outlined, size: 18),
+              ),
+              maxLines: 3,
+              minLines: 1,
+              textCapitalization: TextCapitalization.sentences,
             ),
             const SizedBox(height: 16),
 
@@ -288,6 +303,9 @@ class _PdfOptionsSheetState extends ConsumerState<PdfOptionsSheet> {
                 : _pruefgeraetCtrl.text.trim(),
             datumOrt: _datumOrtCtrl.text.trim(),
             signaturPng: sigPng,
+            bemerkung: _bemerkungCtrl.text.trim().isEmpty
+                ? null
+                : _bemerkungCtrl.text.trim(),
           ),
         );
       }

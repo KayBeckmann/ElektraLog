@@ -434,19 +434,19 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 
 ### M6.1 — Bemerkungsfelder
 
-- ⏳ Bemerkungsfeld auf Protokoll-Deckblatt (Freitext-Textarea im PdfOptionsSheet, ausgegeben auf Seite 1)
-- ⏳ Bemerkungsfeld in Verteiler-Übersicht (Sembast-Modell + Formular + Detailansicht)
-- ⏳ Bemerkung nachträglich an Messung ergänzen (Edit-Icon in Messungen-Verlauf, nur Bemerkungsfeld änderbar)
+- ✅ Bemerkungsfeld auf Protokoll-Deckblatt (Textarea im PdfOptionsSheet → Seite 1 PDF)
+- ✅ Bemerkung in Verteiler-Detailansicht (_BemerkungsKarte, wenn Feld befüllt)
+- ✅ Bemerkung nachträglich an Messung ergänzen (edit_note-Icon → _BemerkungEditSheet)
 
 ### M6.2 — Eingabemaske-UX
 
-- ⏳ Sektions-Header mit Trennlinie in Messformularen (Schutzleiter / Isolation / RCD-Prüfung)
-- ⏳ Sektions-Trennlinie im Komponenten-Formular (Allgemein / Typ-Eigenschaften)
+- ✅ Sektions-Header in Messformularen (_SektionsHeader: Icon + Label + Divider)
+- ✅ Sektions-Trennlinie im Komponenten-Formular (Allgemein / Typ-Eigenschaften)
 
 ### M6.3 — Workflow-Verbesserungen
 
-- ⏳ Prüfungen editierbar solange kein Protokoll erstellt (Bearbeiten-Icon + Confirmation-Dialog)
-- ⏳ Reihenfolge der Komponenten per Up/Down-Buttons (gleiche Ebene tauschen)
+- ✅ Prüfungen editierbar solange kein Protokoll erstellt (open_in_new + ConfirmDialog)
+- ✅ Reihenfolge per Up/Down-Buttons im Komponenten-PopupMenu (Position-Tausch)
 
 ---
 
@@ -487,6 +487,6 @@ Implementierte Phasen: 0–5 vollständig, Phase 6 (UX-Backlog) in Planung
 | CI/CD (GitHub Actions) | ✅ Aktiv |
 | Einstellungen (Prüfer/Firma/Gerät persistent) | ✅ Produktiv |
 | Sichtprüfung jederzeit öffenbar | ✅ Produktiv |
-| Bemerkungsfelder & Workflow-UX | ⏳ Phase 6.1–6.3 |
+| Bemerkungsfelder & Workflow-UX | ✅ Produktiv |
 | Individuelle Templates | ⏳ braucht Designentscheidung |
 | Stripe-Monetarisierung | ⏳ braucht Stripe-Account |
