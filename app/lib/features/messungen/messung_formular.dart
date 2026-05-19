@@ -202,7 +202,6 @@ class _LimitField extends StatelessWidget {
     required this.unit,
     required this.limitHint,
     this.onChanged,
-    this.initialValue,
   });
 
   final TextEditingController controller;
@@ -210,13 +209,9 @@ class _LimitField extends StatelessWidget {
   final String unit;
   final String limitHint;
   final void Function(String)? onChanged;
-  final String? initialValue;
 
   @override
   Widget build(BuildContext context) {
-    if (initialValue != null && controller.text.isEmpty) {
-      controller.text = initialValue!;
-    }
     return TextFormField(
       controller: controller,
       decoration: InputDecoration(

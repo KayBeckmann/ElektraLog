@@ -15,6 +15,7 @@ import '../features/signatur/signatur_screen.dart';
 import '../features/auth/auth_screen.dart';
 import '../features/import/csv_import_screen.dart';
 import '../features/qr/qr_screen.dart';
+import '../features/einstellungen/einstellungen_screen.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 part 'router.g.dart';
@@ -37,6 +38,7 @@ abstract final class AppRoutes {
   static const String auth = '/auth';
   static const String csvImport = '/import';
   static const String qr = '/qr/:komponenteUuid';
+  static const String einstellungen = '/einstellungen';
 }
 
 @riverpod
@@ -148,6 +150,12 @@ GoRouter router(Ref ref) {
             path: AppRoutes.faelligkeit,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: FaelligkeitScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.einstellungen,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: EinstellungenScreen(),
             ),
           ),
         ],

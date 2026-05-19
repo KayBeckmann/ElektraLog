@@ -170,6 +170,13 @@ class _DesktopDrawer extends ConsumerWidget {
                       ),
                     ),
 
+                    // ── Einstellungen ──────────────────────────────
+                    _DrawerActionItem(
+                      icon: Icons.settings_outlined,
+                      label: 'Einstellungen',
+                      onTap: () => context.go(AppRoutes.einstellungen),
+                    ),
+
                     // ── Import ───────────────────────────────────────
                     _DrawerActionItem(
                       icon: Icons.upload_file_outlined,
@@ -403,9 +410,49 @@ class _MobileShell extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: child,
-      bottomNavigationBar: _MobileBottomNav(
-        selectedIndex: selectedIndex,
-        onItemSelected: (index) => context.go(_navItems[index].route),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Solo-Modus: "Mit Konto verbinden"-Banner ───────────────
+          Consumer(
+            builder: (context, ref, _) {
+              final modusAsync = ref.watch(appModusProvider);
+              final isSolo =
+                  modusAsync.valueOrNull == AppModus.solo;
+              if (!isSolo) return const SizedBox.shrink();
+              return GestureDetector(
+                onTap: () => context.go(AppRoutes.auth),
+                child: Container(
+                  height: 36,
+                  color: AppColors.surfaceContainerHigh,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.cloud_outlined,
+                        size: 16,
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Mit Konto verbinden',
+                        style:
+                            Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppColors.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          _MobileBottomNav(
+            selectedIndex: selectedIndex,
+            onItemSelected: (index) => context.go(_navItems[index].route),
+          ),
+        ],
       ),
     );
   }

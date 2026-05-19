@@ -689,6 +689,7 @@ class PdfService {
     }
 
     return pw.Table(
+      tableWidth: pw.TableWidth.max,
       border: pw.TableBorder.all(color: grey, width: 0.5),
       columnWidths: {
         0: const pw.FlexColumnWidth(3),
@@ -881,6 +882,7 @@ class PdfService {
           // Messwert-Tabelle
           if (rows.isNotEmpty)
             pw.Table(
+              tableWidth: pw.TableWidth.max,
               border: pw.TableBorder(
                 bottom: pw.BorderSide(color: grey, width: 0.5),
                 left: pw.BorderSide(color: grey, width: 0.5),
@@ -1080,14 +1082,14 @@ class PdfService {
               'Ik L-PE$suffix',
               '${_fmt(ik)} A',
               minLabel,
-              ik is num && minIk is num ? ik >= (minIk as num) : null,
+              ik is num && minIk is num ? ik >= minIk : null,
             ));
           }
         } else {
           final zs = ph['schleifenimpedanz_l_pe_ohm'] ?? ph['schleifenimpedanz_ohm'];
           if (zs != null) {
-            final maxZs = (minIk is num && (minIk as num) > 0)
-                ? 230.0 / (minIk as num)
+            final maxZs = (minIk is num && minIk > 0)
+                ? 230.0 / minIk
                 : null;
             rows.add(_MwRow(
               'Zs L-PE$suffix',
@@ -1155,10 +1157,10 @@ class PdfService {
           _MwRow('Nenn-I∆n', '${_fmt(nennDiff)} mA', '—', null));
 
     if (gemDiff != null) {
-      final minMa = nennDiff is num ? (nennDiff as num) * 0.5 : null;
+      final minMa = nennDiff is num ? nennDiff * 0.5 : null;
       final maxMa = nennDiff is num ? nennDiff : null;
       final ok = (minMa != null && maxMa != null && gemDiff is num)
-          ? gemDiff >= minMa && gemDiff <= (maxMa as num)
+          ? gemDiff >= minMa && gemDiff <= maxMa
           : null;
       final limitStr = minMa != null
           ? '${_fmt(minMa)}–${_fmt(nennDiff)} mA (50–100 % I∆n)'

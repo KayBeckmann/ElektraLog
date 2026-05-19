@@ -2,7 +2,9 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/providers/einstellungen_provider.dart';
 import '../../shared/theme/app_colors.dart';
 import '../signatur/signature_pad.dart';
 
@@ -26,7 +28,7 @@ class PdfOptions {
 
 // ── Bottom-Sheet ──────────────────────────────────────────────────────────────
 
-class PdfOptionsSheet extends StatefulWidget {
+class PdfOptionsSheet extends ConsumerStatefulWidget {
   const PdfOptionsSheet({super.key, required this.titel});
 
   final String titel;
@@ -48,10 +50,10 @@ class PdfOptionsSheet extends StatefulWidget {
       );
 
   @override
-  State<PdfOptionsSheet> createState() => _PdfOptionsSheetState();
+  ConsumerState<PdfOptionsSheet> createState() => _PdfOptionsSheetState();
 }
 
-class _PdfOptionsSheetState extends State<PdfOptionsSheet> {
+class _PdfOptionsSheetState extends ConsumerState<PdfOptionsSheet> {
   final _prueferCtrl = TextEditingController();
   final _firmaCtrl = TextEditingController();
   final _pruefgeraetCtrl = TextEditingController();
@@ -66,6 +68,22 @@ class _PdfOptionsSheetState extends State<PdfOptionsSheet> {
     final now = DateTime.now();
     _datumOrtCtrl.text =
         '${now.day.toString().padLeft(2, '0')}.${now.month.toString().padLeft(2, '0')}.${now.year}';
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final einstellungen = ref.read(einstellungenProvider).valueOrNull;
+      if (einstellungen == null) return;
+      if (_prueferCtrl.text.isEmpty &&
+          (einstellungen.prueferName?.isNotEmpty ?? false)) {
+        _prueferCtrl.text = einstellungen.prueferName!;
+      }
+      if (_firmaCtrl.text.isEmpty &&
+          (einstellungen.firma?.isNotEmpty ?? false)) {
+        _firmaCtrl.text = einstellungen.firma!;
+      }
+      if (_pruefgeraetCtrl.text.isEmpty &&
+          (einstellungen.pruefgeraet?.isNotEmpty ?? false)) {
+        _pruefgeraetCtrl.text = einstellungen.pruefgeraet!;
+      }
+    });
   }
 
   @override

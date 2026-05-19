@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -183,6 +182,17 @@ class _VerteilerDetailScreenState
                   _PruefverlaufKarte(
                     verteilerUuid: widget.verteilerUuid,
                     pruefintervallJahre: verteiler?.pruefintervallJahre ?? 4,
+                  ),
+                  const SizedBox(height: 16),
+                  // ── Sichtprüfung-Karte ────────────────────────────────
+                  _SichtpruefungKarte(
+                    verteilerUuid: widget.verteilerUuid,
+                    verteilerBezeichnung:
+                        verteiler?.bezeichnung ?? 'Verteiler',
+                    kundeUuid: widget.kundeUuid,
+                    standortUuid: widget.standortUuid,
+                    sichtpruefungenAsync: sichtpruefungenAsync,
+                    hatGueltigeSichtpruefung: hatGueltigeSichtpruefung,
                   ),
                   const SizedBox(height: 16),
                   KomponentenBaumWidget(
@@ -474,6 +484,107 @@ class _SichtpruefungLockBanner extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ── Sichtprüfung-Karte ────────────────────────────────────────────────────────
+
+class _SichtpruefungKarte extends StatelessWidget {
+  const _SichtpruefungKarte({
+    required this.verteilerUuid,
+    required this.verteilerBezeichnung,
+    required this.kundeUuid,
+    required this.standortUuid,
+    required this.sichtpruefungenAsync,
+    required this.hatGueltigeSichtpruefung,
+  });
+
+  final String verteilerUuid;
+  final String verteilerBezeichnung;
+  final String kundeUuid;
+  final String standortUuid;
+  final AsyncValue<List<Sichtpruefung>> sichtpruefungenAsync;
+  final bool hatGueltigeSichtpruefung;
+
+  String _fmt(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final sichtpruefungen = sichtpruefungenAsync.valueOrNull ?? [];
+    final latest = sichtpruefungen.isEmpty ? null : sichtpruefungen.first;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Sektions-Header ──────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Row(
+            children: [
+              Container(
+                width: 3,
+                height: 14,
+                color: AppColors.primary,
+                margin: const EdgeInsets.only(right: 6),
+              ),
+              Text(
+                'SICHTPRÜFUNG',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                    ),
+              ),
+            ],
+          ),
+        ),
+
+        // ── Letztes Ergebnis (wenn gültige SP vorhanden) ─────────────
+        if (hatGueltigeSichtpruefung && latest != null) ...[
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppColors.successContainer,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.success),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.check_circle_outline,
+                    size: 16, color: AppColors.success),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Bestanden am ${_fmt(latest.pruefungDatum)}'
+                    '${latest.prueferName != null ? " · ${latest.prueferName}" : ""}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.success,
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+
+        // ── Neue Sichtprüfung starten ──────────────────────────────
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => context.go(
+              '/kunden/$kundeUuid/standort/$standortUuid'
+              '/verteiler/$verteilerUuid/sichtpruefung'
+              '?bezeichnung=${Uri.encodeComponent(verteilerBezeichnung)}',
+            ),
+            icon: const Icon(Icons.search_outlined, size: 18),
+            label: const Text('Neue Sichtprüfung starten'),
+          ),
+        ),
+      ],
     );
   }
 }
