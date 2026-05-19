@@ -428,6 +428,28 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 
 ---
 
+## Phase 6 — UX-Verbesserungen (Backlog)
+
+> Ziel: Alle rein technischen UX-Verbesserungen ohne externe Abhängigkeiten.
+
+### M6.1 — Bemerkungsfelder
+
+- ⏳ Bemerkungsfeld auf Protokoll-Deckblatt (Freitext-Textarea im PdfOptionsSheet, ausgegeben auf Seite 1)
+- ⏳ Bemerkungsfeld in Verteiler-Übersicht (Sembast-Modell + Formular + Detailansicht)
+- ⏳ Bemerkung nachträglich an Messung ergänzen (Edit-Icon in Messungen-Verlauf, nur Bemerkungsfeld änderbar)
+
+### M6.2 — Eingabemaske-UX
+
+- ⏳ Sektions-Header mit Trennlinie in Messformularen (Schutzleiter / Isolation / RCD-Prüfung)
+- ⏳ Sektions-Trennlinie im Komponenten-Formular (Allgemein / Typ-Eigenschaften)
+
+### M6.3 — Workflow-Verbesserungen
+
+- ⏳ Prüfungen editierbar solange kein Protokoll erstellt (Bearbeiten-Icon + Confirmation-Dialog)
+- ⏳ Reihenfolge der Komponenten per Up/Down-Buttons (gleiche Ebene tauschen)
+
+---
+
 ## Nicht geplant (bewusst ausgeschlossen)
 
 - Native iOS-App (kein Apple-Entwicklerkonto im Scope)
@@ -441,7 +463,7 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 
 **Stand: Mai 2026**
 
-Implementierte Phasen: 0, 1, 2, 3, 4, 5 (Kernfeatures)
+Implementierte Phasen: 0–5 vollständig, Phase 6 (UX-Backlog) in Planung
 
 | Feature | Status |
 |---------|--------|
@@ -463,5 +485,8 @@ Implementierte Phasen: 0, 1, 2, 3, 4, 5 (Kernfeatures)
 | Projekt-Homepage | ✅ Produktiv |
 | Wiki.js Dokumentation | ✅ Konfiguriert |
 | CI/CD (GitHub Actions) | ✅ Aktiv |
-| Individuelle Templates | ⏳ Phase 4.4 |
-| Stripe-Monetarisierung | ⏳ Phase 5.4 |
+| Einstellungen (Prüfer/Firma/Gerät persistent) | ✅ Produktiv |
+| Sichtprüfung jederzeit öffenbar | ✅ Produktiv |
+| Bemerkungsfelder & Workflow-UX | ⏳ Phase 6.1–6.3 |
+| Individuelle Templates | ⏳ braucht Designentscheidung |
+| Stripe-Monetarisierung | ⏳ braucht Stripe-Account |
