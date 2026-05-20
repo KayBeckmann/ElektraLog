@@ -183,11 +183,12 @@ class _VerteilerDetailScreenState
                   ),
                   const SizedBox(height: 16),
                   // ── Bemerkung ─────────────────────────────────────────
-                  if (verteiler?.bemerkung != null &&
-                      verteiler!.bemerkung!.isNotEmpty) ...[
-                    _BemerkungsKarte(text: verteiler.bemerkung!),
-                    const SizedBox(height: 16),
-                  ],
+                  _BemerkungsKarte(
+                    text: verteiler?.bemerkung,
+                    onEdit: () => _showBemerkungEditSheet(
+                        context, verteiler?.bemerkung),
+                  ),
+                  const SizedBox(height: 16),
                   // ── Sichtprüfung-Karte ────────────────────────────────
                   _SichtpruefungKarte(
                     verteilerUuid: widget.verteilerUuid,
@@ -254,7 +255,9 @@ class _VerteilerDetailScreenState
         komponenten: kompList,
         messungen: messungen,
         signaturPng: opts.signaturPng,
-        bemerkung: opts.bemerkung,
+        bemerkung: verteiler.bemerkung?.isNotEmpty == true
+            ? verteiler.bemerkung
+            : null,
       );
 
       // Messdaten-Snapshot einfrieren
@@ -363,6 +366,81 @@ class _VerteilerDetailScreenState
               'maengel': latestSichtpruefung.maengel,
             },
     });
+  }
+
+  Future<void> _showBemerkungEditSheet(
+      BuildContext context, String? current) async {
+    final ctrl = TextEditingController(text: current ?? '');
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 20,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text('Bemerkung',
+                    style: Theme.of(ctx).textTheme.titleLarge),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              decoration: const InputDecoration(
+                hintText:
+                    'Anmerkungen zum Verteiler — erscheinen auf Seite 1 des Protokolls',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 5,
+              minLines: 3,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  final trimmed = ctrl.text.trim();
+                  final verteilerList = await ref.read(
+                      verteilerByStandortProvider(widget.standortUuid).future);
+                  final v = verteilerList
+                      .where((x) => x.uuid == widget.verteilerUuid)
+                      .firstOrNull;
+                  if (v == null) return;
+                  await ref
+                      .read(verteilerRepositoryProvider)
+                      .save(v.copyWith(
+                        bemerkung: trimmed.isEmpty ? null : trimmed,
+                      ));
+                  if (ctx.mounted) Navigator.pop(ctx);
+                },
+                child: const Text('Speichern'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    ctrl.dispose();
   }
 
   Future<void> _showKomponenteFormular(
@@ -969,32 +1047,59 @@ class _SnapshotKomponenteRow extends StatelessWidget {
 }
 
 class _BemerkungsKarte extends StatelessWidget {
-  const _BemerkungsKarte({required this.text});
-  final String text;
+  const _BemerkungsKarte({required this.text, required this.onEdit});
+  final String? text;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Bemerkung',
-            style: Theme.of(context)
-                .textTheme
-                .labelSmall
-                ?.copyWith(color: AppColors.onSurfaceVariant),
-          ),
-          const SizedBox(height: 4),
-          Text(text, style: Theme.of(context).textTheme.bodySmall),
-        ],
+    final isEmpty = text == null || text!.isEmpty;
+    return GestureDetector(
+      onTap: onEdit,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(12, 10, 8, 12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.outlineVariant),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bemerkung',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.onSurfaceVariant,
+                          letterSpacing: 0.5,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  isEmpty
+                      ? Text(
+                          'Keine Anmerkung — tippen zum Hinzufügen',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppColors.outlineVariant,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                        )
+                      : Text(text!,
+                          style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
+            ),
+            Icon(
+              isEmpty ? Icons.add_outlined : Icons.edit_outlined,
+              size: 16,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ],
+        ),
       ),
     );
   }
