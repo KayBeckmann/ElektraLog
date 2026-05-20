@@ -168,12 +168,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(
-                          Icons.electric_bolt,
-                          color: AppColors.primary,
-                          size: 32,
+                        Image.asset(
+                          'assets/images/logo_64.png',
+                          width: 36,
+                          height: 36,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         Text(
                           'ElektraLog',
                           style: Theme.of(context)

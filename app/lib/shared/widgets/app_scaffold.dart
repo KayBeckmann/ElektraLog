@@ -124,13 +124,22 @@ class _DesktopDrawer extends ConsumerWidget {
                   bottom: BorderSide(color: AppColors.outlineVariant),
                 ),
               ),
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'ElektraLog',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w700,
-                    ),
+              child: Row(
+                children: [
+                  Image.asset(
+                    'assets/images/logo_64.png',
+                    width: 36,
+                    height: 36,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'ElektraLog',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                ],
               ),
             ),
 
