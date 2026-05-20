@@ -461,14 +461,14 @@ class PdfService {
 
               if (kMessungen.isEmpty) {
                 return [
-                  pw.KeepTogether(children: [header]),
+                  pw.Column(children: [header]),
                   pw.SizedBox(height: 12),
                 ];
               }
 
               // Header + erste Messung zusammen halten
               final result = <pw.Widget>[
-                pw.KeepTogether(children: [
+                pw.Column(children: [
                   header,
                   _messungBlock(
                     kMessungen.first,
@@ -480,7 +480,7 @@ class PdfService {
 
               // Weitere Messungen: jeweils mit Mini-Header (Komponente als Kontext)
               for (final m in kMessungen.skip(1)) {
-                result.add(pw.KeepTogether(children: [
+                result.add(pw.Column(children: [
                   _komponenteFortsContinuedHeader(
                       entry.komponente, fontR, fontB),
                   _messungBlock(

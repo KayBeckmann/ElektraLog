@@ -21,7 +21,7 @@ enum ChecklistePunkt {
   zustandGehaeuse,
   verteilerAbschliessbar,
   // Erweiterte Sichtprüfung (VDE 0100-600)
-  schutzGegeDirektBerühren,
+  schutzGegeDirektBeruehren,
   kennzeichnungNPE,
   leiterverbindungen,
   schutzUeberwachungseinrichtungen,
@@ -49,7 +49,7 @@ extension ChecklistePunktLabel on ChecklistePunkt {
         return 'Zustand des Gehäuses / Schranks';
       case ChecklistePunkt.verteilerAbschliessbar:
         return 'Verteiler abschließbar / abgeschlossen';
-      case ChecklistePunkt.schutzGegeDirektBerühren:
+      case ChecklistePunkt.schutzGegeDirektBeruehren:
         return 'Schutz gegen direktes Berühren';
       case ChecklistePunkt.kennzeichnungNPE:
         return 'Kennzeichnung N- und PE-Leiter';

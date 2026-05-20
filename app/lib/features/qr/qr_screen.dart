@@ -158,7 +158,7 @@ class _QrScreenBody extends ConsumerWidget {
       uuid: uuid,
       verteilerUuid: '',
       typ: 'sonstige',
-      bezeichnung: uuid.substring(0, 8),
+      zielbezeichnung: uuid.substring(0, 8),
     );
     try {
       final bytes = await PdfService.generateEtiketten([komponente]);
@@ -182,7 +182,7 @@ class _QrScreenBody extends ConsumerWidget {
       uuid: komponenteUuid,
       verteilerUuid: '',
       typ: 'sonstige',
-      bezeichnung: 'Komponente',
+      zielbezeichnung: 'Komponente',
     );
     try {
       final bytes =

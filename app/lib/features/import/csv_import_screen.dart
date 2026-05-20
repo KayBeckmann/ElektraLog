@@ -502,7 +502,7 @@ class _KomponentenImportTabState
       final k = VerteilerKomponente(
         verteilerUuid: row[0].toString().trim(),
         typ: row[1].toString().trim().toLowerCase(),
-        bezeichnung: row[2].toString().trim(),
+        zielbezeichnung: row[2].toString().trim(),
         eigenschaftenJson:
             eigenschaften.isEmpty ? null : _jsonEncode(eigenschaften),
       );
