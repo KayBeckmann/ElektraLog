@@ -10,16 +10,31 @@ import '../../core/models/sichtpruefung.dart';
 import '../../core/models/verteiler.dart';
 import '../../core/models/verteiler_komponente.dart';
 
-// Beschriftungen der Sichtprüfungs-Checkpunkte (Schlüssel = ChecklistePunkt.key)
-const _punktLabels = {
-  'kennzeichnungVorhanden': 'Kennzeichnung vorhanden',
-  'schutzleiterAngeschlossen': 'Schutzleiter korrekt angeschlossen',
-  'leitungenOrdnungsgemaess': 'Leitungen ordnungsgemäß verlegt',
-  'schutzeinrichtungenVorhanden': 'Schutzeinrichtungen vorhanden und korrekt',
-  'brandschutzabdichtung': 'Brandschutzabdichtungen vorhanden',
-  'beschriftungAbgaenge': 'Beschriftung der Abgänge vollständig',
-  'zustandGehaeuse': 'Zustand des Gehäuses / Schranks',
-  'verteilerAbschliessbar': 'Verteiler abschließbar / abgeschlossen',
+// Sichtprüfung Checkpunkte
+const _sichtpruefungLabels = <String, String>{
+  'kennzeichnungVorhanden':          'Kennzeichnung vorhanden',
+  'schutzleiterAngeschlossen':       'Schutzleiter korrekt angeschlossen',
+  'leitungenOrdnungsgemaess':        'Leitungen ordnungsgemäß verlegt',
+  'schutzeinrichtungenVorhanden':    'Schutzeinrichtungen vorhanden und korrekt',
+  'brandschutzabdichtung':           'Brandschutzabdichtungen vorhanden',
+  'beschriftungAbgaenge':            'Beschriftung der Abgänge vollständig',
+  'zustandGehaeuse':                 'Zustand des Gehäuses / Schranks',
+  'verteilerAbschliessbar':          'Verteiler abschließbar / abgeschlossen',
+  'schutzGegeDirektBerühren':        'Schutz gegen direktes Berühren',
+  'kennzeichnungNPE':                'Kennzeichnung N- und PE-Leiter',
+  'leiterverbindungen':              'Leiterverbindungen',
+  'schutzUeberwachungseinrichtungen':'Schutz- und Überwachungseinrichtungen',
+  'zugaenglichkeit':                 'Zugänglichkeit',
+  'ueberspannungsschutz':            'Überspannungsschutz',
+  'dokumentation':                   'Dokumentation / Stromlaufplan / Legende',
+};
+
+// Erprobung Checkpunkte
+const _erprobungLabels = <String, String>{
+  'funktionspruefungAnlage': 'Funktionsprüfung der Anlage',
+  'rcdErprobung':            'RCD (FI-Schutzschalter)',
+  'spannungsfall':           'Überprüfung Spannungsfall',
+  'spannungspolaritaet':     'Spannungspolarität',
 };
 
 class PdfService {
@@ -31,6 +46,9 @@ class PdfService {
   static Future<Uint8List> generateProtokoll({
     required String prueferName,
     String? firma,
+    String? firmaStrasse,
+    String? firmaPlz,
+    String? firmaOrt,
     String? pruefgeraet,
     required String datumOrt,
     String? kundenName,
@@ -161,6 +179,19 @@ class PdfService {
                       pw.SizedBox(height: 6),
                       if (firma != null && firma.isNotEmpty)
                         _infoRow('Firma', firma, fontR, fontM),
+                      if (firmaStrasse != null && firmaStrasse.isNotEmpty)
+                        _infoRow('Straße', firmaStrasse, fontR, fontM),
+                      if ((firmaPlz?.isNotEmpty == true) ||
+                          (firmaOrt?.isNotEmpty == true))
+                        _infoRow(
+                          'PLZ / Ort',
+                          [
+                            if (firmaPlz?.isNotEmpty == true) firmaPlz!,
+                            if (firmaOrt?.isNotEmpty == true) firmaOrt!,
+                          ].join(' '),
+                          fontR,
+                          fontM,
+                        ),
                       _infoRow('Prüfer', prueferName, fontR, fontM),
                       _infoRow('Datum', datum, fontR, fontM),
                       if (ort.isNotEmpty)
@@ -307,6 +338,36 @@ class PdfService {
                 ),
               ),
             ],
+            if (latestSichtpruefung.naechstePruefungDatum != null) ...[
+              pw.SizedBox(height: 6),
+              pw.Container(
+                width: double.infinity,
+                padding: const pw.EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 6),
+                decoration: pw.BoxDecoration(
+                  color: PdfColor.fromHex('#EAF4FB'),
+                  borderRadius: pw.BorderRadius.circular(4),
+                  border: pw.Border.all(
+                      color: PdfColor.fromHex('#1565C0'), width: 0.5),
+                ),
+                child: pw.Row(
+                  children: [
+                    pw.Text('Nächste Prüfung: ',
+                        style: pw.TextStyle(
+                            font: fontB,
+                            fontSize: 9,
+                            color: PdfColor.fromHex('#1565C0'))),
+                    pw.Text(
+                      _formatDatum(latestSichtpruefung.naechstePruefungDatum!),
+                      style: pw.TextStyle(
+                          font: fontM,
+                          fontSize: 9,
+                          color: PdfColor.fromHex('#1565C0')),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ] else
             pw.Text('Keine Sichtprüfung erfasst.',
                 style: pw.TextStyle(
@@ -393,14 +454,43 @@ class PdfService {
             ...komponentenMitMessungen.expand((entry) {
               final kMessungen =
                   messungenByKomponente[entry.komponente.uuid] ?? [];
-              return [
-                _komponenteMitMesswerten(
-                  entry.komponente, kMessungen, entry.depth,
-                  primary, surface, success, successBg,
-                  error, errorBg, greyLight, fontR, fontB, fontM,
-                ),
-                pw.SizedBox(height: 12),
+              final header = _komponenteHeader(
+                entry.komponente, entry.depth,
+                primary, surface, fontR, fontB,
+              );
+
+              if (kMessungen.isEmpty) {
+                return [
+                  pw.KeepTogether(children: [header]),
+                  pw.SizedBox(height: 12),
+                ];
+              }
+
+              // Header + erste Messung zusammen halten
+              final result = <pw.Widget>[
+                pw.KeepTogether(children: [
+                  header,
+                  _messungBlock(
+                    kMessungen.first,
+                    success, successBg, error, errorBg,
+                    greyLight, surface, fontR, fontB, fontM,
+                  ),
+                ]),
               ];
+
+              // Weitere Messungen: jeweils mit Mini-Header (Komponente als Kontext)
+              for (final m in kMessungen.skip(1)) {
+                result.add(pw.KeepTogether(children: [
+                  _komponenteFortsContinuedHeader(
+                      entry.komponente, fontR, fontB),
+                  _messungBlock(
+                    m, success, successBg, error, errorBg,
+                    greyLight, surface, fontR, fontB, fontM,
+                  ),
+                ]));
+              }
+              result.add(pw.SizedBox(height: 12));
+              return result;
             }),
           ],
         ],
@@ -585,12 +675,45 @@ class PdfService {
     Map<String, dynamic> checkliste = {};
     if (sp.checklisteJson != null) {
       try {
-        checkliste =
-            jsonDecode(sp.checklisteJson!) as Map<String, dynamic>;
+        checkliste = jsonDecode(sp.checklisteJson!) as Map<String, dynamic>;
       } catch (_) {}
     }
 
-    // Header
+    pw.TableRow _buildRow(String key, String label, bool alt) {
+      final rawStatus = checkliste[key] as String? ?? 'nicht_zutreffend';
+      final status = _normalizePunktStatus(rawStatus);
+      return pw.TableRow(
+        decoration: alt
+            ? pw.BoxDecoration(color: PdfColor.fromHex('#F5F3F4'))
+            : null,
+        children: [
+          _td(label, fontR),
+          pw.Padding(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: pw.Center(
+              child: _punktStatusBadge(status, success, error, fontB, fontM),
+            ),
+          ),
+        ],
+      );
+    }
+
+    pw.TableRow _sectionHeaderRow(String title) => pw.TableRow(
+      decoration: pw.BoxDecoration(color: PdfColor.fromHex('#1A2B45')),
+      children: [
+        pw.Padding(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: pw.Text(
+            title,
+            style: pw.TextStyle(
+                font: fontB, fontSize: 8,
+                color: PdfColors.white, letterSpacing: 0.5),
+          ),
+        ),
+        pw.SizedBox(),
+      ],
+    );
+
     final rows = <pw.TableRow>[
       pw.TableRow(
         decoration: pw.BoxDecoration(color: surface),
@@ -599,27 +722,19 @@ class PdfService {
           _th('Ergebnis', fontB, align: pw.TextAlign.center),
         ],
       ),
+      _sectionHeaderRow('SICHTPRÜFUNG'),
     ];
 
     bool alt = false;
-    for (final entry in _punktLabels.entries) {
-      final rawStatus = checkliste[entry.key] as String? ?? 'nicht_zutreffend';
-      final status = _normalizePunktStatus(rawStatus);
-      rows.add(pw.TableRow(
-        decoration: alt
-            ? pw.BoxDecoration(color: PdfColor.fromHex('#F5F3F4'))
-            : null,
-        children: [
-          _td(entry.value, fontR),
-          pw.Padding(
-            padding:
-                const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            child: pw.Center(
-              child: _punktStatusBadge(status, success, error, fontB, fontM),
-            ),
-          ),
-        ],
-      ));
+    for (final entry in _sichtpruefungLabels.entries) {
+      rows.add(_buildRow(entry.key, entry.value, alt));
+      alt = !alt;
+    }
+
+    rows.add(_sectionHeaderRow('ERPROBUNG'));
+    alt = false;
+    for (final entry in _erprobungLabels.entries) {
+      rows.add(_buildRow(entry.key, entry.value, alt));
       alt = !alt;
     }
 
@@ -634,37 +749,25 @@ class PdfService {
     );
   }
 
-  // ── Komponente + Messwert-Tabellen ────────────────────────────────────────
+  // ── Komponenten-Header ────────────────────────────────────────────────────
 
-  static pw.Widget _komponenteMitMesswerten(
+  static pw.Widget _komponenteHeader(
     VerteilerKomponente k,
-    List<Messung> kMessungen,
     int depth,
     PdfColor primary,
     PdfColor surface,
-    PdfColor success,
-    PdfColor successBg,
-    PdfColor error,
-    PdfColor errorBg,
-    PdfColor grey,
     pw.Font fontR,
     pw.Font fontB,
-    pw.Font fontM,
   ) {
-    // Eigenschaften parsen
     Map<String, dynamic> props = {};
     if (k.eigenschaftenJson != null) {
       try {
         props = jsonDecode(k.eigenschaftenJson!) as Map<String, dynamic>;
       } catch (_) {}
     }
-
-    // Eigenschaften-Zusammenfassung
     final propParts = <String>[];
-    if (props['nennstrom'] != null)
-      propParts.add('${props["nennstrom"]} A');
-    if (props['pole'] != null)
-      propParts.add('${props["pole"]}-polig');
+    if (props['nennstrom'] != null)   propParts.add('${props["nennstrom"]} A');
+    if (props['pole'] != null)         propParts.add('${props["pole"]}-polig');
     if (props['charakteristik'] != null)
       propParts.add('Char. ${props["charakteristik"]}');
     if (props['auslösestrom'] != null)
@@ -672,7 +775,6 @@ class PdfService {
     if (props['sicherungGroesse'] != null)
       propParts.add(props['sicherungGroesse'].toString());
 
-    // Tiefe als linken Einzug + farbigen Balken darstellen
     final indentColor = depth == 0
         ? primary
         : depth == 1
@@ -680,75 +782,91 @@ class PdfService {
             : PdfColor.fromHex('#2E5C8A');
     final leftIndent = depth * 12.0;
 
+    final bmk = k.betriebsmittelkennzeichen.isNotEmpty
+        ? k.betriebsmittelkennzeichen
+        : null;
+
     return pw.Padding(
       padding: pw.EdgeInsets.only(left: leftIndent),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-        // Baum-Einzugs-Indikator
-        if (depth > 0)
+          if (depth > 0)
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              color: PdfColor.fromHex('#EEF2F7'),
+              child: pw.Text(
+                '${List.filled(depth, '  ').join()}↳ Unterkomponente (Ebene $depth)',
+                style: pw.TextStyle(
+                    font: fontR, fontSize: 7, color: PdfColors.grey600),
+              ),
+            ),
           pw.Container(
             width: double.infinity,
-            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            color: PdfColor.fromHex('#EEF2F7'),
-            child: pw.Text(
-              '${List.filled(depth, '  ').join()}↳ Unterkomponente (Ebene $depth)',
-              style: pw.TextStyle(
-                  font: fontR, fontSize: 7, color: PdfColors.grey600),
-            ),
-          ),
-        // Komponenten-Header
-        pw.Container(
-          width: double.infinity,
-          padding:
-              const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          color: indentColor,
-          child: pw.Row(
-            children: [
-              pw.Text(
-                _typLabel(k.typ).toUpperCase(),
-                style: pw.TextStyle(
-                    font: fontB, fontSize: 8,
-                    color: PdfColor.fromHex('#8590A6'),
-                    letterSpacing: 0.5),
-              ),
-              pw.SizedBox(width: 8),
-              pw.Text(
-                k.bezeichnung,
-                style: pw.TextStyle(
-                    font: fontB, fontSize: 11, color: PdfColors.white),
-              ),
-              if (k.position != 0) ...[
+            padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            color: indentColor,
+            child: pw.Row(
+              children: [
+                pw.Text(
+                  _typLabel(k.typ).toUpperCase(),
+                  style: pw.TextStyle(
+                      font: fontB, fontSize: 8,
+                      color: PdfColor.fromHex('#8590A6'),
+                      letterSpacing: 0.5),
+                ),
+                if (bmk != null) ...[
+                  pw.SizedBox(width: 6),
+                  pw.Text(
+                    bmk,
+                    style: pw.TextStyle(
+                        font: fontB, fontSize: 9,
+                        color: PdfColor.fromHex('#B0C4DE')),
+                  ),
+                ],
                 pw.SizedBox(width: 8),
                 pw.Text(
-                  'Pos. ${k.position}',
+                  k.zielbezeichnung.isNotEmpty
+                      ? k.zielbezeichnung
+                      : k.bezeichnung,
                   style: pw.TextStyle(
-                      font: fontR, fontSize: 8,
-                      color: PdfColor.fromHex('#8590A6')),
+                      font: fontB, fontSize: 11, color: PdfColors.white),
                 ),
               ],
-            ],
-          ),
-        ),
-        if (propParts.isNotEmpty)
-          pw.Container(
-            width: double.infinity,
-            padding:
-                const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            color: PdfColor.fromHex('#1E3A5F'),
-            child: pw.Text(
-              propParts.join('  ·  '),
-              style: pw.TextStyle(
-                  font: fontR, fontSize: 8,
-                  color: PdfColor.fromHex('#B0C4DE')),
             ),
           ),
+          if (propParts.isNotEmpty)
+            pw.Container(
+              width: double.infinity,
+              padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              color: PdfColor.fromHex('#1E3A5F'),
+              child: pw.Text(
+                propParts.join('  ·  '),
+                style: pw.TextStyle(
+                    font: fontR, fontSize: 8,
+                    color: PdfColor.fromHex('#B0C4DE')),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
-        // Messungen
-        ...kMessungen.map((m) => _messungBlock(
-            m, success, successBg, error, errorBg, grey, surface,
-            fontR, fontB, fontM)),
-      ],
+  /// Mini-Header für Folgemessungen derselben Komponente auf neuer Seite
+  static pw.Widget _komponenteFortsContinuedHeader(
+    VerteilerKomponente k,
+    pw.Font fontR,
+    pw.Font fontB,
+  ) {
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      color: PdfColor.fromHex('#EEF2F7'),
+      child: pw.Text(
+        '${_typLabel(k.typ).toUpperCase()}  ${k.bezeichnung}  (Fortsetzung)',
+        style: pw.TextStyle(
+            font: fontR, fontSize: 8, color: PdfColors.grey600,
+            fontStyle: pw.FontStyle.italic),
       ),
     );
   }

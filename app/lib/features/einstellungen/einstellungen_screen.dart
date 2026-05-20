@@ -16,8 +16,11 @@ class EinstellungenScreen extends ConsumerStatefulWidget {
 }
 
 class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
-  final _prueferCtrl = TextEditingController();
-  final _firmaCtrl = TextEditingController();
+  final _prueferCtrl   = TextEditingController();
+  final _firmaCtrl     = TextEditingController();
+  final _strasseCtrl   = TextEditingController();
+  final _plzCtrl       = TextEditingController();
+  final _ortCtrl       = TextEditingController();
   final _pruefgeraetCtrl = TextEditingController();
 
   bool _prefilled = false;
@@ -27,11 +30,14 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_prefilled) return;
-      final einstellungen = ref.read(einstellungenProvider).valueOrNull;
-      if (einstellungen == null) return;
-      _prueferCtrl.text = einstellungen.prueferName ?? '';
-      _firmaCtrl.text = einstellungen.firma ?? '';
-      _pruefgeraetCtrl.text = einstellungen.pruefgeraet ?? '';
+      final e = ref.read(einstellungenProvider).valueOrNull;
+      if (e == null) return;
+      _prueferCtrl.text    = e.prueferName   ?? '';
+      _firmaCtrl.text      = e.firma         ?? '';
+      _strasseCtrl.text    = e.firmaStrasse  ?? '';
+      _plzCtrl.text        = e.firmaPlz      ?? '';
+      _ortCtrl.text        = e.firmaOrt      ?? '';
+      _pruefgeraetCtrl.text = e.pruefgeraet  ?? '';
       _prefilled = true;
     });
   }
@@ -40,16 +46,22 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
   void dispose() {
     _prueferCtrl.dispose();
     _firmaCtrl.dispose();
+    _strasseCtrl.dispose();
+    _plzCtrl.dispose();
+    _ortCtrl.dispose();
     _pruefgeraetCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _onSave() async {
     await ref.read(einstellungenProvider.notifier).save(
-          _prueferCtrl.text.trim(),
-          _firmaCtrl.text.trim(),
-          _pruefgeraetCtrl.text.trim(),
-        );
+      prueferName:   _prueferCtrl.text.trim(),
+      firma:         _firmaCtrl.text.trim(),
+      firmaStrasse:  _strasseCtrl.text.trim(),
+      firmaPlz:      _plzCtrl.text.trim(),
+      firmaOrt:      _ortCtrl.text.trim(),
+      pruefgeraet:   _pruefgeraetCtrl.text.trim(),
+    );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Einstellungen gespeichert')),
@@ -129,6 +141,73 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
                 ),
               ),
               textCapitalization: TextCapitalization.words,
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _strasseCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Straße und Hausnummer',
+                hintText: 'Musterstraße 1',
+                prefixIcon: Icon(Icons.home_outlined, size: 18),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.outlineVariant),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primary),
+                ),
+                border: OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.outlineVariant),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                SizedBox(
+                  width: 110,
+                  child: TextField(
+                    controller: _plzCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'PLZ',
+                      hintText: '12345',
+                      enabledBorder: OutlineInputBorder(
+                        borderSide:
+                            BorderSide(color: AppColors.outlineVariant),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: AppColors.primary),
+                      ),
+                      border: OutlineInputBorder(
+                        borderSide:
+                            BorderSide(color: AppColors.outlineVariant),
+                      ),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _ortCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Ort',
+                      hintText: 'Musterstadt',
+                      enabledBorder: OutlineInputBorder(
+                        borderSide:
+                            BorderSide(color: AppColors.outlineVariant),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: AppColors.primary),
+                      ),
+                      border: OutlineInputBorder(
+                        borderSide:
+                            BorderSide(color: AppColors.outlineVariant),
+                      ),
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
 

@@ -6,13 +6,16 @@ class Sichtpruefung {
   final DateTime pruefungDatum;
   final String? prueferName;
 
-  /// Checkliste als JSON-String
+  /// Checkliste als JSON-String (Sichtprüfung + Erprobung in einem Objekt)
   final String? checklisteJson;
 
   final String? maengel;
 
   /// 'bestanden'|'mit_maengeln'|'nicht_bestanden'
   final String ergebnis;
+
+  /// Datum der nächsten Prüfung (nur bei bestandener Prüfung gesetzt)
+  final DateTime? naechstePruefungDatum;
 
   final DateTime erstelltAm;
 
@@ -24,6 +27,7 @@ class Sichtpruefung {
     this.checklisteJson,
     this.maengel,
     required this.ergebnis,
+    this.naechstePruefungDatum,
     DateTime? erstelltAm,
   })  : uuid = uuid ?? const Uuid().v4(),
         erstelltAm = erstelltAm ?? DateTime.now();
@@ -36,6 +40,7 @@ class Sichtpruefung {
         'checklisteJson': checklisteJson,
         'maengel': maengel,
         'ergebnis': ergebnis,
+        'naechstePruefungDatum': naechstePruefungDatum?.toIso8601String(),
         'erstelltAm': erstelltAm.toIso8601String(),
       };
 
@@ -47,6 +52,9 @@ class Sichtpruefung {
         checklisteJson: json['checklisteJson'] as String?,
         maengel: json['maengel'] as String?,
         ergebnis: json['ergebnis'] as String,
+        naechstePruefungDatum: json['naechstePruefungDatum'] != null
+            ? DateTime.tryParse(json['naechstePruefungDatum'] as String)
+            : null,
         erstelltAm: DateTime.parse(json['erstelltAm'] as String),
       );
 
@@ -56,6 +64,7 @@ class Sichtpruefung {
     String? checklisteJson,
     String? maengel,
     String? ergebnis,
+    DateTime? naechstePruefungDatum,
   }) =>
       Sichtpruefung(
         uuid: uuid,
@@ -65,6 +74,8 @@ class Sichtpruefung {
         checklisteJson: checklisteJson ?? this.checklisteJson,
         maengel: maengel ?? this.maengel,
         ergebnis: ergebnis ?? this.ergebnis,
+        naechstePruefungDatum:
+            naechstePruefungDatum ?? this.naechstePruefungDatum,
         erstelltAm: erstelltAm,
       );
 }

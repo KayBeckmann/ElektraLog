@@ -14,6 +14,7 @@ import '../../core/models/messung.dart';
 import '../../core/models/pruefprotokoll.dart';
 import '../../core/models/sichtpruefung.dart';
 import '../../core/models/verteiler_komponente.dart';
+import '../../core/providers/einstellungen_provider.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../core/providers/pruefprotokoll_provider.dart';
 import '../../features/pdf/pdf_options_sheet.dart';
@@ -243,9 +244,15 @@ class _VerteilerDetailScreenState
           .read(messungenRepositoryProvider)
           .getByKomponenteUuids(kompUuids);
 
+      final einstellungen =
+          ref.read(einstellungenProvider).valueOrNull;
+
       final bytes = await PdfService.generateProtokoll(
         prueferName: opts.prueferName,
         firma: opts.firma,
+        firmaStrasse: einstellungen?.firmaStrasse,
+        firmaPlz: einstellungen?.firmaPlz,
+        firmaOrt: einstellungen?.firmaOrt,
         pruefgeraet: opts.pruefgeraet,
         datumOrt: opts.datumOrt,
         kundenName: kundenName,

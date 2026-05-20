@@ -8,9 +8,10 @@ import '../../core/models/sichtpruefung.dart';
 import '../../core/providers/sichtpruefung_provider.dart';
 import '../../shared/theme/app_colors.dart';
 
-// ── Checkliste Punkte ─────────────────────────────────────────────────────────
+// ── Sichtprüfung Checkpunkte ──────────────────────────────────────────────────
 
 enum ChecklistePunkt {
+  // Ursprüngliche ZVEH-Punkte
   kennzeichnungVorhanden,
   schutzleiterAngeschlossen,
   leitungenOrdnungsgemaess,
@@ -19,6 +20,14 @@ enum ChecklistePunkt {
   beschriftungAbgaenge,
   zustandGehaeuse,
   verteilerAbschliessbar,
+  // Erweiterte Sichtprüfung (VDE 0100-600)
+  schutzGegeDirektBerühren,
+  kennzeichnungNPE,
+  leiterverbindungen,
+  schutzUeberwachungseinrichtungen,
+  zugaenglichkeit,
+  ueberspannungsschutz,
+  dokumentation,
 }
 
 extension ChecklistePunktLabel on ChecklistePunkt {
@@ -40,6 +49,46 @@ extension ChecklistePunktLabel on ChecklistePunkt {
         return 'Zustand des Gehäuses / Schranks';
       case ChecklistePunkt.verteilerAbschliessbar:
         return 'Verteiler abschließbar / abgeschlossen';
+      case ChecklistePunkt.schutzGegeDirektBerühren:
+        return 'Schutz gegen direktes Berühren';
+      case ChecklistePunkt.kennzeichnungNPE:
+        return 'Kennzeichnung N- und PE-Leiter';
+      case ChecklistePunkt.leiterverbindungen:
+        return 'Leiterverbindungen';
+      case ChecklistePunkt.schutzUeberwachungseinrichtungen:
+        return 'Schutz- und Überwachungseinrichtungen';
+      case ChecklistePunkt.zugaenglichkeit:
+        return 'Zugänglichkeit';
+      case ChecklistePunkt.ueberspannungsschutz:
+        return 'Überspannungsschutz';
+      case ChecklistePunkt.dokumentation:
+        return 'Dokumentation / Stromlaufplan / Legende';
+    }
+  }
+
+  String get key => name;
+}
+
+// ── Erprobung Checkpunkte ─────────────────────────────────────────────────────
+
+enum ErprobungPunkt {
+  funktionspruefungAnlage,
+  rcdErprobung,
+  spannungsfall,
+  spannungspolaritaet,
+}
+
+extension ErprobungPunktLabel on ErprobungPunkt {
+  String get label {
+    switch (this) {
+      case ErprobungPunkt.funktionspruefungAnlage:
+        return 'Funktionsprüfung der Anlage';
+      case ErprobungPunkt.rcdErprobung:
+        return 'RCD (FI-Schutzschalter)';
+      case ErprobungPunkt.spannungsfall:
+        return 'Überprüfung Spannungsfall';
+      case ErprobungPunkt.spannungspolaritaet:
+        return 'Spannungspolarität';
     }
   }
 
@@ -48,42 +97,32 @@ extension ChecklistePunktLabel on ChecklistePunkt {
 
 // ── Checkpunkt Status ─────────────────────────────────────────────────────────
 
-/// Drei Zustände je Prüfpunkt:
-/// - bestanden   → Punkt geprüft, i.O.
-/// - durchgefallen → Mangel festgestellt
-/// - nichtZutreffend → Punkt gilt nicht für diese Anlage (N/A)
 enum PunktStatus { bestanden, durchgefallen, nichtZutreffend }
 
 extension PunktStatusLabel on PunktStatus {
   String get key {
     switch (this) {
-      case PunktStatus.bestanden:
-        return 'bestanden';
-      case PunktStatus.durchgefallen:
-        return 'durchgefallen';
-      case PunktStatus.nichtZutreffend:
-        return 'nicht_zutreffend';
+      case PunktStatus.bestanden:      return 'bestanden';
+      case PunktStatus.durchgefallen:  return 'durchgefallen';
+      case PunktStatus.nichtZutreffend: return 'nicht_zutreffend';
     }
   }
 
   String get label {
     switch (this) {
-      case PunktStatus.bestanden:
-        return 'Bestanden';
-      case PunktStatus.durchgefallen:
-        return 'Durchgefallen';
-      case PunktStatus.nichtZutreffend:
-        return 'N/A';
+      case PunktStatus.bestanden:      return 'Bestanden';
+      case PunktStatus.durchgefallen:  return 'Durchgefallen';
+      case PunktStatus.nichtZutreffend: return 'N/A';
     }
   }
 
   static PunktStatus fromKey(String key) {
     switch (key) {
       case 'bestanden':
-      case 'ok': // Rückwärtskompatibilität
+      case 'ok':
         return PunktStatus.bestanden;
       case 'durchgefallen':
-      case 'mangel': // Rückwärtskompatibilität
+      case 'mangel':
         return PunktStatus.durchgefallen;
       default:
         return PunktStatus.nichtZutreffend;
@@ -112,11 +151,13 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
   final Map<ChecklistePunkt, PunktStatus> _checkliste = {
     for (final p in ChecklistePunkt.values) p: PunktStatus.nichtZutreffend,
   };
+  final Map<ErprobungPunkt, PunktStatus> _erprobung = {
+    for (final p in ErprobungPunkt.values) p: PunktStatus.nichtZutreffend,
+  };
   final _maengelCtrl = TextEditingController();
   bool _isSaving = false;
-
-  /// Wenn gesetzt, wird diese Sichtprüfung überschrieben statt eine neue angelegt.
   String? _editingUuid;
+  DateTime? _naechstePruefung;
 
   @override
   void dispose() {
@@ -134,29 +175,46 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
     setState(() {
       _editingUuid = sp.uuid;
       _maengelCtrl.text = sp.maengel ?? '';
+      _naechstePruefung = sp.naechstePruefungDatum;
       for (final p in ChecklistePunkt.values) {
         final raw = checklist[p.key] as String?;
         _checkliste[p] =
+            raw != null ? PunktStatusLabel.fromKey(raw) : PunktStatus.nichtZutreffend;
+      }
+      for (final p in ErprobungPunkt.values) {
+        final raw = checklist[p.key] as String?;
+        _erprobung[p] =
             raw != null ? PunktStatusLabel.fromKey(raw) : PunktStatus.nichtZutreffend;
       }
     });
   }
 
   String _berechneErgebnis() {
-    final values = _checkliste.values.toList();
-    // Mindestens ein Durchgefallen → mit Mängeln
-    if (values.any((v) => v == PunktStatus.durchgefallen)) {
+    final allValues = [
+      ..._checkliste.values,
+      ..._erprobung.values,
+    ];
+    if (allValues.any((v) => v == PunktStatus.durchgefallen)) {
       return 'mit_maengeln';
     }
-    // Alles bestanden oder N/A → bestanden
     return 'bestanden';
   }
 
-  /// Zyklus: N/A → Bestanden → Durchgefallen → N/A
-  void _togglePunkt(ChecklistePunkt punkt) {
+  void _toggleSichtpruefung(ChecklistePunkt punkt) {
     setState(() {
       final current = _checkliste[punkt]!;
       _checkliste[punkt] = switch (current) {
+        PunktStatus.nichtZutreffend => PunktStatus.bestanden,
+        PunktStatus.bestanden => PunktStatus.durchgefallen,
+        PunktStatus.durchgefallen => PunktStatus.nichtZutreffend,
+      };
+    });
+  }
+
+  void _toggleErprobung(ErprobungPunkt punkt) {
+    setState(() {
+      final current = _erprobung[punkt]!;
+      _erprobung[punkt] = switch (current) {
         PunktStatus.nichtZutreffend => PunktStatus.bestanden,
         PunktStatus.bestanden => PunktStatus.durchgefallen,
         PunktStatus.durchgefallen => PunktStatus.nichtZutreffend,
@@ -168,21 +226,23 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
     setState(() => _isSaving = true);
     try {
       final checklisteMap = {
-        for (final entry in _checkliste.entries)
-          entry.key.key: entry.value.key,
+        for (final e in _checkliste.entries) e.key.key: e.value.key,
+        for (final e in _erprobung.entries) e.key.key: e.value.key,
       };
-      final sichtpruefung = Sichtpruefung(
-        uuid: _editingUuid, // null → neu, gesetzt → überschreiben
+      final ergebnis = _berechneErgebnis();
+      final sp = Sichtpruefung(
+        uuid: _editingUuid,
         verteilerUuid: widget.verteilerUuid,
         pruefungDatum: DateTime.now(),
         checklisteJson: jsonEncode(checklisteMap),
         maengel: _maengelCtrl.text.trim().isEmpty
             ? null
             : _maengelCtrl.text.trim(),
-        ergebnis: _berechneErgebnis(),
+        ergebnis: ergebnis,
+        naechstePruefungDatum:
+            ergebnis == 'bestanden' ? _naechstePruefung : null,
       );
-      final repo = ref.read(sichtpruefungRepositoryProvider);
-      await repo.save(sichtpruefung);
+      await ref.read(sichtpruefungRepositoryProvider).save(sp);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -193,11 +253,14 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
             behavior: SnackBarBehavior.floating,
           ),
         );
-        // Edit-Zustand zurücksetzen
         setState(() {
           _editingUuid = null;
+          _naechstePruefung = null;
           for (final p in ChecklistePunkt.values) {
             _checkliste[p] = PunktStatus.nichtZutreffend;
+          }
+          for (final p in ErprobungPunkt.values) {
+            _erprobung[p] = PunktStatus.nichtZutreffend;
           }
           _maengelCtrl.clear();
         });
@@ -212,7 +275,10 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
     final sichtpruefungenAsync =
         ref.watch(sichtpruefungenByVerteilerProvider(widget.verteilerUuid));
     final ergebnis = _berechneErgebnis();
-    final hatMaengel = _checkliste.values.any((v) => v == PunktStatus.durchgefallen);
+    final hatMaengel = [
+      ..._checkliste.values,
+      ..._erprobung.values
+    ].any((v) => v == PunktStatus.durchgefallen);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -220,7 +286,7 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Sichtprüfung'),
+            const Text('Sichtprüfung & Erprobung'),
             Text(
               widget.verteilerBezeichnung,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -236,13 +302,12 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Vorherige Sichtprüfung Banner ──────────────────────────
+            // ── Letzte Prüfung Banner ──────────────────────────────────
             sichtpruefungenAsync.when(
               data: (list) {
                 if (list.isEmpty) return const SizedBox.shrink();
                 final letzte = list.first;
-                final datStr =
-                    '${letzte.pruefungDatum.day.toString().padLeft(2, '0')}.${letzte.pruefungDatum.month.toString().padLeft(2, '0')}.${letzte.pruefungDatum.year}';
+                final datStr = _datStr(letzte.pruefungDatum);
                 return _ErgebnisBanner(
                   ergebnis: letzte.ergebnis,
                   prefix: 'Letzte Prüfung: $datStr —',
@@ -255,45 +320,39 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
                 (sichtpruefungenAsync.value?.isNotEmpty ?? false))
               const SizedBox(height: 12),
 
-            // ── Section Header ─────────────────────────────────────────
-            Text(
-              'ZVEH-Checkliste',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Tippen zum Umschalten:  N/A → ✓ Bestanden → ✗ Durchgefallen → N/A',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
-            ),
+            // ═══════════════════════════════════════════════════════════
+            //  SICHTPRÜFUNG
+            // ═══════════════════════════════════════════════════════════
+            _sectionHeader(context, 'SICHTPRÜFUNG',
+                'Tippen: N/A → ✓ → ✗ → N/A'),
             const SizedBox(height: 12),
+            _checklisteBox(
+              context,
+              items: ChecklistePunkt.values.map((p) => (
+                label: p.label,
+                status: _checkliste[p]!,
+                onTap: () => _toggleSichtpruefung(p),
+              )).toList(),
+            ),
+            const SizedBox(height: 20),
 
-            // ── Checkliste ─────────────────────────────────────────────
-            Container(
-              decoration: BoxDecoration(
-                color: AppColors.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.outlineVariant),
-              ),
-              child: Column(
-                children: ChecklistePunkt.values.map((punkt) {
-                  final isLast = punkt == ChecklistePunkt.values.last;
-                  return _ChecklisteTile(
-                    punkt: punkt,
-                    status: _checkliste[punkt]!,
-                    onTap: () => _togglePunkt(punkt),
-                    showDivider: !isLast,
-                  );
-                }).toList(),
-              ),
+            // ═══════════════════════════════════════════════════════════
+            //  ERPROBUNG
+            // ═══════════════════════════════════════════════════════════
+            _sectionHeader(context, 'ERPROBUNG',
+                'Funktionsprüfungen nach VDE 0100-610'),
+            const SizedBox(height: 12),
+            _checklisteBox(
+              context,
+              items: ErprobungPunkt.values.map((p) => (
+                label: p.label,
+                status: _erprobung[p]!,
+                onTap: () => _toggleErprobung(p),
+              )).toList(),
             ),
             const SizedBox(height: 16),
 
-            // ── Mängeltext (nur sichtbar wenn min. 1 Mangel) ───────────
+            // ── Mängeltext ────────────────────────────────────────────
             AnimatedCrossFade(
               duration: const Duration(milliseconds: 200),
               crossFadeState: hatMaengel
@@ -302,10 +361,8 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
               firstChild: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Mängeltext',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
+                  Text('Mängeltext',
+                      style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _maengelCtrl,
@@ -322,11 +379,57 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
               secondChild: const SizedBox.shrink(),
             ),
 
-            // ── Ergebnis Banner ────────────────────────────────────────
+            // ── Nächste Prüfung (nur bei bestandener Prüfung) ─────────
+            if (ergebnis == 'bestanden') ...[
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  Icons.event_available_outlined,
+                  color: _naechstePruefung != null
+                      ? AppColors.primary
+                      : AppColors.onSurfaceVariant,
+                ),
+                title: Text(
+                  'Nächste Prüfung',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                subtitle: Text(
+                  _naechstePruefung == null
+                      ? 'Noch kein Datum gesetzt'
+                      : _datStr(_naechstePruefung!),
+                  style: _naechstePruefung != null
+                      ? GoogleFonts.jetBrainsMono(
+                          fontSize: 13, color: AppColors.primary)
+                      : Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                ),
+                trailing: OutlinedButton.icon(
+                  onPressed: () async {
+                    final now = DateTime.now();
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate:
+                          _naechstePruefung ?? now.add(const Duration(days: 365 * 4)),
+                      firstDate: now,
+                      lastDate: now.add(const Duration(days: 365 * 10)),
+                    );
+                    if (picked != null) {
+                      setState(() => _naechstePruefung = picked);
+                    }
+                  },
+                  icon: const Icon(Icons.calendar_today_outlined, size: 14),
+                  label: const Text('Datum wählen'),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // ── Ergebnis Banner ───────────────────────────────────────
             _ErgebnisBanner(ergebnis: ergebnis, prefix: 'Aktuelles Ergebnis:'),
             const SizedBox(height: 20),
 
-            // ── Abschließen Button ─────────────────────────────────────
+            // ── Abschließen ───────────────────────────────────────────
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -342,7 +445,7 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
                         : Icons.check_circle_outlined),
                 label: Text(_editingUuid != null
                     ? 'Änderungen speichern'
-                    : 'Sichtprüfung abschließen'),
+                    : 'Prüfung abschließen'),
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   backgroundColor: _editingUuid != null
@@ -357,8 +460,12 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
               TextButton(
                 onPressed: () => setState(() {
                   _editingUuid = null;
+                  _naechstePruefung = null;
                   for (final p in ChecklistePunkt.values) {
                     _checkliste[p] = PunktStatus.nichtZutreffend;
+                  }
+                  for (final p in ErprobungPunkt.values) {
+                    _erprobung[p] = PunktStatus.nichtZutreffend;
                   }
                   _maengelCtrl.clear();
                 }),
@@ -366,7 +473,7 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
               ),
             ],
 
-            // ── Verlauf ────────────────────────────────────────────────
+            // ── Verlauf ───────────────────────────────────────────────
             const SizedBox(height: 28),
             Text(
               'VERLAUF',
@@ -381,7 +488,7 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
               data: (list) {
                 if (list.isEmpty) {
                   return Text(
-                    'Noch keine Sichtprüfungen vorhanden.',
+                    'Noch keine Prüfungen vorhanden.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppColors.onSurfaceVariant,
                         ),
@@ -406,24 +513,68 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
       ),
     );
   }
+
+  Widget _sectionHeader(BuildContext context, String title, String subtitle) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+        Text(
+          subtitle,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+        ),
+      ],
+    );
+  }
+
+  Widget _checklisteBox(
+    BuildContext context, {
+    required List<({String label, PunktStatus status, VoidCallback onTap})> items,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.outlineVariant),
+      ),
+      child: Column(
+        children: items.indexed.map(((int, ({String label, PunktStatus status, VoidCallback onTap})) indexed) {
+          final i = indexed.$1;
+          final item = indexed.$2;
+          return _ChecklisteTile(
+            label: item.label,
+            status: item.status,
+            onTap: item.onTap,
+            showDivider: i < items.length - 1,
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  String _datStr(DateTime dt) =>
+      '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
 }
 
 // ── Ergebnis Banner ───────────────────────────────────────────────────────────
 
 class _ErgebnisBanner extends StatelessWidget {
-  const _ErgebnisBanner({
-    required this.ergebnis,
-    required this.prefix,
-  });
+  const _ErgebnisBanner({required this.ergebnis, required this.prefix});
 
   final String ergebnis;
   final String prefix;
 
   @override
   Widget build(BuildContext context) {
-    Color bg;
-    Color border;
-    Color text;
+    Color bg, border, text;
     IconData icon;
     String label;
 
@@ -463,10 +614,7 @@ class _ErgebnisBanner extends StatelessWidget {
           Text(
             '$prefix $label',
             style: GoogleFonts.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: text,
-            ),
+                fontSize: 14, fontWeight: FontWeight.w600, color: text),
           ),
         ],
       ),
@@ -478,22 +626,21 @@ class _ErgebnisBanner extends StatelessWidget {
 
 class _ChecklisteTile extends StatelessWidget {
   const _ChecklisteTile({
-    required this.punkt,
+    required this.label,
     required this.status,
     required this.onTap,
     required this.showDivider,
   });
 
-  final ChecklistePunkt punkt;
+  final String label;
   final PunktStatus status;
   final VoidCallback onTap;
   final bool showDivider;
 
   @override
   Widget build(BuildContext context) {
-    IconData icon;
-    Color iconColor;
-
+    final IconData icon;
+    final Color iconColor;
     switch (status) {
       case PunktStatus.bestanden:
         icon = Icons.check_circle;
@@ -520,7 +667,7 @@ class _ChecklisteTile extends StatelessWidget {
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
-                    punkt.label,
+                    label,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: isNa
                               ? AppColors.onSurfaceVariant
@@ -528,10 +675,9 @@ class _ChecklisteTile extends StatelessWidget {
                         ),
                   ),
                 ),
-                // Status-Badge rechts
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: switch (status) {
                       PunktStatus.bestanden => AppColors.successContainer,
@@ -561,10 +707,7 @@ class _ChecklisteTile extends StatelessWidget {
         ),
         if (showDivider)
           const Divider(
-            height: 1,
-            indent: 52,
-            color: AppColors.outlineVariant,
-          ),
+              height: 1, indent: 52, color: AppColors.outlineVariant),
       ],
     );
   }
@@ -607,6 +750,15 @@ class _VerlaufTile extends StatelessWidget {
         statusLabel = 'Nicht bestanden';
     }
 
+    String? subtitleText = sp.maengel;
+    if (sp.naechstePruefungDatum != null) {
+      final nd = sp.naechstePruefungDatum!;
+      final ndStr =
+          '${nd.day.toString().padLeft(2, '0')}.${nd.month.toString().padLeft(2, '0')}.${nd.year}';
+      subtitleText =
+          '${subtitleText != null ? '$subtitleText · ' : ''}Nächste: $ndStr';
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -623,17 +775,20 @@ class _VerlaufTile extends StatelessWidget {
         leading: Icon(statusIcon, color: statusColor, size: 20),
         title: Text(
           '$datStr — $statusLabel',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+          style: Theme.of(context)
+              .textTheme
+              .bodyMedium
+              ?.copyWith(fontWeight: FontWeight.w600),
         ),
-        subtitle: sp.maengel != null
+        subtitle: subtitleText != null
             ? Text(
-                sp.maengel!,
-                maxLines: 1,
+                subtitleText,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.error,
+                      color: sp.maengel != null
+                          ? AppColors.error
+                          : AppColors.onSurfaceVariant,
                     ),
               )
             : null,
