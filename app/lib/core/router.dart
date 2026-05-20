@@ -9,8 +9,6 @@ import '../features/kunden/kunden_detail_screen.dart';
 import '../features/struktur/struktur_screen.dart';
 import '../features/struktur/standort_detail_screen.dart';
 import '../features/struktur/verteiler_detail_screen.dart';
-import '../features/historie/historie_screen.dart';
-import '../features/signatur/signatur_screen.dart';
 import '../features/auth/auth_screen.dart';
 import '../features/import/csv_import_screen.dart';
 import '../features/qr/qr_screen.dart';
@@ -19,7 +17,6 @@ import '../shared/widgets/app_scaffold.dart';
 
 part 'router.g.dart';
 
-/// Route path constants
 abstract final class AppRoutes {
   static const String dashboard = '/';
   static const String kunden = '/kunden';
@@ -29,9 +26,7 @@ abstract final class AppRoutes {
   static const String verteilerDetail =
       '/kunden/:kundeUuid/standort/:standortUuid/verteiler/:verteilerUuid';
   static const String struktur = '/struktur';
-  static const String historie = '/historie';
-  static const String signatur = '/signatur';
-static const String sichtpruefung =
+  static const String sichtpruefung =
       '/kunden/:kundeUuid/standort/:standortUuid/verteiler/:verteilerUuid/sichtpruefung';
   static const String auth = '/auth';
   static const String csvImport = '/import';
@@ -72,8 +67,7 @@ GoRouter router(Ref ref) {
                   GoRoute(
                     path: 'standort/:standortUuid',
                     pageBuilder: (context, state) {
-                      final kundeUuid =
-                          state.pathParameters['kundeUuid']!;
+                      final kundeUuid = state.pathParameters['kundeUuid']!;
                       final standortUuid =
                           state.pathParameters['standortUuid']!;
                       return NoTransitionPage(
@@ -108,7 +102,7 @@ GoRouter router(Ref ref) {
                               final verteilerUuid =
                                   state.pathParameters['verteilerUuid']!;
                               final bezeichnung = state.uri
-                                  .queryParameters['bezeichnung'] ??
+                                      .queryParameters['bezeichnung'] ??
                                   'Verteiler';
                               return NoTransitionPage(
                                 child: SichtpruefungScreen(
@@ -130,18 +124,6 @@ GoRouter router(Ref ref) {
             path: AppRoutes.struktur,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: StrukturScreen(),
-            ),
-          ),
-          GoRoute(
-            path: AppRoutes.historie,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: HistorieScreen(),
-            ),
-          ),
-          GoRoute(
-            path: AppRoutes.signatur,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: SignaturScreen(),
             ),
           ),
           GoRoute(

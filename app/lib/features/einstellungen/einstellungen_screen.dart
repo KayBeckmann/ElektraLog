@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/einstellungen_provider.dart';
+import '../../core/router.dart';
 import '../../shared/theme/app_colors.dart';
 
 class EinstellungenScreen extends ConsumerStatefulWidget {
@@ -56,18 +59,34 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final modusAsync = ref.watch(appModusProvider);
+    final isCompany = modusAsync.valueOrNull == AppModus.company;
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        leading: BackButton(onPressed: () => Navigator.of(context).maybePop()),
-        title: const Text('Einstellungen'),
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Page Header ──────────────────────────────────────────────
+            Text(
+              'EINSTELLUNGEN',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                    letterSpacing: 0.08 * 12,
+                  ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              'Konfiguration',
+              style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                    color: AppColors.primary,
+                  ),
+            ),
+            const SizedBox(height: 32),
+
+            // ── Prüfer ───────────────────────────────────────────────────
             _SectionLabel('PRÜFER'),
             const SizedBox(height: 8),
             TextField(
@@ -89,6 +108,8 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
               textCapitalization: TextCapitalization.words,
             ),
             const SizedBox(height: 16),
+
+            // ── Unternehmen ──────────────────────────────────────────────
             _SectionLabel('UNTERNEHMEN'),
             const SizedBox(height: 8),
             TextField(
@@ -110,6 +131,8 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
               textCapitalization: TextCapitalization.words,
             ),
             const SizedBox(height: 16),
+
+            // ── Prüfgerät ────────────────────────────────────────────────
             _SectionLabel('PRÜFGERÄT'),
             const SizedBox(height: 8),
             TextField(
@@ -130,6 +153,7 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
               ),
             ),
             const SizedBox(height: 32),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -141,6 +165,122 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
                 ),
               ),
             ),
+
+            const SizedBox(height: 40),
+            const Divider(color: AppColors.outlineVariant),
+            const SizedBox(height: 24),
+
+            // ── Konto ────────────────────────────────────────────────────
+            _SectionLabel('KONTO'),
+            const SizedBox(height: 12),
+
+            if (isCompany) ...[
+              // Company-Modus: Abmelden
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.outlineVariant),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cloud_done_outlined,
+                        size: 20, color: AppColors.secondary),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Company-Modus aktiv',
+                            style:
+                                Theme.of(context).textTheme.titleSmall?.copyWith(
+                                      color: AppColors.secondary,
+                                    ),
+                          ),
+                          Text(
+                            'Daten werden synchronisiert',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    await ref.read(appModusProvider.notifier).logout();
+                    if (context.mounted) context.go('/');
+                  },
+                  icon: const Icon(Icons.logout_outlined, size: 18),
+                  label: const Text('Abmelden'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    side: const BorderSide(color: AppColors.error),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+            ] else ...[
+              // Solo-Modus: Mit Konto verbinden
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.outlineVariant),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.person_outlined,
+                        size: 20, color: AppColors.onSurfaceVariant),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Solo-Modus',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          Text(
+                            'Daten werden nur lokal gespeichert',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => context.go(AppRoutes.auth),
+                  icon: const Icon(Icons.cloud_outlined, size: 18),
+                  label: const Text('Mit Konto verbinden'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 24),
           ],
         ),
       ),

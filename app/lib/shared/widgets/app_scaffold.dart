@@ -13,7 +13,6 @@ const double _kDesktopBreakpoint = 768.0;
 /// Width of the left navigation drawer on desktop
 const double _kDrawerWidth = 320.0;
 
-/// Nav item data model
 class _NavItem {
   const _NavItem({
     required this.route,
@@ -48,21 +47,15 @@ const _navItems = [
     label: 'Struktur',
   ),
   _NavItem(
-    route: AppRoutes.historie,
-    icon: Icons.history_outlined,
-    selectedIcon: Icons.history,
-    label: 'Historie',
-  ),
-  _NavItem(
-    route: AppRoutes.signatur,
-    icon: Icons.draw_outlined,
-    selectedIcon: Icons.draw,
-    label: 'Signatur',
+    route: AppRoutes.einstellungen,
+    icon: Icons.settings_outlined,
+    selectedIcon: Icons.settings,
+    label: 'Einstellungen',
   ),
 ];
 
 /// Main app shell — provides adaptive navigation:
-/// - Mobile (<768px): Fixed bottom navigation bar with 5 tabs
+/// - Mobile (<768px): Fixed bottom navigation bar with 4 tabs
 /// - Desktop (≥768px): 320px fixed left drawer with profile header + nav links
 class AppScaffold extends StatelessWidget {
   const AppScaffold({super.key, required this.child});
@@ -170,46 +163,13 @@ class _DesktopDrawer extends ConsumerWidget {
                       ),
                     ),
 
-                    // ── Einstellungen ──────────────────────────────
-                    _DrawerActionItem(
-                      icon: Icons.settings_outlined,
-                      label: 'Einstellungen',
-                      onTap: () => context.go(AppRoutes.einstellungen),
-                    ),
-
-                    // ── Import ───────────────────────────────────────
+                    // ── CSV-Import ───────────────────────────────────
+                    const Divider(color: AppColors.outlineVariant),
                     _DrawerActionItem(
                       icon: Icons.upload_file_outlined,
                       label: 'CSV-Import',
                       onTap: () => context.go('/import'),
                     ),
-
-                    // ── Auth / Logout ─────────────────────────────────
-                    const Divider(color: AppColors.outlineVariant),
-                    const SizedBox(height: 8),
-                    Consumer(builder: (context, ref, _) {
-                      final modusAsync = ref.watch(appModusProvider);
-                      return modusAsync.when(
-                        loading: () => const SizedBox.shrink(),
-                        error: (_, __) => const SizedBox.shrink(),
-                        data: (modus) => modus == AppModus.company
-                            ? _DrawerActionItem(
-                                icon: Icons.logout_outlined,
-                                label: 'Abmelden',
-                                onTap: () async {
-                                  await ref
-                                      .read(appModusProvider.notifier)
-                                      .logout();
-                                  if (context.mounted) context.go('/');
-                                },
-                              )
-                            : _DrawerActionItem(
-                                icon: Icons.cloud_outlined,
-                                label: 'Mit Konto verbinden',
-                                onTap: () => context.go(AppRoutes.auth),
-                              ),
-                      );
-                    }),
                   ],
                 ),
               ),
@@ -277,8 +237,7 @@ class _ProfileHeader extends ConsumerWidget {
               if (isCompany) ...[
                 const SizedBox(height: 2),
                 Text(
-                  userAsync.valueOrNull?['firmaId']?.substring(0, 8) ??
-                      '',
+                  userAsync.valueOrNull?['firmaId']?.substring(0, 8) ?? '',
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
@@ -410,49 +369,18 @@ class _MobileShell extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: child,
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ── Solo-Modus: "Mit Konto verbinden"-Banner ───────────────
-          Consumer(
-            builder: (context, ref, _) {
-              final modusAsync = ref.watch(appModusProvider);
-              final isSolo =
-                  modusAsync.valueOrNull == AppModus.solo;
-              if (!isSolo) return const SizedBox.shrink();
-              return GestureDetector(
-                onTap: () => context.go(AppRoutes.auth),
-                child: Container(
-                  height: 36,
-                  color: AppColors.surfaceContainerHigh,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.cloud_outlined,
-                        size: 16,
-                        color: AppColors.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Mit Konto verbinden',
-                        style:
-                            Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: AppColors.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-          _MobileBottomNav(
-            selectedIndex: selectedIndex,
-            onItemSelected: (index) => context.go(_navItems[index].route),
-          ),
-        ],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (index) => context.go(_navItems[index].route),
+        destinations: _navItems
+            .map(
+              (item) => NavigationDestination(
+                icon: Icon(item.icon),
+                selectedIcon: Icon(item.selectedIcon),
+                label: item.label,
+              ),
+            )
+            .toList(),
       ),
     );
   }
@@ -460,34 +388,10 @@ class _MobileShell extends StatelessWidget {
   int _selectedIndex(String location) {
     for (var i = 0; i < _navItems.length; i++) {
       if (location == _navItems[i].route) return i;
+      // Alle Sub-Routen von /kunden → Index 1 aktiv halten
+      if (_navItems[i].route == AppRoutes.kunden &&
+          location.startsWith('/kunden')) return i;
     }
     return 0;
-  }
-}
-
-class _MobileBottomNav extends StatelessWidget {
-  const _MobileBottomNav({
-    required this.selectedIndex,
-    required this.onItemSelected,
-  });
-
-  final int selectedIndex;
-  final ValueChanged<int> onItemSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return NavigationBar(
-      selectedIndex: selectedIndex,
-      onDestinationSelected: onItemSelected,
-      destinations: _navItems
-          .map(
-            (item) => NavigationDestination(
-              icon: Icon(item.icon),
-              selectedIcon: Icon(item.selectedIcon),
-              label: item.label,
-            ),
-          )
-          .toList(),
-    );
   }
 }
