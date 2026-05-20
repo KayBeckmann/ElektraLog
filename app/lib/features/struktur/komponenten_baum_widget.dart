@@ -8,6 +8,7 @@ import '../../core/models/verteiler_komponente.dart';
 import '../../core/providers/komponenten_provider.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../features/messungen/messung_formular.dart';
+import '../../features/messungen/messungen_liste.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/widgets/status_pill.dart';
 import '../../shared/theme/app_theme.dart';
@@ -23,6 +24,7 @@ class KomponentenBaumWidget extends ConsumerStatefulWidget {
   final String verteilerUuid;
   final void Function(String? parentUuid) onAddKomponente;
   final void Function(VerteilerKomponente k) onEditKomponente;
+
 
   @override
   ConsumerState<KomponentenBaumWidget> createState() =>
@@ -132,6 +134,7 @@ class _KomponentenBaumWidgetState
                   komponente: root,
                   allKomponenten: komponenten,
                   depth: 0,
+                  verteilerUuid: widget.verteilerUuid,
                   onAddChild: widget.onAddKomponente,
                   onEditKomponente: widget.onEditKomponente,
                   isLast: root == roots.last,
@@ -190,6 +193,7 @@ class _KomponentenNode extends ConsumerStatefulWidget {
     required this.komponente,
     required this.allKomponenten,
     required this.depth,
+    required this.verteilerUuid,
     required this.onAddChild,
     required this.onEditKomponente,
     required this.isLast,
@@ -199,6 +203,7 @@ class _KomponentenNode extends ConsumerStatefulWidget {
   final VerteilerKomponente komponente;
   final List<VerteilerKomponente> allKomponenten;
   final int depth;
+  final String verteilerUuid;
   final void Function(String? parentUuid) onAddChild;
   final void Function(VerteilerKomponente k) onEditKomponente;
   final bool isLast;
@@ -335,6 +340,54 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
       erstelltAm: k.erstelltAm,
     );
     await ref.read(komponentenRepositoryProvider).save(verschoben);
+  }
+
+  void _showMessungenSheet(BuildContext context, VerteilerKomponente k) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.6,
+        minChildSize: 0.35,
+        maxChildSize: 0.92,
+        expand: false,
+        builder: (_, scrollCtrl) => SingleChildScrollView(
+          controller: scrollCtrl,
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                k.bezeichnung,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 16),
+              MessungenListe(
+                komponenteUuid: k.uuid,
+                verteilerUuid: widget.verteilerUuid,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _moveKomponente(
@@ -507,6 +560,14 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                 padding: EdgeInsets.zero,
                                 itemBuilder: (_) => const [
                                   PopupMenuItem(
+                                    value: 'messungen',
+                                    child: Row(children: [
+                                      Icon(Icons.bar_chart_outlined, size: 14),
+                                      SizedBox(width: 8),
+                                      Text('Messungen'),
+                                    ]),
+                                  ),
+                                  PopupMenuItem(
                                     value: 'bearbeiten',
                                     child: Row(children: [
                                       Icon(Icons.edit_outlined, size: 14),
@@ -570,7 +631,9 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                   ),
                                 ],
                                 onSelected: (v) async {
-                                  if (v == 'bearbeiten') {
+                                  if (v == 'messungen') {
+                                    _showMessungenSheet(context, k);
+                                  } else if (v == 'bearbeiten') {
                                     widget.onEditKomponente(k);
                                   } else if (v == 'add_child') {
                                     widget.onAddChild(k.uuid);
@@ -629,6 +692,7 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                   komponente: child,
                   allKomponenten: widget.allKomponenten,
                   depth: widget.depth + 1,
+                  verteilerUuid: widget.verteilerUuid,
                   onAddChild: widget.onAddChild,
                   onEditKomponente: widget.onEditKomponente,
                   isLast: child == children.last,

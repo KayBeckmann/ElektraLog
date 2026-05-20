@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/messung.dart';
+import '../../core/providers/einstellungen_provider.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
@@ -190,7 +191,6 @@ class _Vde0100Form extends ConsumerStatefulWidget {
 }
 
 class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
-  final _prueferCtrl = TextEditingController();
   final _rcdNennCtrl = TextEditingController();
   final _rcdGemessenCtrl = TextEditingController();
   final _rcdZeitCtrl = TextEditingController();
@@ -315,7 +315,6 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
 
   @override
   void dispose() {
-    _prueferCtrl.dispose();
     _rcdNennCtrl.dispose();
     _rcdGemessenCtrl.dispose();
     _rcdZeitCtrl.dispose();
@@ -335,12 +334,6 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextFormField(
-          controller: _prueferCtrl,
-          decoration: const InputDecoration(labelText: 'Prüfer'),
-        ),
-        const SizedBox(height: 16),
-
         // ── Schleifenimpedanz / Kurzschlussstrom (nur für LS/Sicherungen) ──
         if (_isLs) ...[
           const _SektionsHeader(
@@ -377,98 +370,85 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
           const SizedBox(height: 12),
 
           // ── Pro Phase ───────────────────────────────────────────────────
-          for (int i = 0; i < _poleCount; i++) ...[
-            if (_poleCount > 1) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  _phaseLabels[i],
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                    color: AppColors.primary,
+          for (int i = 0; i < _poleCount; i++)
+            _PhaseBlock(
+              label: _phaseLabels[i],
+              index: i,
+              showLabel: _poleCount > 1,
+              children: [
+                // ── L-PE ────────────────────────────────────────────────
+                _SubLabel('Phase–PE (${_phaseLabels[i]}-PE)'),
+                const SizedBox(height: 4),
+                if (_useIk) ...[
+                  _LimitField(
+                    controller: _ikLpeCtrls[i],
+                    label: 'Ik L-PE',
+                    unit: 'A',
+                    limitHint: _minIk != null
+                        ? 'min. ${_minIk!.toStringAsFixed(0)} A'
+                            ' (${_charakteristik}${_nennstrom?.toStringAsFixed(0) ?? '?'}: '
+                            '${_charakteristik == 'C' ? '10' : _charakteristik == 'D' ? '20' : '5'}×)'
+                        : 'Kurzschlussstrom L-PE',
+                    onChanged: (_) => setState(() {}),
                   ),
+                  if (_minIk != null) ...[
+                    const SizedBox(height: 3),
+                    Builder(builder: (ctx) {
+                      final ik = double.tryParse(
+                          _ikLpeCtrls[i].text.replaceAll(',', '.'));
+                      if (ik == null) return const SizedBox.shrink();
+                      final ok = ik >= _minIk!;
+                      return _InlineCheck(
+                        ok: ok,
+                        label: ok
+                            ? 'i.O. (≥ ${_minIk!.toStringAsFixed(0)} A)'
+                            : 'Zu gering! Min. ${_minIk!.toStringAsFixed(0)} A',
+                      );
+                    }),
+                  ],
+                ] else ...[
+                  _LimitField(
+                    controller: _zsLpeCtrls[i],
+                    label: 'Zs L-PE',
+                    unit: 'Ω',
+                    limitHint: _minIk != null
+                        ? 'max. ${(230.0 / _minIk!).toStringAsFixed(3)} Ω'
+                        : 'Schleifenimpedanz L-PE',
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ],
+                const SizedBox(height: 8),
+
+                // ── L-N ─────────────────────────────────────────────────
+                _SubLabel('Phase–N (${_phaseLabels[i]}-N) – optional'),
+                const SizedBox(height: 4),
+                if (_useIk)
+                  _LimitField(
+                    controller: _ikLnCtrls[i],
+                    label: 'Ik L-N',
+                    unit: 'A',
+                    limitHint: 'Kurzschlussstrom L-N (optional)',
+                  )
+                else
+                  _LimitField(
+                    controller: _zsLnCtrls[i],
+                    label: 'Zs L-N',
+                    unit: 'Ω',
+                    limitHint: 'Schleifenimpedanz L-N (optional)',
+                  ),
+                const SizedBox(height: 8),
+
+                // ── Isolation ────────────────────────────────────────────
+                _LimitField(
+                  controller: _isoCtrls[i],
+                  label: _poleCount > 1
+                      ? 'Isolationswiderstand ${_phaseLabels[i]}'
+                      : 'Isolationswiderstand (optional)',
+                  unit: 'MΩ',
+                  limitHint: 'min. 1 MΩ',
                 ),
-              ),
-              const SizedBox(height: 8),
-            ],
-
-            // ── L-PE ──────────────────────────────────────────────────────
-            _SubLabel('Phase–PE (${_phaseLabels[i]}-PE)'),
-            const SizedBox(height: 4),
-            if (_useIk) ...[
-              _LimitField(
-                controller: _ikLpeCtrls[i],
-                label: 'Ik L-PE',
-                unit: 'A',
-                limitHint: _minIk != null
-                    ? 'min. ${_minIk!.toStringAsFixed(0)} A'
-                        ' (${_charakteristik}${_nennstrom?.toStringAsFixed(0) ?? '?'}: '
-                        '${_charakteristik == 'C' ? '10' : _charakteristik == 'D' ? '20' : '5'}×)'
-                    : 'Kurzschlussstrom L-PE',
-                onChanged: (_) => setState(() {}),
-              ),
-              if (_minIk != null) ...[
-                const SizedBox(height: 3),
-                Builder(builder: (ctx) {
-                  final ik = double.tryParse(_ikLpeCtrls[i].text.replaceAll(',', '.'));
-                  if (ik == null) return const SizedBox.shrink();
-                  final ok = ik >= _minIk!;
-                  return _InlineCheck(
-                    ok: ok,
-                    label: ok
-                        ? 'i.O. (≥ ${_minIk!.toStringAsFixed(0)} A)'
-                        : 'Zu gering! Min. ${_minIk!.toStringAsFixed(0)} A',
-                  );
-                }),
               ],
-            ] else ...[
-              _LimitField(
-                controller: _zsLpeCtrls[i],
-                label: 'Zs L-PE',
-                unit: 'Ω',
-                limitHint: _minIk != null
-                    ? 'max. ${(230.0 / _minIk!).toStringAsFixed(3)} Ω'
-                    : 'Schleifenimpedanz L-PE',
-                onChanged: (_) => setState(() {}),
-              ),
-            ],
-            const SizedBox(height: 8),
-
-            // ── L-N ───────────────────────────────────────────────────────
-            _SubLabel('Phase–N (${_phaseLabels[i]}-N) – optional'),
-            const SizedBox(height: 4),
-            if (_useIk)
-              _LimitField(
-                controller: _ikLnCtrls[i],
-                label: 'Ik L-N',
-                unit: 'A',
-                limitHint: 'Kurzschlussstrom L-N (optional)',
-              )
-            else
-              _LimitField(
-                controller: _zsLnCtrls[i],
-                label: 'Zs L-N',
-                unit: 'Ω',
-                limitHint: 'Schleifenimpedanz L-N (optional)',
-              ),
-            const SizedBox(height: 8),
-
-            // ── Isolation ─────────────────────────────────────────────────
-            _LimitField(
-              controller: _isoCtrls[i],
-              label: _poleCount > 1
-                  ? 'Isolationswiderstand ${_phaseLabels[i]}'
-                  : 'Isolationswiderstand (optional)',
-              unit: 'MΩ',
-              limitHint: 'min. 1 MΩ',
             ),
-            const SizedBox(height: 14),
-          ],
 
           // ── L-L Messungen (nur 3-phasig) ─────────────────────────────────
           if (_showDrehfeld) ...[
@@ -682,12 +662,13 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
 
   Future<void> _save() async {
     setState(() => _isSaving = true);
+    final prueferName =
+        ref.read(einstellungenProvider).valueOrNull?.prueferName;
     final messung = Messung(
       komponenteUuid: widget.komponenteUuid,
       norm: 'vde_0100',
       pruefungDatum: DateTime.now(),
-      prueferName:
-          _prueferCtrl.text.trim().isEmpty ? null : _prueferCtrl.text.trim(),
+      prueferName: prueferName?.isEmpty == false ? prueferName : null,
       ergebnis: _ergebnis,
       bemerkung: _bemerkungCtrl.text.trim().isEmpty
           ? null
@@ -870,6 +851,76 @@ class _InlineCheck extends StatelessWidget {
           style: TextStyle(
               fontSize: 11, color: ok ? AppColors.success : AppColors.error)),
     ]);
+  }
+}
+
+// ── Phase Block ───────────────────────────────────────────────────────────────
+
+/// Visueller Container für eine Phase (L1, L2, L3) — alternierende Farben
+/// und farbige linke Kante zur klaren Trennung mehrphasiger Messungen.
+class _PhaseBlock extends StatelessWidget {
+  const _PhaseBlock({
+    required this.label,
+    required this.index,
+    required this.showLabel,
+    required this.children,
+  });
+
+  final String label;
+  final int index;
+  final bool showLabel;
+  final List<Widget> children;
+
+  static const _borderColors = [
+    AppColors.primary,
+    AppColors.secondary,
+    AppColors.tertiary,
+  ];
+
+  static const _bgColors = [
+    AppColors.surfaceContainerLowest,
+    AppColors.surfaceContainerLow,
+    AppColors.surfaceContainerLowest,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = _borderColors[index % _borderColors.length];
+    final bgColor = _bgColors[index % _bgColors.length];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border(
+            left: BorderSide(color: borderColor, width: 3),
+            top: BorderSide(color: AppColors.outlineVariant, width: 0.5),
+            right: BorderSide(color: AppColors.outlineVariant, width: 0.5),
+            bottom: BorderSide(color: AppColors.outlineVariant, width: 0.5),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showLabel) ...[
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: borderColor,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+            ...children,
+          ],
+        ),
+      ),
+    );
   }
 }
 
