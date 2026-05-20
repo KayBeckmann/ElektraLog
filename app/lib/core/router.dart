@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../features/dashboard/dashboard_screen.dart';
-import '../features/faelligkeit/faelligkeit_screen.dart';
 import '../features/kunden/kunden_screen.dart';
 import '../features/sichtpruefung/sichtpruefung_screen.dart';
 import '../features/kunden/kunden_detail_screen.dart';
@@ -32,8 +31,7 @@ abstract final class AppRoutes {
   static const String struktur = '/struktur';
   static const String historie = '/historie';
   static const String signatur = '/signatur';
-  static const String faelligkeit = '/faelligkeit';
-  static const String sichtpruefung =
+static const String sichtpruefung =
       '/kunden/:kundeUuid/standort/:standortUuid/verteiler/:verteilerUuid/sichtpruefung';
   static const String auth = '/auth';
   static const String csvImport = '/import';
@@ -144,12 +142,6 @@ GoRouter router(Ref ref) {
             path: AppRoutes.signatur,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: SignaturScreen(),
-            ),
-          ),
-          GoRoute(
-            path: AppRoutes.faelligkeit,
-            pageBuilder: (context, state) => const NoTransitionPage(
-              child: FaelligkeitScreen(),
             ),
           ),
           GoRoute(

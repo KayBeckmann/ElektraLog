@@ -28,7 +28,8 @@ class KomponenteFormular extends ConsumerStatefulWidget {
 class _KomponenteFormularState
     extends ConsumerState<KomponenteFormular> {
   final _formKey = GlobalKey<FormState>();
-  final _bezeichnungCtrl = TextEditingController();
+  final _bmkCtrl = TextEditingController();
+  final _zielCtrl = TextEditingController();
   final _nennstromCtrl = TextEditingController();
   final _poleCtrl = TextEditingController();
 
@@ -70,7 +71,8 @@ class _KomponenteFormularState
     if (k != null) {
       // Bestehende Komponente bearbeiten — alle Werte übernehmen
       _typ = k.typ;
-      _bezeichnungCtrl.text = k.bezeichnung;
+      _bmkCtrl.text = k.betriebsmittelkennzeichen;
+      _zielCtrl.text = k.zielbezeichnung;
       _applyEigenschaften(k.eigenschaftenJson);
     } else {
       // Neue Komponente — Werte der letzten Komponente als Vorlage laden
@@ -115,7 +117,8 @@ class _KomponenteFormularState
 
   @override
   void dispose() {
-    _bezeichnungCtrl.dispose();
+    _bmkCtrl.dispose();
+    _zielCtrl.dispose();
     _nennstromCtrl.dispose();
     _poleCtrl.dispose();
     super.dispose();
@@ -184,12 +187,24 @@ class _KomponenteFormularState
               ),
               const SizedBox(height: 12),
 
-              // ── Bezeichnung ──────────────────────────────────────────────
+              // ── Betriebsmittelkennzeichen ────────────────────────────────
               TextFormField(
-                controller: _bezeichnungCtrl,
+                controller: _bmkCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'Bezeichnung *',
-                  hintText: 'z.B. L1, Licht EG, Klimaanlage',
+                  labelText: 'Betriebsmittelkennzeichen (BMK)',
+                  hintText: 'z.B. -Q1, -F1.1, =1+A1-K3',
+                  helperText: 'Optional — nach DIN EN 81346',
+                ),
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 12),
+
+              // ── Zielbezeichnung ──────────────────────────────────────────
+              TextFormField(
+                controller: _zielCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Zielbezeichnung *',
+                  hintText: 'z.B. Licht EG, Steckdosen Bad, Klimaanlage',
                 ),
                 textInputAction: TextInputAction.next,
                 validator: (v) =>
@@ -386,7 +401,8 @@ class _KomponenteFormularState
     setState(() => _isSaving = true);
 
     final existing = widget.existingKomponente;
-    final bezeichnung = _bezeichnungCtrl.text.trim();
+    final bmk = _bmkCtrl.text.trim();
+    final ziel = _zielCtrl.text.trim();
 
     final eigenschaften = <String, dynamic>{};
     if (_nennstromCtrl.text.isNotEmpty) {
@@ -421,7 +437,8 @@ class _KomponenteFormularState
         verteilerUuid: existing.verteilerUuid,
         parentUuid: existing.parentUuid,
         typ: _typ,
-        bezeichnung: bezeichnung,
+        betriebsmittelkennzeichen: bmk,
+        zielbezeichnung: ziel,
         position: existing.position,
         eigenschaftenJson: eigenschaftenJson,
         erstelltAm: existing.erstelltAm,
@@ -431,7 +448,8 @@ class _KomponenteFormularState
         verteilerUuid: widget.verteilerUuid,
         parentUuid: widget.parentUuid,
         typ: _typ,
-        bezeichnung: bezeichnung,
+        betriebsmittelkennzeichen: bmk,
+        zielbezeichnung: ziel,
         eigenschaftenJson: eigenschaftenJson,
       );
     }

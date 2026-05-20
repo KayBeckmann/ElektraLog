@@ -5,7 +5,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
-import '../../core/models/geraet.dart';
 import '../../core/models/messung.dart';
 import '../../core/models/sichtpruefung.dart';
 import '../../core/models/verteiler.dart';
@@ -40,8 +39,6 @@ class PdfService {
     required List<Sichtpruefung> sichtpruefungen,
     required List<VerteilerKomponente> komponenten,
     required List<Messung> messungen,
-    List<Geraet> geraete = const [],
-    List<Messung> geraeteMessungen = const [],
     Uint8List? signaturPng,
     String? bemerkung,
   }) async {
@@ -409,81 +406,6 @@ class PdfService {
         ],
       ),
     );
-
-    // ── Seiten für Geräte (je Gerät eine eigene Seite) ───────────────────────
-    final messungenByGeraet = <String, List<Messung>>{};
-    for (final m in geraeteMessungen) {
-      if (m.geraetUuid != null) {
-        messungenByGeraet.putIfAbsent(m.geraetUuid!, () => []).add(m);
-      }
-    }
-    final geraeteMitMessungen =
-        geraete.where((g) => (messungenByGeraet[g.uuid] ?? []).isNotEmpty).toList();
-
-    for (final g in geraeteMitMessungen) {
-      final gMessungen = messungenByGeraet[g.uuid] ?? [];
-      doc.addPage(
-        pw.MultiPage(
-          pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.fromLTRB(28, 28, 28, 40),
-          theme: pw.ThemeData.withFont(base: fontR, bold: fontB),
-          header: (ctx) =>
-              _pageHeader(ctx, primary, fontB, fontM, g.bezeichnung),
-          footer: (ctx) => _pageFooter(ctx, fontM),
-          build: (ctx) => [
-            _sectionTitle('GERÄTEPRÜFUNG', primary, fontB),
-            pw.SizedBox(height: 8),
-            // Geräte-Infoblock
-            pw.Container(
-              width: double.infinity,
-              padding: const pw.EdgeInsets.all(10),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: greyLight, width: 0.5),
-                borderRadius: pw.BorderRadius.circular(4),
-              ),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  _blockTitle('GERÄT', primary, fontB),
-                  pw.SizedBox(height: 6),
-                  _infoRow('Bezeichnung', g.bezeichnung, fontR, fontM),
-                  if (g.geraetetyp != null)
-                    _infoRow('Typ', g.geraetetyp!, fontR, fontM),
-                  if (g.hersteller != null)
-                    _infoRow('Hersteller', g.hersteller!, fontR, fontM),
-                  if (g.seriennummer != null)
-                    _infoRow('Seriennummer', g.seriennummer!, fontR, fontM),
-                  _infoRow(
-                    'Prüfintervall',
-                    '${g.pruefintervallMonate} Monate',
-                    fontR,
-                    fontM,
-                  ),
-                  if (kundenName != null && kundenName.isNotEmpty)
-                    _infoRow('Kunde', kundenName, fontR, fontM),
-                  if (standortBezeichnung != null &&
-                      standortBezeichnung.isNotEmpty)
-                    _infoRow('Standort', standortBezeichnung, fontR, fontM),
-                ],
-              ),
-            ),
-            pw.SizedBox(height: 14),
-            _sectionTitle('MESSWERTE', primary, fontB),
-            pw.SizedBox(height: 8),
-            ...gMessungen.map((m) => pw.Padding(
-                  padding: const pw.EdgeInsets.only(bottom: 12),
-                  child: _messungBlock(
-                    m,
-                    success, successBg,
-                    error, errorBg,
-                    greyLight, surface,
-                    fontR, fontB, fontM,
-                  ),
-                )),
-          ],
-        ),
-      );
-    }
 
     return doc.save();
   }
@@ -854,12 +776,6 @@ class PdfService {
     final rows = <_MwRow>[];
 
     switch (m.norm) {
-      case 'vde_0701_0702':
-        _parseVde07010702(mw, rows);
-        break;
-      case 'dguv_v3':
-        _parseDguvV3(mw, rows);
-        break;
       case 'vde_0100':
         _parseVde0100(mw, rows);
         break;
@@ -974,102 +890,6 @@ class PdfService {
   }
 
   // ── Messwert-Parser ───────────────────────────────────────────────────────
-
-  static void _parseVde07010702(
-      Map<String, dynamic> mw, List<_MwRow> rows) {
-    final sk = mw['schutzklasse'] as String? ?? 'I';
-    final maxAbleit = sk == 'II' ? 1.0 : 0.5;
-
-    final sl = mw['schutzleiterwiderstand_ohm'];
-    if (sl != null)
-      rows.add(_MwRow(
-        'Schutzleiterwiderstand',
-        '${_fmt(sl)} Ω',
-        '≤ 0,3 Ω',
-        sl is num ? sl <= 0.3 : null,
-      ));
-
-    final iso = mw['isolationswiderstand_mohm'];
-    final endwert = mw['messbereichsendwert'] == true;
-    if (endwert)
-      rows.add(_MwRow('Isolationswiderstand', '> Messbereich', '≥ 1 MΩ', true));
-    else if (iso != null)
-      rows.add(_MwRow(
-        'Isolationswiderstand',
-        '${_fmt(iso)} MΩ',
-        '≥ 1 MΩ',
-        iso is num ? iso >= 1.0 : null,
-      ));
-
-    final ab = mw['ableitstrom_ma'];
-    if (ab != null)
-      rows.add(_MwRow(
-        'Ableitstrom (SK $sk)',
-        '${_fmt(ab)} mA',
-        '≤ $maxAbleit mA',
-        ab is num ? ab <= maxAbleit : null,
-      ));
-
-    final bs = mw['beruehrungsstrom_ma'];
-    if (bs != null)
-      rows.add(_MwRow('Berührungsstrom', '${_fmt(bs)} mA', 'optional', null));
-
-    final funk = mw['funktionspruefung'];
-    if (funk != null)
-      rows.add(_MwRow(
-        'Funktionsprüfung',
-        funk == true ? 'Bestanden' : 'Nicht bestanden',
-        '—',
-        funk == true,
-      ));
-  }
-
-  static void _parseDguvV3(Map<String, dynamic> mw, List<_MwRow> rows) {
-    final sl = mw['schutzleiterwiderstand_ohm'];
-    if (sl != null)
-      rows.add(_MwRow(
-        'Schutzleiterwiderstand',
-        '${_fmt(sl)} Ω',
-        '≤ 0,3 Ω',
-        sl is num ? sl <= 0.3 : null,
-      ));
-
-    final iso = mw['isolationswiderstand_mohm'];
-    if (iso != null)
-      rows.add(_MwRow(
-        'Isolationswiderstand',
-        '${_fmt(iso)} MΩ',
-        '≥ 1 MΩ',
-        iso is num ? iso >= 1.0 : null,
-      ));
-
-    final ab = mw['ableitstrom_ma'];
-    if (ab != null)
-      rows.add(_MwRow(
-        'Ableitstrom',
-        '${_fmt(ab)} mA',
-        '≤ 0,5 mA',
-        ab is num ? ab <= 0.5 : null,
-      ));
-
-    final funk = mw['funktionspruefung'];
-    if (funk != null)
-      rows.add(_MwRow(
-        'Funktionsprüfung',
-        funk == true ? 'Bestanden' : 'Nicht bestanden',
-        '—',
-        funk == true,
-      ));
-
-    final naechste = mw['naechste_pruefung'] as String?;
-    if (naechste != null) {
-      try {
-        final d = DateTime.parse(naechste);
-        rows.add(_MwRow('Nächste Prüfung',
-            _formatDatum(d), '—', null));
-      } catch (_) {}
-    }
-  }
 
   static void _parseVde0100(Map<String, dynamic> mw, List<_MwRow> rows) {
     final minIk = mw['mindest_ik_a'];
@@ -1402,16 +1222,7 @@ class PdfService {
   }
 
   static String _normLabel(String norm) {
-    switch (norm) {
-      case 'vde_0701_0702':
-        return 'DIN VDE 0701-0702';
-      case 'dguv_v3':
-        return 'DGUV V3';
-      case 'vde_0100':
-        return 'DIN VDE 0100';
-      default:
-        return norm;
-    }
+    return norm == 'vde_0100' ? 'DIN VDE 0100' : norm;
   }
 
   static String _typLabel(String typ) {

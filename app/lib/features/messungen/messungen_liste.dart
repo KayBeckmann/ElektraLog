@@ -168,8 +168,6 @@ class _MessungTile extends ConsumerWidget {
     }
 
     final normLabel = switch (messung.norm) {
-      'vde_0701_0702' => 'VDE 0701-0702',
-      'dguv_v3' => 'DGUV V3',
       'vde_0100' => 'VDE 0100',
       _ => messung.norm,
     };

@@ -13,19 +13,13 @@ import '../../shared/theme/app_theme.dart';
 class MessungFormular extends ConsumerStatefulWidget {
   const MessungFormular({
     super.key,
-    this.komponenteUuid,
-    this.geraetUuid,
+    required this.komponenteUuid,
     this.komponenteTyp,
     this.komponenteEigenschaften,
     this.existingMessung,
-  }) : assert(komponenteUuid != null || geraetUuid != null,
-            'Entweder komponenteUuid oder geraetUuid muss gesetzt sein');
+  });
 
-  /// Gesetzt wenn es sich um eine Anlage/Verteilerkomponente handelt → VDE 0100
-  final String? komponenteUuid;
-
-  /// Gesetzt wenn es sich um ein portables Gerät handelt → VDE 0701-0702 / DGUV V3
-  final String? geraetUuid;
+  final String komponenteUuid;
 
   /// Typ der Komponente — steuert welche Felder angezeigt werden
   final String? komponenteTyp;
@@ -40,23 +34,6 @@ class MessungFormular extends ConsumerStatefulWidget {
 }
 
 class _MessungFormularState extends ConsumerState<MessungFormular> {
-  late String _norm;
-
-  bool get _isGeraetModus => widget.geraetUuid != null;
-
-  /// Für Anlagen: nur VDE 0100. Für Geräte: VDE 0701-0702 + DGUV V3.
-  List<(String, String)> get _verfuegbareNormen => _isGeraetModus
-      ? [('vde_0701_0702', 'DIN VDE 0701-0702'), ('dguv_v3', 'DGUV V3')]
-      : [('vde_0100', 'DIN VDE 0100')];
-
-  @override
-  void initState() {
-    super.initState();
-    _norm = _isGeraetModus
-        ? (widget.existingMessung?.norm ?? 'vde_0701_0702')
-        : 'vde_0100';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -71,7 +48,6 @@ class _MessungFormularState extends ConsumerState<MessungFormular> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
             Row(
               children: [
                 Expanded(
@@ -83,7 +59,9 @@ class _MessungFormularState extends ConsumerState<MessungFormular> {
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       Text(
-                        _isGeraetModus ? 'Portables Gerät' : (widget.komponenteTyp != null ? _typLabel(widget.komponenteTyp!) : 'Anlage'),
+                        widget.komponenteTyp != null
+                            ? _typLabel(widget.komponenteTyp!)
+                            : 'DIN VDE 0100',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppColors.onSurfaceVariant,
                             ),
@@ -98,78 +76,28 @@ class _MessungFormularState extends ConsumerState<MessungFormular> {
               ],
             ),
             const SizedBox(height: 16),
-
-            // Norm-Auswahl — nur wenn mehrere Optionen verfügbar
-            if (_verfuegbareNormen.length > 1) ...[
-              Text(
-                'Prüfnorm',
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                    ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primaryContainer,
+                borderRadius: BorderRadius.circular(6),
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: _verfuegbareNormen.map((n) {
-                  final selected = _norm == n.$1;
-                  return ChoiceChip(
-                    label: Text(n.$2),
-                    selected: selected,
-                    onSelected: (_) => setState(() => _norm = n.$1),
-                    selectedColor: AppColors.primaryContainer,
-                    labelStyle: TextStyle(
-                      color: selected
-                          ? AppColors.onPrimaryContainer
-                          : AppColors.onSurfaceVariant,
+              child: Text(
+                'DIN VDE 0100',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.onPrimaryContainer,
                       fontWeight: FontWeight.w600,
                     ),
-                  );
-                }).toList(),
               ),
-              const SizedBox(height: 20),
-            ] else ...[
-              // Norm als Label anzeigen wenn nur eine Option
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryContainer,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  _verfuegbareNormen.first.$2,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppColors.onPrimaryContainer,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // Formular je Norm
-            if (_norm == 'vde_0701_0702')
-              _Vde07010702Form(
-                komponenteUuid: widget.komponenteUuid,
-                geraetUuid: widget.geraetUuid,
-                existingMessung: widget.existingMessung,
-                onSaved: () => Navigator.pop(context),
-              ),
-            if (_norm == 'dguv_v3')
-              _DguvV3Form(
-                komponenteUuid: widget.komponenteUuid,
-                geraetUuid: widget.geraetUuid,
-                existingMessung: widget.existingMessung,
-                onSaved: () => Navigator.pop(context),
-              ),
-            if (_norm == 'vde_0100')
-              _Vde0100Form(
-                komponenteUuid: widget.komponenteUuid,
-                geraetUuid: widget.geraetUuid,
-                existingMessung: widget.existingMessung,
-                onSaved: () => Navigator.pop(context),
-                komponenteTyp: widget.komponenteTyp,
-                komponenteEigenschaften: widget.komponenteEigenschaften,
-              ),
+            ),
+            const SizedBox(height: 20),
+            _Vde0100Form(
+              komponenteUuid: widget.komponenteUuid,
+              existingMessung: widget.existingMessung,
+              onSaved: () => Navigator.pop(context),
+              komponenteTyp: widget.komponenteTyp,
+              komponenteEigenschaften: widget.komponenteEigenschaften,
+            ),
           ],
         ),
       ),
@@ -240,375 +168,18 @@ String _autoErgebnis(Map<String, dynamic> checks) {
   return 'bestanden';
 }
 
-// ── DIN VDE 0701-0702 ─────────────────────────────────────────────────────────
-
-class _Vde07010702Form extends ConsumerStatefulWidget {
-  const _Vde07010702Form({
-    required this.existingMessung,
-    required this.onSaved,
-    this.komponenteUuid,
-    this.geraetUuid,
-  });
-
-  final String? komponenteUuid;
-  final String? geraetUuid;
-  final Messung? existingMessung;
-  final VoidCallback onSaved;
-
-  @override
-  ConsumerState<_Vde07010702Form> createState() => _Vde07010702FormState();
-}
-
-class _Vde07010702FormState extends ConsumerState<_Vde07010702Form> {
-  final _formKey = GlobalKey<FormState>();
-  final _prueferCtrl = TextEditingController();
-  final _schutzleiterCtrl = TextEditingController();
-  final _isolationCtrl = TextEditingController();
-  final _ableitstromCtrl = TextEditingController();
-  final _beruehrungCtrl = TextEditingController();
-  final _bemerkungCtrl = TextEditingController();
-
-  bool _messbereichsendwert = false;
-  bool _funktionspruefung = false;
-  String _schutzklasse = 'I';
-  bool _isSaving = false;
-
-  String get _ergebnis {
-    final schutzleiter =
-        double.tryParse(_schutzleiterCtrl.text.replaceAll(',', '.'));
-    final isolation = _messbereichsendwert
-        ? true
-        : (double.tryParse(_isolationCtrl.text.replaceAll(',', '.')) ?? 0) >=
-            1.0;
-    final maxAbleit = _schutzklasse == 'I' ? 0.5 : 1.0;
-    final ableitstrom =
-        double.tryParse(_ableitstromCtrl.text.replaceAll(',', '.'));
-    return _autoErgebnis({
-      'schutzleiter': schutzleiter == null || schutzleiter <= 0.3,
-      'isolation': isolation,
-      'ableitstrom': ableitstrom == null || ableitstrom <= maxAbleit,
-      'funktion': _funktionspruefung,
-    });
-  }
-
-  @override
-  void dispose() {
-    _prueferCtrl.dispose();
-    _schutzleiterCtrl.dispose();
-    _isolationCtrl.dispose();
-    _ableitstromCtrl.dispose();
-    _beruehrungCtrl.dispose();
-    _bemerkungCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TextFormField(
-            controller: _prueferCtrl,
-            decoration: const InputDecoration(labelText: 'Prüfer'),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: _schutzklasse,
-            decoration: const InputDecoration(labelText: 'Schutzklasse'),
-            items: const [
-              DropdownMenuItem(value: 'I', child: Text('Schutzklasse I')),
-              DropdownMenuItem(value: 'II', child: Text('Schutzklasse II')),
-            ],
-            onChanged: (v) => setState(() => _schutzklasse = v!),
-          ),
-          const _SektionsHeader(
-            label: 'Schutzleiter',
-            icon: Icons.electrical_services_outlined,
-          ),
-          _LimitField(
-            controller: _schutzleiterCtrl,
-            label: 'Schutzleiterwiderstand',
-            unit: 'Ω',
-            limitHint: 'max. 0,3 Ω',
-            onChanged: (_) => setState(() {}),
-          ),
-          const _SektionsHeader(
-            label: 'Isolation',
-            icon: Icons.shield_outlined,
-          ),
-          _LimitField(
-            controller: _isolationCtrl,
-            label: 'Isolationswiderstand',
-            unit: 'MΩ',
-            limitHint: 'min. 1 MΩ',
-            onChanged: (_) => setState(() {}),
-          ),
-          CheckboxListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Messbereichsendwert erreicht (> Messbereich)',
-                style: TextStyle(fontSize: 13)),
-            value: _messbereichsendwert,
-            onChanged: (v) => setState(() => _messbereichsendwert = v!),
-          ),
-          const _SektionsHeader(
-            label: 'Ableitstrom',
-            icon: Icons.electric_bolt_outlined,
-          ),
-          _LimitField(
-            controller: _ableitstromCtrl,
-            label: 'Ableitstrom',
-            unit: 'mA',
-            limitHint: 'SK I: max. 0,5 mA  |  SK II: max. 1,0 mA',
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 12),
-          _LimitField(
-            controller: _beruehrungCtrl,
-            label: 'Berührungsstrom (optional)',
-            unit: 'mA',
-            limitHint: 'optional',
-          ),
-          const SizedBox(height: 12),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Funktionsprüfung bestanden'),
-            value: _funktionspruefung,
-            onChanged: (v) => setState(() => _funktionspruefung = v),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _bemerkungCtrl,
-            decoration: const InputDecoration(labelText: 'Bemerkung'),
-            maxLines: 2,
-          ),
-          const SizedBox(height: 16),
-          _ErgebnisBanner(ergebnis: _ergebnis),
-          const SizedBox(height: 16),
-          _SaveButton(isSaving: _isSaving, onPressed: _save),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _save() async {
-    setState(() => _isSaving = true);
-    final messung = Messung(
-      komponenteUuid: widget.komponenteUuid,
-      geraetUuid: widget.geraetUuid,
-      norm: 'vde_0701_0702',
-      pruefungDatum: DateTime.now(),
-      prueferName:
-          _prueferCtrl.text.trim().isEmpty ? null : _prueferCtrl.text.trim(),
-      ergebnis: _ergebnis,
-      bemerkung: _bemerkungCtrl.text.trim().isEmpty
-          ? null
-          : _bemerkungCtrl.text.trim(),
-      messwertJson: jsonEncode({
-        'schutzklasse': _schutzklasse,
-        'schutzleiterwiderstand_ohm':
-            double.tryParse(_schutzleiterCtrl.text.replaceAll(',', '.')),
-        'isolationswiderstand_mohm': _messbereichsendwert
-            ? null
-            : double.tryParse(_isolationCtrl.text.replaceAll(',', '.')),
-        'messbereichsendwert': _messbereichsendwert,
-        'ableitstrom_ma':
-            double.tryParse(_ableitstromCtrl.text.replaceAll(',', '.')),
-        'beruehrungsstrom_ma': _beruehrungCtrl.text.isEmpty
-            ? null
-            : double.tryParse(_beruehrungCtrl.text.replaceAll(',', '.')),
-        'funktionspruefung': _funktionspruefung,
-      }),
-    );
-    await ref.read(messungenRepositoryProvider).save(messung);
-    if (mounted) widget.onSaved();
-  }
-}
-
-// ── DGUV V3 ───────────────────────────────────────────────────────────────────
-
-class _DguvV3Form extends ConsumerStatefulWidget {
-  const _DguvV3Form({
-    required this.existingMessung,
-    required this.onSaved,
-    this.komponenteUuid,
-    this.geraetUuid,
-  });
-
-  final String? komponenteUuid;
-  final String? geraetUuid;
-  final Messung? existingMessung;
-  final VoidCallback onSaved;
-
-  @override
-  ConsumerState<_DguvV3Form> createState() => _DguvV3FormState();
-}
-
-class _DguvV3FormState extends ConsumerState<_DguvV3Form> {
-  final _prueferCtrl = TextEditingController();
-  final _schutzleiterCtrl = TextEditingController();
-  final _isolationCtrl = TextEditingController();
-  final _ableitstromCtrl = TextEditingController();
-  final _bemerkungCtrl = TextEditingController();
-  bool _funktionspruefung = false;
-  bool _isSaving = false;
-  DateTime? _naechstePruefung;
-
-  String get _ergebnis {
-    final sl = double.tryParse(_schutzleiterCtrl.text.replaceAll(',', '.'));
-    final iso = double.tryParse(_isolationCtrl.text.replaceAll(',', '.'));
-    final ab = double.tryParse(_ableitstromCtrl.text.replaceAll(',', '.'));
-    return _autoErgebnis({
-      'schutzleiter': sl == null || sl <= 0.3,
-      'isolation': iso == null || iso >= 1.0,
-      'ableitstrom': ab == null || ab <= 0.5,
-      'funktion': _funktionspruefung,
-    });
-  }
-
-  @override
-  void dispose() {
-    _prueferCtrl.dispose();
-    _schutzleiterCtrl.dispose();
-    _isolationCtrl.dispose();
-    _ableitstromCtrl.dispose();
-    _bemerkungCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextFormField(
-          controller: _prueferCtrl,
-          decoration: const InputDecoration(labelText: 'Prüfer'),
-        ),
-        const _SektionsHeader(
-          label: 'Schutzleiter',
-          icon: Icons.electrical_services_outlined,
-        ),
-        _LimitField(
-          controller: _schutzleiterCtrl,
-          label: 'Schutzleiterwiderstand',
-          unit: 'Ω',
-          limitHint: 'max. 0,3 Ω',
-          onChanged: (_) => setState(() {}),
-        ),
-        const _SektionsHeader(
-          label: 'Isolation',
-          icon: Icons.shield_outlined,
-        ),
-        _LimitField(
-          controller: _isolationCtrl,
-          label: 'Isolationswiderstand',
-          unit: 'MΩ',
-          limitHint: 'min. 1 MΩ',
-          onChanged: (_) => setState(() {}),
-        ),
-        const _SektionsHeader(
-          label: 'Ableitstrom',
-          icon: Icons.electric_bolt_outlined,
-        ),
-        _LimitField(
-          controller: _ableitstromCtrl,
-          label: 'Ableitstrom',
-          unit: 'mA',
-          limitHint: 'max. 0,5 mA',
-          onChanged: (_) => setState(() {}),
-        ),
-        const SizedBox(height: 12),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Funktionsprüfung bestanden'),
-          value: _funktionspruefung,
-          onChanged: (v) => setState(() => _funktionspruefung = v),
-        ),
-        const SizedBox(height: 12),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Nächste Prüfung'),
-          subtitle: Text(
-            _naechstePruefung == null
-                ? 'Nicht gesetzt'
-                : '${_naechstePruefung!.day.toString().padLeft(2, '0')}.${_naechstePruefung!.month.toString().padLeft(2, '0')}.${_naechstePruefung!.year}',
-            style: AppTheme.dataMono(
-                fontSize: 13, color: AppColors.onSurfaceVariant),
-          ),
-          trailing: OutlinedButton.icon(
-            onPressed: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: DateTime.now().add(const Duration(days: 365)),
-                firstDate: DateTime.now(),
-                lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
-              );
-              if (date != null) setState(() => _naechstePruefung = date);
-            },
-            icon: const Icon(Icons.calendar_today, size: 14),
-            label: const Text('Datum wählen'),
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _bemerkungCtrl,
-          decoration: const InputDecoration(labelText: 'Bemerkung'),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 16),
-        _ErgebnisBanner(ergebnis: _ergebnis),
-        const SizedBox(height: 16),
-        _SaveButton(isSaving: _isSaving, onPressed: _save),
-      ],
-    );
-  }
-
-  Future<void> _save() async {
-    setState(() => _isSaving = true);
-    final messung = Messung(
-      komponenteUuid: widget.komponenteUuid,
-      geraetUuid: widget.geraetUuid,
-      norm: 'dguv_v3',
-      pruefungDatum: DateTime.now(),
-      prueferName:
-          _prueferCtrl.text.trim().isEmpty ? null : _prueferCtrl.text.trim(),
-      ergebnis: _ergebnis,
-      bemerkung: _bemerkungCtrl.text.trim().isEmpty
-          ? null
-          : _bemerkungCtrl.text.trim(),
-      messwertJson: jsonEncode({
-        'schutzleiterwiderstand_ohm':
-            double.tryParse(_schutzleiterCtrl.text.replaceAll(',', '.')),
-        'isolationswiderstand_mohm':
-            double.tryParse(_isolationCtrl.text.replaceAll(',', '.')),
-        'ableitstrom_ma':
-            double.tryParse(_ableitstromCtrl.text.replaceAll(',', '.')),
-        'funktionspruefung': _funktionspruefung,
-        'naechste_pruefung': _naechstePruefung?.toIso8601String(),
-      }),
-    );
-    await ref.read(messungenRepositoryProvider).save(messung);
-    if (mounted) widget.onSaved();
-  }
-}
-
 // ── DIN VDE 0100 ──────────────────────────────────────────────────────────────
 
 class _Vde0100Form extends ConsumerStatefulWidget {
   const _Vde0100Form({
+    required this.komponenteUuid,
     required this.existingMessung,
     required this.onSaved,
-    this.komponenteUuid,
-    this.geraetUuid,
     this.komponenteTyp,
     this.komponenteEigenschaften,
   });
 
-  final String? komponenteUuid;
-  final String? geraetUuid;
+  final String komponenteUuid;
   final Messung? existingMessung;
   final VoidCallback onSaved;
   final String? komponenteTyp;
@@ -1113,7 +684,6 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
     setState(() => _isSaving = true);
     final messung = Messung(
       komponenteUuid: widget.komponenteUuid,
-      geraetUuid: widget.geraetUuid,
       norm: 'vde_0100',
       pruefungDatum: DateTime.now(),
       prueferName:

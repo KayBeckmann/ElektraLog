@@ -25,20 +25,7 @@ class MessungenRepository {
             .toList());
   }
 
-  Stream<List<Messung>> watchByGeraet(String geraetUuid) {
-    final finder = Finder(
-      filter: Filter.equals('geraetUuid', geraetUuid),
-      sortOrders: [SortOrder('pruefungDatum', false)],
-    );
-    return StorageService.messungenStore
-        .query(finder: finder)
-        .onSnapshots(_db)
-        .map((snapshots) => snapshots
-            .map((s) => Messung.fromJson(s.value.cast<String, dynamic>()))
-            .toList());
-  }
-
-  Future<List<Messung>> getByKomponente(String komponenteUuid) async {
+Future<List<Messung>> getByKomponente(String komponenteUuid) async {
     final finder = Finder(
       filter: Filter.equals('komponenteUuid', komponenteUuid),
       sortOrders: [SortOrder('pruefungDatum', false)],
@@ -50,19 +37,7 @@ class MessungenRepository {
         .toList();
   }
 
-  Future<List<Messung>> getByGeraet(String geraetUuid) async {
-    final finder = Finder(
-      filter: Filter.equals('geraetUuid', geraetUuid),
-      sortOrders: [SortOrder('pruefungDatum', false)],
-    );
-    final snapshots =
-        await StorageService.messungenStore.find(_db, finder: finder);
-    return snapshots
-        .map((s) => Messung.fromJson(s.value.cast<String, dynamic>()))
-        .toList();
-  }
-
-  Future<void> deleteByKomponente(String komponenteUuid) async {
+Future<void> deleteByKomponente(String komponenteUuid) async {
     final messungen = await getByKomponente(komponenteUuid);
     for (final m in messungen) {
       await StorageService.messungenStore.record(m.uuid).delete(_db);
@@ -126,16 +101,6 @@ final messungenByKomponenteProvider =
   final dbAsync = ref.watch(dbProvider);
   return dbAsync.when(
     data: (db) => MessungenRepository(db).watchByKomponente(komponenteUuid),
-    loading: () => const Stream.empty(),
-    error: (e, _) => Stream.error(e),
-  );
-});
-
-final messungenByGeraetProvider =
-    StreamProvider.family<List<Messung>, String>((ref, geraetUuid) {
-  final dbAsync = ref.watch(dbProvider);
-  return dbAsync.when(
-    data: (db) => MessungenRepository(db).watchByGeraet(geraetUuid),
     loading: () => const Stream.empty(),
     error: (e, _) => Stream.error(e),
   );

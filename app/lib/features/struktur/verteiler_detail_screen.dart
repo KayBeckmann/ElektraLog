@@ -10,13 +10,11 @@ import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/sichtpruefung_provider.dart';
 import '../../core/providers/komponenten_provider.dart';
 import '../../core/api/api_service.dart';
-import '../../core/models/geraet.dart';
 import '../../core/models/messung.dart';
 import '../../core/models/pruefprotokoll.dart';
 import '../../core/models/sichtpruefung.dart';
 import '../../core/models/verteiler_komponente.dart';
 import '../../core/providers/messungen_provider.dart';
-import '../../core/providers/geraete_provider.dart';
 import '../../core/providers/pruefprotokoll_provider.dart';
 import '../../features/pdf/pdf_options_sheet.dart';
 import '../../features/pdf/pdf_service.dart';
@@ -205,6 +203,8 @@ class _VerteilerDetailScreenState
                     verteilerUuid: widget.verteilerUuid,
                     onAddKomponente: (parentUuid) =>
                         _showKomponenteFormular(context, parentUuid),
+                    onEditKomponente: (k) =>
+                        _showKomponenteFormularEdit(context, k),
                   ),
                 ],
               ),
@@ -242,14 +242,6 @@ class _VerteilerDetailScreenState
           .read(messungenRepositoryProvider)
           .getByKomponenteUuids(kompUuids);
 
-      final geraete = await ref
-          .read(geraeteByStandortProvider(widget.standortUuid).future);
-      final messRepo = ref.read(messungenRepositoryProvider);
-      final geraeteMessungen = <Messung>[];
-      for (final g in geraete) {
-        geraeteMessungen.addAll(await messRepo.getByGeraet(g.uuid));
-      }
-
       final bytes = await PdfService.generateProtokoll(
         prueferName: opts.prueferName,
         firma: opts.firma,
@@ -261,8 +253,6 @@ class _VerteilerDetailScreenState
         sichtpruefungen: sichtpruefungen.cast(),
         komponenten: kompList,
         messungen: messungen,
-        geraete: geraete,
-        geraeteMessungen: geraeteMessungen,
         signaturPng: opts.signaturPng,
         bemerkung: opts.bemerkung,
       );
@@ -272,8 +262,6 @@ class _VerteilerDetailScreenState
         komponenten: kompList,
         messungen: messungen,
         sichtpruefungen: sichtpruefungen.cast(),
-        geraete: geraete,
-        geraeteMessungen: geraeteMessungen,
       );
 
       // Protokoll-Eintrag im Verlauf speichern
@@ -329,31 +317,12 @@ class _VerteilerDetailScreenState
     required List<VerteilerKomponente> komponenten,
     required List<Messung> messungen,
     required List<Sichtpruefung> sichtpruefungen,
-    required List<Geraet> geraete,
-    required List<Messung> geraeteMessungen,
   }) {
     final messungenByKomponente = <String, List<Map<String, dynamic>>>{};
     for (final m in messungen) {
       if (m.komponenteUuid != null) {
         messungenByKomponente
             .putIfAbsent(m.komponenteUuid!, () => [])
-            .add({
-          'uuid': m.uuid,
-          'norm': m.norm,
-          'pruefungDatum': m.pruefungDatum.toIso8601String(),
-          'prueferName': m.prueferName,
-          'ergebnis': m.ergebnis,
-          'messwertJson': m.messwertJson,
-          'bemerkung': m.bemerkung,
-        });
-      }
-    }
-
-    final messungenByGeraet = <String, List<Map<String, dynamic>>>{};
-    for (final m in geraeteMessungen) {
-      if (m.geraetUuid != null) {
-        messungenByGeraet
-            .putIfAbsent(m.geraetUuid!, () => [])
             .add({
           'uuid': m.uuid,
           'norm': m.norm,
@@ -393,18 +362,6 @@ class _VerteilerDetailScreenState
               'checklisteJson': latestSichtpruefung.checklisteJson,
               'maengel': latestSichtpruefung.maengel,
             },
-      'geraete': [
-        for (final g in geraete)
-          if ((messungenByGeraet[g.uuid] ?? []).isNotEmpty)
-            {
-              'uuid': g.uuid,
-              'bezeichnung': g.bezeichnung,
-              'geraetetyp': g.geraetetyp,
-              'hersteller': g.hersteller,
-              'seriennummer': g.seriennummer,
-              'messungen': messungenByGeraet[g.uuid],
-            }
-      ],
     });
   }
 
@@ -421,6 +378,23 @@ class _VerteilerDetailScreenState
       builder: (_) => KomponenteFormular(
         verteilerUuid: widget.verteilerUuid,
         parentUuid: parentUuid,
+      ),
+    );
+  }
+
+  Future<void> _showKomponenteFormularEdit(
+      BuildContext context, VerteilerKomponente k) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => KomponenteFormular(
+        verteilerUuid: widget.verteilerUuid,
+        existingKomponente: k,
       ),
     );
   }
@@ -762,7 +736,6 @@ class _ProtokollVerlaufTileState extends State<_ProtokollVerlaufTile> {
     }
 
     final komponenten = (snapshot?['komponenten'] as List<dynamic>?) ?? [];
-    final geraete = (snapshot?['geraete'] as List<dynamic>?) ?? [];
     final sichtpruefung = snapshot?['sichtpruefung'] as Map<String, dynamic>?;
     final istSynced = p.backendUuid != null;
 
@@ -882,30 +855,6 @@ class _ProtokollVerlaufTileState extends State<_ProtokollVerlaufTile> {
                       );
                     }),
                   ],
-                  // Geräte
-                  if (geraete.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'GERÄTE — ${geraete.length} Gerät(e)',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.onSurfaceVariant,
-                            letterSpacing: 0.6,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    ...geraete.map((g) {
-                      final gMap = g as Map<String, dynamic>;
-                      final messungen =
-                          (gMap['messungen'] as List<dynamic>?) ?? [];
-                      return _SnapshotKomponenteRow(
-                        bezeichnung: gMap['bezeichnung'] as String? ?? '—',
-                        typ: gMap['geraetetyp'] as String? ?? 'Gerät',
-                        messungen: messungen
-                            .map((m) => m as Map<String, dynamic>)
-                            .toList(),
-                      );
-                    }),
-                  ],
                 ],
               ),
             ),
@@ -991,12 +940,7 @@ class _SnapshotKomponenteRow extends StatelessWidget {
           ...messungen.map((m) {
             final ergebnis = m['ergebnis'] as String? ?? '';
             final norm = m['norm'] as String? ?? '';
-            final normShort = switch (norm) {
-              'vde_0100' => '0100',
-              'vde_0701_0702' => '0701',
-              'dguv_v3' => 'DGUV',
-              _ => norm,
-            };
+            final normShort = norm == 'vde_0100' ? '0100' : norm;
             final ok = ergebnis == 'bestanden';
             return Container(
               margin: const EdgeInsets.only(left: 4),

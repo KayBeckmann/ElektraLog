@@ -10,7 +10,7 @@ import '../../shared/theme/app_theme.dart';
 
 // ── Filter type ───────────────────────────────────────────────────────────────
 
-enum _HistorieFilter { alle, vde0701, dguvV3, vde0100 }
+enum _HistorieFilter { alle, vde0100 }
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -62,20 +62,6 @@ class _HistorieScreenState extends ConsumerState<HistorieScreen> {
                     selected: _filter == _HistorieFilter.alle,
                     onSelected: () =>
                         setState(() => _filter = _HistorieFilter.alle),
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'VDE 0701-0702',
-                    selected: _filter == _HistorieFilter.vde0701,
-                    onSelected: () => setState(
-                        () => _filter = _HistorieFilter.vde0701),
-                  ),
-                  const SizedBox(width: 8),
-                  _FilterChip(
-                    label: 'DGUV V3',
-                    selected: _filter == _HistorieFilter.dguvV3,
-                    onSelected: () => setState(
-                        () => _filter = _HistorieFilter.dguvV3),
                   ),
                   const SizedBox(width: 8),
                   _FilterChip(
@@ -148,10 +134,6 @@ class _HistorieScreenState extends ConsumerState<HistorieScreen> {
   List<Messung> _applyFilter(List<Messung> all) {
     return switch (_filter) {
       _HistorieFilter.alle => all,
-      _HistorieFilter.vde0701 =>
-        all.where((m) => m.norm == 'vde_0701_0702').toList(),
-      _HistorieFilter.dguvV3 =>
-        all.where((m) => m.norm == 'dguv_v3').toList(),
       _HistorieFilter.vde0100 =>
         all.where((m) => m.norm == 'vde_0100').toList(),
     };
@@ -281,8 +263,6 @@ class _MessungHistorieTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final normLabel = switch (messung.norm) {
-      'vde_0701_0702' => 'VDE 0701-0702',
-      'dguv_v3' => 'DGUV V3',
       'vde_0100' => 'VDE 0100',
       _ => messung.norm,
     };
@@ -348,7 +328,7 @@ class _MessungHistorieTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    (messung.komponenteUuid ?? messung.geraetUuid ?? '').substring(0, 8).toUpperCase(),
+                    (messung.komponenteUuid ?? '').substring(0, 8).toUpperCase(),
                     style: AppTheme.dataMono(
                       fontSize: 11,
                       color: AppColors.outline,

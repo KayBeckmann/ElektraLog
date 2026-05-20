@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/providers/kunden_provider.dart';
@@ -82,7 +81,7 @@ class DashboardScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Expanded(
-                          child: _KpiGeraeteCard(
+                          child: _KpiPruefungenCard(
                             messungenAsync: messungenAsync,
                           ),
                         ),
@@ -98,7 +97,7 @@ class DashboardScreen extends ConsumerWidget {
                 }
                 return Column(
                   children: [
-                    _KpiGeraeteCard(messungenAsync: messungenAsync),
+                    _KpiPruefungenCard(messungenAsync: messungenAsync),
                     const SizedBox(height: 16),
                     _KpiLaufendePruefungCard(kundenAsync: kundenAsync),
                   ],
@@ -111,10 +110,6 @@ class DashboardScreen extends ConsumerWidget {
             _StatistikSection(
                 messungenAsync: messungenAsync, kundenAsync: kundenAsync),
             const SizedBox(height: 24),
-
-            // ── Fälligkeiten Banner ───────────────────────────────────────────
-            _FaelligkeitenBanner(messungenAsync: messungenAsync),
-            const SizedBox(height: 16),
 
             // ── Termine ──────────────────────────────────────────────────────
             _TermineCard(),
@@ -177,10 +172,10 @@ class _PageHeader extends StatelessWidget {
   }
 }
 
-// ── KPI — Geräte Geprüft ──────────────────────────────────────────────────────
+// ── KPI — Prüfungen Gesamt ────────────────────────────────────────────────────
 
-class _KpiGeraeteCard extends StatelessWidget {
-  const _KpiGeraeteCard({required this.messungenAsync});
+class _KpiPruefungenCard extends StatelessWidget {
+  const _KpiPruefungenCard({required this.messungenAsync});
 
   final AsyncValue<dynamic> messungenAsync;
 
@@ -204,7 +199,7 @@ class _KpiGeraeteCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'GERÄTE GEPRÜFT (HEUTE)',
+            'PRÜFUNGEN GESAMT',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: AppColors.onSurfaceVariant,
                   letterSpacing: 0.06 * 12,
@@ -220,7 +215,7 @@ class _KpiGeraeteCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Messungen abgeschlossen',
+            'Messungen bestanden',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: AppColors.onSurfaceVariant,
                 ),
@@ -466,118 +461,6 @@ class _StatusPill extends StatelessWidget {
   }
 }
 
-// ── Fälligkeiten Banner ───────────────────────────────────────────────────────
-
-class _FaelligkeitenBanner extends StatelessWidget {
-  const _FaelligkeitenBanner({required this.messungenAsync});
-
-  final AsyncValue<dynamic> messungenAsync;
-
-  @override
-  Widget build(BuildContext context) {
-    final int ueberfaellig = messungenAsync.when(
-      data: (list) {
-        final now = DateTime.now();
-        return (list as List)
-            .where((m) {
-              final datum = m.naechstePruefungDatum as DateTime?;
-              return datum != null && datum.isBefore(now);
-            })
-            .length;
-      },
-      loading: () => 0,
-      error: (_, __) => 0,
-    );
-    final int dieseWoche = messungenAsync.when(
-      data: (list) {
-        final now = DateTime.now();
-        final wochenende = now.add(const Duration(days: 7));
-        return (list as List)
-            .where((m) {
-              final datum = m.naechstePruefungDatum as DateTime?;
-              return datum != null &&
-                  !datum.isBefore(now) &&
-                  datum.isBefore(wochenende);
-            })
-            .length;
-      },
-      loading: () => 0,
-      error: (_, __) => 0,
-    );
-
-    final Color bgColor = ueberfaellig > 0
-        ? AppColors.errorContainer
-        : dieseWoche > 0
-            ? AppColors.warningContainer
-            : AppColors.successContainer;
-    final Color borderColor = ueberfaellig > 0
-        ? AppColors.error
-        : dieseWoche > 0
-            ? AppColors.warning
-            : AppColors.success;
-    final Color textColor = ueberfaellig > 0
-        ? AppColors.onErrorContainer
-        : dieseWoche > 0
-            ? AppColors.onWarningContainer
-            : AppColors.onSuccessContainer;
-
-    String message;
-    IconData icon;
-    if (ueberfaellig > 0) {
-      message = '$ueberfaellig überfällig${dieseWoche > 0 ? ' · $dieseWoche diese Woche' : ''}';
-      icon = Icons.warning_amber_rounded;
-    } else if (dieseWoche > 0) {
-      message = '$dieseWoche Prüftermine diese Woche';
-      icon = Icons.schedule;
-    } else {
-      message = 'Alle Prüftermine im grünen Bereich';
-      icon = Icons.check_circle_outline;
-    }
-
-    return GestureDetector(
-      onTap: () => context.go('/faelligkeit'),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: borderColor),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: textColor),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Fälligkeiten',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: textColor,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                        ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    message,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: textColor,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right, size: 20, color: textColor),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ── Statistik Section ─────────────────────────────────────────────────────────
 
 class _StatistikSection extends StatelessWidget {
@@ -605,17 +488,6 @@ class _StatistikSection extends StatelessWidget {
     final int fehler = messungenAsync.when(
       data: (list) =>
           (list as List).where((m) => m.ergebnis == 'nicht_bestanden').length,
-      loading: () => 0,
-      error: (_, __) => 0,
-    );
-    final int ueberfaellig = messungenAsync.when(
-      data: (list) {
-        final now = DateTime.now();
-        return (list as List).where((m) {
-          final datum = m.naechstePruefungDatum as DateTime?;
-          return datum != null && datum.isBefore(now);
-        }).length;
-      },
       loading: () => 0,
       error: (_, __) => 0,
     );
@@ -659,16 +531,6 @@ class _StatistikSection extends StatelessWidget {
                 subtitle: '$fehler nicht bestanden',
                 icon: Icons.error_outline,
                 color: fehlerPercent > 10
-                    ? AppColors.error
-                    : AppColors.success,
-              ),
-              const SizedBox(width: 12),
-              _StatCard(
-                label: 'Überfällig',
-                value: '$ueberfaellig',
-                subtitle: 'Prüftermine',
-                icon: Icons.calendar_today_outlined,
-                color: ueberfaellig > 0
                     ? AppColors.error
                     : AppColors.success,
               ),

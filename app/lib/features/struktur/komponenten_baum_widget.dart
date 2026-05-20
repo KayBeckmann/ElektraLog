@@ -12,20 +12,34 @@ import '../../shared/theme/app_colors.dart';
 import '../../shared/widgets/status_pill.dart';
 import '../../shared/theme/app_theme.dart';
 
-class KomponentenBaumWidget extends ConsumerWidget {
+class KomponentenBaumWidget extends ConsumerStatefulWidget {
   const KomponentenBaumWidget({
     super.key,
     required this.verteilerUuid,
     required this.onAddKomponente,
+    required this.onEditKomponente,
   });
 
   final String verteilerUuid;
   final void Function(String? parentUuid) onAddKomponente;
+  final void Function(VerteilerKomponente k) onEditKomponente;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<KomponentenBaumWidget> createState() =>
+      _KomponentenBaumWidgetState();
+}
+
+class _KomponentenBaumWidgetState
+    extends ConsumerState<KomponentenBaumWidget> {
+  // Global expand/collapse state — null = each node decides independently
+  bool _allExpanded = true;
+  // Incrementing key forces node rebuild when global expand/collapse changes
+  int _expandKey = 0;
+
+  @override
+  Widget build(BuildContext context) {
     final komponentenAsync =
-        ref.watch(komponentenByVerteilerProvider(verteilerUuid));
+        ref.watch(komponentenByVerteilerProvider(widget.verteilerUuid));
 
     return komponentenAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -52,7 +66,7 @@ class KomponentenBaumWidget extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
-                  onPressed: () => onAddKomponente(null),
+                  onPressed: () => widget.onAddKomponente(null),
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Erste Komponente hinzufügen'),
                 ),
@@ -61,24 +75,71 @@ class KomponentenBaumWidget extends ConsumerWidget {
           );
         }
 
-        // Build tree from flat list
         final roots =
             komponenten.where((k) => k.parentUuid == null).toList();
         roots.sort((a, b) => a.position.compareTo(b.position));
 
+        final hasChildren = komponenten.any((k) => k.parentUuid != null);
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Toolbar ─────────────────────────────────────────────────────
+            if (hasChildren)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    // Alle einklappen / ausklappen
+                    OutlinedButton.icon(
+                      onPressed: () => setState(() {
+                        _allExpanded = !_allExpanded;
+                        _expandKey++;
+                      }),
+                      icon: Icon(
+                        _allExpanded
+                            ? Icons.unfold_less
+                            : Icons.unfold_more,
+                        size: 14,
+                      ),
+                      label: Text(
+                          _allExpanded ? 'Alle einklappen' : 'Alle ausklappen'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Nach BMK sortieren
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          _sortierNachBmk(ref, komponenten),
+                      icon: const Icon(Icons.sort_by_alpha, size: 14),
+                      label: const Text('Nach BMK sortieren'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        textStyle: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             ...roots.map((root) => _KomponentenNode(
+                  key: ValueKey('${root.uuid}_$_expandKey'),
                   komponente: root,
                   allKomponenten: komponenten,
                   depth: 0,
-                  onAddChild: onAddKomponente,
+                  onAddChild: widget.onAddKomponente,
+                  onEditKomponente: widget.onEditKomponente,
                   isLast: root == roots.last,
+                  initialExpanded: _allExpanded,
                 )),
             const SizedBox(height: 8),
             OutlinedButton.icon(
-              onPressed: () => onAddKomponente(null),
+              onPressed: () => widget.onAddKomponente(null),
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Wurzel-Element hinzufügen'),
             ),
@@ -87,31 +148,74 @@ class KomponentenBaumWidget extends ConsumerWidget {
       },
     );
   }
+
+  Future<void> _sortierNachBmk(
+    WidgetRef ref,
+    List<VerteilerKomponente> alle,
+  ) async {
+    final repo = ref.read(komponentenRepositoryProvider);
+    // Für jede Elternebene separat nach BMK sortieren
+    final parentUuids = <String?>{};
+    for (final k in alle) {
+      parentUuids.add(k.parentUuid);
+    }
+    for (final parentUuid in parentUuids) {
+      final siblings = alle
+          .where((k) => k.parentUuid == parentUuid)
+          .toList()
+        ..sort((a, b) {
+          final bmkA = a.betriebsmittelkennzeichen;
+          final bmkB = b.betriebsmittelkennzeichen;
+          if (bmkA.isEmpty && bmkB.isEmpty) {
+            return a.zielbezeichnung.compareTo(b.zielbezeichnung);
+          }
+          if (bmkA.isEmpty) return 1;
+          if (bmkB.isEmpty) return -1;
+          return bmkA.compareTo(bmkB);
+        });
+      for (int i = 0; i < siblings.length; i++) {
+        if (siblings[i].position != i) {
+          await repo.save(siblings[i].copyWith(position: i));
+        }
+      }
+    }
+  }
 }
 
 // ── Node Widget ───────────────────────────────────────────────────────────────
 
 class _KomponentenNode extends ConsumerStatefulWidget {
   const _KomponentenNode({
+    super.key,
     required this.komponente,
     required this.allKomponenten,
     required this.depth,
     required this.onAddChild,
+    required this.onEditKomponente,
     required this.isLast,
+    required this.initialExpanded,
   });
 
   final VerteilerKomponente komponente;
   final List<VerteilerKomponente> allKomponenten;
   final int depth;
   final void Function(String? parentUuid) onAddChild;
+  final void Function(VerteilerKomponente k) onEditKomponente;
   final bool isLast;
+  final bool initialExpanded;
 
   @override
   ConsumerState<_KomponentenNode> createState() => _KomponentenNodeState();
 }
 
 class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
-  bool _expanded = true;
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initialExpanded;
+  }
 
   /// Alle UUIDs der Komponente selbst und ihrer Nachkommen.
   Set<String> _descendants(VerteilerKomponente k) {
@@ -239,41 +343,32 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
     int delta,
     List<VerteilerKomponente> all,
   ) async {
-    // Geschwister: gleiche Ebene (gleicher parentUuid)
     final siblings = all
         .where((c) =>
             c.parentUuid == k.parentUuid && c.verteilerUuid == k.verteilerUuid)
         .toList()
       ..sort((a, b) => a.position.compareTo(b.position));
 
+    // Positionen normalisieren falls Duplikate existieren (z.B. alle 0)
+    final repo = ref.read(komponentenRepositoryProvider);
+    bool needsNorm = false;
+    for (int i = 0; i < siblings.length; i++) {
+      if (siblings[i].position != i) needsNorm = true;
+    }
+    if (needsNorm) {
+      for (int i = 0; i < siblings.length; i++) {
+        await repo.save(siblings[i].copyWith(position: i));
+        siblings[i] = siblings[i].copyWith(position: i);
+      }
+    }
+
     final idx = siblings.indexWhere((c) => c.uuid == k.uuid);
     final newIdx = idx + delta;
-    if (newIdx < 0 || newIdx >= siblings.length) return; // schon am Rand
+    if (newIdx < 0 || newIdx >= siblings.length) return;
 
     final other = siblings[newIdx];
-    final repo = ref.read(komponentenRepositoryProvider);
-
-    // Positionen tauschen
-    await repo.save(VerteilerKomponente(
-      uuid: k.uuid,
-      verteilerUuid: k.verteilerUuid,
-      parentUuid: k.parentUuid,
-      typ: k.typ,
-      bezeichnung: k.bezeichnung,
-      position: other.position,
-      eigenschaftenJson: k.eigenschaftenJson,
-      erstelltAm: k.erstelltAm,
-    ));
-    await repo.save(VerteilerKomponente(
-      uuid: other.uuid,
-      verteilerUuid: other.verteilerUuid,
-      parentUuid: other.parentUuid,
-      typ: other.typ,
-      bezeichnung: other.bezeichnung,
-      position: k.position,
-      eigenschaftenJson: other.eigenschaftenJson,
-      erstelltAm: other.erstelltAm,
-    ));
+    await repo.save(k.copyWith(position: other.position));
+    await repo.save(other.copyWith(position: k.position));
   }
 
   @override
@@ -355,14 +450,24 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                               _TypIcon(typ: k.typ),
                               const SizedBox(width: 8),
 
-                              // Name + technical data
+                              // BMK + Zielbezeichnung + technische Daten
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment:
                                       CrossAxisAlignment.start,
                                   children: [
+                                    if (k.betriebsmittelkennzeichen.isNotEmpty)
+                                      Text(
+                                        k.betriebsmittelkennzeichen,
+                                        style: AppTheme.dataMono(
+                                          fontSize: 11,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
                                     Text(
-                                      k.bezeichnung,
+                                      k.zielbezeichnung.isNotEmpty
+                                          ? k.zielbezeichnung
+                                          : k.betriebsmittelkennzeichen,
                                       style: Theme.of(context)
                                           .textTheme
                                           .titleSmall,
@@ -400,25 +505,32 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                     size: 16,
                                     color: AppColors.onSurfaceVariant),
                                 padding: EdgeInsets.zero,
-                                itemBuilder: (_) => [
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(
+                                    value: 'bearbeiten',
+                                    child: Row(children: [
+                                      Icon(Icons.edit_outlined, size: 14),
+                                      SizedBox(width: 8),
+                                      Text('Bearbeiten'),
+                                    ]),
+                                  ),
                                   PopupMenuItem(
                                     value: 'add_child',
                                     child: Row(children: [
-                                      const Icon(Icons.add, size: 14),
-                                      const SizedBox(width: 8),
-                                      const Text('Unterkomponente'),
+                                      Icon(Icons.add, size: 14),
+                                      SizedBox(width: 8),
+                                      Text('Unterkomponente'),
                                     ]),
                                   ),
-                                  const PopupMenuItem(
+                                  PopupMenuItem(
                                     value: 'messung',
                                     child: Row(children: [
-                                      Icon(Icons.science_outlined,
-                                          size: 14),
+                                      Icon(Icons.science_outlined, size: 14),
                                       SizedBox(width: 8),
                                       Text('Messung hinzufügen'),
                                     ]),
                                   ),
-                                  const PopupMenuItem(
+                                  PopupMenuItem(
                                     value: 'nach_oben',
                                     child: Row(children: [
                                       Icon(Icons.arrow_upward_outlined,
@@ -427,7 +539,7 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                       Text('Nach oben'),
                                     ]),
                                   ),
-                                  const PopupMenuItem(
+                                  PopupMenuItem(
                                     value: 'nach_unten',
                                     child: Row(children: [
                                       Icon(Icons.arrow_downward_outlined,
@@ -436,7 +548,7 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                       Text('Nach unten'),
                                     ]),
                                   ),
-                                  const PopupMenuItem(
+                                  PopupMenuItem(
                                     value: 'verschieben',
                                     child: Row(children: [
                                       Icon(Icons.drive_file_move_outlined,
@@ -445,7 +557,7 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                       Text('Verschieben'),
                                     ]),
                                   ),
-                                  const PopupMenuItem(
+                                  PopupMenuItem(
                                     value: 'loeschen',
                                     child: Row(children: [
                                       Icon(Icons.delete_outlined,
@@ -458,7 +570,9 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                                   ),
                                 ],
                                 onSelected: (v) async {
-                                  if (v == 'add_child') {
+                                  if (v == 'bearbeiten') {
+                                    widget.onEditKomponente(k);
+                                  } else if (v == 'add_child') {
                                     widget.onAddChild(k.uuid);
                                   } else if (v == 'messung') {
                                     Map<String, dynamic>? props;
@@ -511,11 +625,14 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
           // ── Children ───────────────────────────────────────────────────
           if (hasChildren && _expanded)
             ...children.map((child) => _KomponentenNode(
+                  key: ValueKey(child.uuid),
                   komponente: child,
                   allKomponenten: widget.allKomponenten,
                   depth: widget.depth + 1,
                   onAddChild: widget.onAddChild,
+                  onEditKomponente: widget.onEditKomponente,
                   isLast: child == children.last,
+                  initialExpanded: widget.initialExpanded,
                 )),
         ],
       ),
