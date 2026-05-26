@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
+import 'package:postgres/postgres.dart';
+import 'package:bcrypt/bcrypt.dart';
+import 'package:uuid/uuid.dart';
 import '../lib/src/config.dart';
 import '../lib/src/middleware/auth_middleware.dart';
 import '../lib/src/endpoints/auth_endpoint.dart';
@@ -10,9 +13,59 @@ import '../lib/src/endpoints/mandanten_endpoint.dart';
 import '../lib/src/endpoints/protokoll_endpoint.dart';
 import '../lib/src/db.dart';
 
+/// Legt den Superadmin beim ersten Start an, falls noch keiner existiert.
+/// Liest E-Mail und Passwort aus den Env-Vars SUPERADMIN_EMAIL / SUPERADMIN_PASSWORD.
+/// Wird bei jedem Neustart geprüft — existiert bereits ein Superadmin, passiert nichts.
+Future<void> _ensureSuperadmin(Connection conn) async {
+  final email    = Platform.environment['SUPERADMIN_EMAIL'];
+  final password = Platform.environment['SUPERADMIN_PASSWORD'];
+
+  if (email == null || email.isEmpty || password == null || password.isEmpty) {
+    print('SUPERADMIN_EMAIL/SUPERADMIN_PASSWORD nicht gesetzt — Seed übersprungen.');
+    return;
+  }
+
+  final existing = await conn.execute(
+    Sql.named('SELECT id FROM benutzer WHERE ist_superadmin = true LIMIT 1'),
+  );
+  if (existing.isNotEmpty) {
+    print('Superadmin bereits vorhanden — kein Seed nötig.');
+    return;
+  }
+
+  final firmaId     = const Uuid().v4();
+  final benutzerId  = const Uuid().v4();
+  final hash        = BCrypt.hashpw(password, BCrypt.gensalt());
+
+  await conn.runTx((ctx) async {
+    await ctx.execute(
+      Sql.named('INSERT INTO firmen (id, name) VALUES (@id, @name)'),
+      parameters: {'id': firmaId, 'name': '_ElektraLog-System_'},
+    );
+    await ctx.execute(
+      Sql.named(
+        'INSERT INTO benutzer '
+        '(id, firma_id, email, passwort_hash, name, ist_superadmin) '
+        'VALUES (@id, @fid, @email, @hash, @name, true)',
+      ),
+      parameters: {
+        'id':    benutzerId,
+        'fid':   firmaId,
+        'email': email,
+        'hash':  hash,
+        'name':  'SuperAdmin',
+      },
+    );
+  });
+
+  print('Superadmin angelegt: $email');
+}
+
 void main() async {
   final config = ServerConfig.fromEnv();
   final conn = await openDb(config);
+
+  await _ensureSuperadmin(conn);
 
   final router = Router()
     // Health check (public)
