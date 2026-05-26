@@ -140,6 +140,52 @@ class ApiService {
     }
   }
 
+  // Team / Firmeneigene Benutzerverwaltung
+  static Future<List<Map<String, dynamic>>> getTeamBenutzer() async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/firma/benutzer'),
+      headers: await _headers(auth: true),
+    );
+    if (resp.statusCode == 200) {
+      return (jsonDecode(resp.body) as List<dynamic>)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
+    }
+    throw Exception('HTTP ${resp.statusCode}: ${resp.body}');
+  }
+
+  static Future<Map<String, dynamic>> createTeamBenutzer({
+    required String email,
+    required String passwort,
+    required String name,
+  }) async {
+    final resp = await http.post(
+      Uri.parse('$baseUrl/firma/benutzer'),
+      headers: await _headers(auth: true),
+      body: jsonEncode({'email': email, 'passwort': passwort, 'name': name}),
+    );
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> updateTeamBenutzerStatus(
+    String id,
+    String status,
+  ) async {
+    final resp = await http.patch(
+      Uri.parse('$baseUrl/firma/benutzer/$id/status'),
+      headers: await _headers(auth: true),
+      body: jsonEncode({'status': status}),
+    );
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  static Future<void> deleteTeamBenutzer(String id) async {
+    await http.delete(
+      Uri.parse('$baseUrl/firma/benutzer/$id'),
+      headers: await _headers(auth: true),
+    );
+  }
+
   /// Gibt die Protokoll-Liste der eigenen Firma zurück.
   static Future<List<Map<String, dynamic>>> getProtokolle() async {
     try {

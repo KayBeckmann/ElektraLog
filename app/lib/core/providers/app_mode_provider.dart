@@ -15,13 +15,17 @@ class AppModusNotifier extends AsyncNotifier<AppModus> {
     String token,
     String benutzerId,
     String firmaId,
-    String name,
-  ) async {
+    String name, {
+    String? firmaName,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('jwt_token', token);
     await prefs.setString('benutzer_id', benutzerId);
     await prefs.setString('firma_id', firmaId);
     await prefs.setString('benutzer_name', name);
+    if (firmaName != null && firmaName.isNotEmpty) {
+      await prefs.setString('firma_name', firmaName);
+    }
     state = const AsyncData(AppModus.company);
   }
 
@@ -31,6 +35,7 @@ class AppModusNotifier extends AsyncNotifier<AppModus> {
     await prefs.remove('benutzer_id');
     await prefs.remove('firma_id');
     await prefs.remove('benutzer_name');
+    await prefs.remove('firma_name');
     state = const AsyncData(AppModus.solo);
   }
 }
@@ -45,5 +50,6 @@ final currentUserProvider = FutureProvider<Map<String, String?>>((ref) async {
     'benutzerId': prefs.getString('benutzer_id'),
     'firmaId': prefs.getString('firma_id'),
     'name': prefs.getString('benutzer_name'),
+    'firmaName': prefs.getString('firma_name'),
   };
 });

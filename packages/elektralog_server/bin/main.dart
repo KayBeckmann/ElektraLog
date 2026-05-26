@@ -11,6 +11,7 @@ import '../lib/src/endpoints/auth_endpoint.dart';
 import '../lib/src/endpoints/kunden_endpoint.dart';
 import '../lib/src/endpoints/mandanten_endpoint.dart';
 import '../lib/src/endpoints/protokoll_endpoint.dart';
+import '../lib/src/endpoints/firma_endpoint.dart';
 import '../lib/src/db.dart';
 
 /// Legt den Superadmin beim ersten Start an, falls noch keiner existiert.
@@ -96,6 +97,15 @@ void main() async {
         (req, id) => MandantenEndpoint(conn).updateBenutzerStatus(req, id))
     ..delete('/api/admin/benutzer/<id>',
         (req, id) => MandantenEndpoint(conn).deleteBenutzer(req, id))
+    // Firma-eigene Benutzerverwaltung (jeder eingeloggte Company-User)
+    ..get('/api/firma/benutzer',
+        (req) => FirmaEndpoint(conn).listBenutzer(req))
+    ..post('/api/firma/benutzer',
+        (req) => FirmaEndpoint(conn).createBenutzer(req))
+    ..patch('/api/firma/benutzer/<id>/status',
+        (req, id) => FirmaEndpoint(conn).updateBenutzerStatus(req, id))
+    ..delete('/api/firma/benutzer/<id>',
+        (req, id) => FirmaEndpoint(conn).deleteBenutzer(req, id))
     // Protokoll-Archiv (append-only, rechtssicher)
     ..post('/api/protokolle', (req) => ProtokollEndpoint(conn).create(req))
     ..get('/api/protokolle', (req) => ProtokollEndpoint(conn).list(req))

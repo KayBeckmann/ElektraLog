@@ -90,6 +90,7 @@ class AuthEndpoint {
           'benutzerId': benutzerId,
           'firmaId': firmaId,
           'name': name,
+          'firmaName': firmenname,
           'istSuperadmin': false,
         }),
         headers: {'Content-Type': 'application/json'},
@@ -115,7 +116,7 @@ class AuthEndpoint {
       final rows = await db.execute(
         Sql.named(
           'SELECT b.id, b.firma_id, b.passwort_hash, b.name, b.ist_superadmin, '
-          '       f.status AS firma_status '
+          '       f.status AS firma_status, f.name AS firma_name '
           'FROM benutzer b '
           'JOIN firmen f ON f.id = b.firma_id '
           "WHERE b.email = @email AND b.status = 'aktiv'",
@@ -157,6 +158,7 @@ class AuthEndpoint {
       final benutzerId = row[0].toString();
       final firmaId = row[1].toString();
       final name = row[3] as String;
+      final firmaName = row[6] as String;
       final token = _issueToken(benutzerId, firmaId, email, name, istSuperadmin);
 
       return Response.ok(
@@ -165,6 +167,7 @@ class AuthEndpoint {
           'benutzerId': benutzerId,
           'firmaId': firmaId,
           'name': name,
+          'firmaName': firmaName,
           'istSuperadmin': istSuperadmin,
         }),
         headers: {'Content-Type': 'application/json'},

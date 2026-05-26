@@ -27,7 +27,7 @@ class _NavItem {
   final String label;
 }
 
-const _navItems = [
+const _baseNavItems = [
   _NavItem(
     route: AppRoutes.dashboard,
     icon: Icons.dashboard_outlined,
@@ -53,6 +53,25 @@ const _navItems = [
     label: 'Einstellungen',
   ),
 ];
+
+const _teamNavItem = _NavItem(
+  route: AppRoutes.team,
+  icon: Icons.group_outlined,
+  selectedIcon: Icons.group,
+  label: 'Team',
+);
+
+List<_NavItem> _buildNavItems(bool isCompany) {
+  if (!isCompany) return _baseNavItems;
+  // Im Company-Modus: Team vor Einstellungen einfügen
+  return [
+    _baseNavItems[0],
+    _baseNavItems[1],
+    _baseNavItems[2],
+    _teamNavItem,
+    _baseNavItems[3],
+  ];
+}
 
 /// Main app shell — provides adaptive navigation:
 /// - Mobile (<768px): Fixed bottom navigation bar with 4 tabs
@@ -106,6 +125,9 @@ class _DesktopDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.path;
+    final isCompany =
+        ref.watch(appModusProvider).valueOrNull == AppModus.company;
+    final navItems = _buildNavItems(isCompany);
 
     return SizedBox(
       width: _kDrawerWidth,
@@ -159,7 +181,7 @@ class _DesktopDrawer extends ConsumerWidget {
                     Expanded(
                       child: ListView(
                         padding: EdgeInsets.zero,
-                        children: _navItems.map((item) {
+                        children: navItems.map((item) {
                           final isSelected = location == item.route ||
                               (item.route == AppRoutes.dashboard &&
                                   location == '/');
@@ -365,23 +387,26 @@ class _DrawerActionItem extends StatelessWidget {
 // Mobile Shell
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _MobileShell extends StatelessWidget {
+class _MobileShell extends ConsumerWidget {
   const _MobileShell({required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.path;
-    final selectedIndex = _selectedIndex(location);
+    final isCompany =
+        ref.watch(appModusProvider).valueOrNull == AppModus.company;
+    final navItems = _buildNavItems(isCompany);
+    final selectedIndex = _selectedIndex(location, navItems);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: child,
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
-        onDestinationSelected: (index) => context.go(_navItems[index].route),
-        destinations: _navItems
+        onDestinationSelected: (index) => context.go(navItems[index].route),
+        destinations: navItems
             .map(
               (item) => NavigationDestination(
                 icon: Icon(item.icon),
@@ -394,11 +419,10 @@ class _MobileShell extends StatelessWidget {
     );
   }
 
-  int _selectedIndex(String location) {
-    for (var i = 0; i < _navItems.length; i++) {
-      if (location == _navItems[i].route) return i;
-      // Alle Sub-Routen von /kunden → Index 1 aktiv halten
-      if (_navItems[i].route == AppRoutes.kunden &&
+  int _selectedIndex(String location, List<_NavItem> navItems) {
+    for (var i = 0; i < navItems.length; i++) {
+      if (location == navItems[i].route) return i;
+      if (navItems[i].route == AppRoutes.kunden &&
           location.startsWith('/kunden')) return i;
     }
     return 0;

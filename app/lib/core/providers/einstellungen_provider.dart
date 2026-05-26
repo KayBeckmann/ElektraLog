@@ -55,9 +55,20 @@ class EinstellungenNotifier extends AsyncNotifier<Einstellungen> {
     final prefs = await SharedPreferences.getInstance();
     final serverUrl = prefs.getString(_kServerUrl);
     ApiService.setServerUrl(serverUrl);
+
+    // Firmenname aus Backend-Login vorbelegen, wenn lokal noch leer
+    var firma = prefs.getString(_kFirma);
+    if (firma == null || firma.isEmpty) {
+      final backendFirmaName = prefs.getString('firma_name');
+      if (backendFirmaName != null && backendFirmaName.isNotEmpty) {
+        firma = backendFirmaName;
+        await prefs.setString(_kFirma, firma);
+      }
+    }
+
     return Einstellungen(
       prueferName: prefs.getString(_kPruefer),
-      firma:       prefs.getString(_kFirma),
+      firma:       firma,
       firmaStrasse: prefs.getString(_kStrasse),
       firmaPlz:    prefs.getString(_kPlz),
       firmaOrt:    prefs.getString(_kOrt),
