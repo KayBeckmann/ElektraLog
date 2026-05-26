@@ -476,8 +476,9 @@
     <div id="login-error" class="alert alert-error" style="display:none"></div>
 
     <div class="field">
-      <label>API-Server-URL</label>
-      <input type="url" id="api-url-input" placeholder="http://localhost:8080" />
+      <label>API-Server-URL <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+      <input type="text" id="api-url-input" placeholder="Leer lassen → nginx-Proxy (Standardfall)" autocomplete="off" />
+      <span style="font-size:11px;color:var(--muted);margin-top:3px">Leer lassen wenn das Panel auf dem Server läuft. Nur ausfüllen für externen Zugriff (z.B. <code>https://api.meinserver.de</code>).</span>
     </div>
 
     <div class="field">
@@ -514,7 +515,7 @@
   </header>
 
   <div class="settings-bar">
-    <span>API: <span class="api-url-display" id="api-url-display"></span></span>
+    <span>API: <span class="api-url-display" id="api-url-display">nginx-Proxy (intern)</span></span>
     <button class="btn btn-ghost btn-sm" onclick="openApiSettings()">URL ändern</button>
   </div>
 
@@ -656,7 +657,8 @@
     </div>
     <div class="field">
       <label>Backend-URL</label>
-      <input type="url" id="settings-api-url" placeholder="http://meinserver.de:8080" />
+      <input type="text" id="settings-api-url" placeholder="Leer lassen → nginx-Proxy (Standardfall)" autocomplete="off" />
+      <span style="font-size:11px;color:var(--muted);margin-top:3px">Leer = nginx-Proxy (kein CORS-Problem). Für externen Zugriff: <code>https://api.meinserver.de</code></span>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-api-settings')">Abbrechen</button>
@@ -674,9 +676,18 @@ const LS_TOKEN   = 'el_sa_token';
 const LS_API_URL = 'el_sa_api_url';
 const LS_USER    = 'el_sa_user';
 
-// ─── API ────────────────────────────────────────────────────────────────────
+// ─── Helpers: URL-Normalisierung ─────────────────────────────────────────────
+// Gibt die gespeicherte URL normalisiert zurück, oder '' für nginx-Proxy-Modus.
 function apiUrl() {
   return (localStorage.getItem(LS_API_URL) || '').replace(/\/$/, '');
+}
+
+// Normalisiert eine Benutzereingabe: trimmt, ergänzt https:// falls kein Protokoll.
+function normalizeUrl(raw) {
+  const s = raw.trim().replace(/\/$/, '');
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s;
+  return 'https://' + s;  // Protokoll ergänzen statt 405-Fehler riskieren
 }
 
 async function api(method, path, body) {
@@ -707,19 +718,27 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // ─── Login ───────────────────────────────────────────────────────────────────
 async function doLogin() {
-  const url   = document.getElementById('api-url-input').value.trim();
-  const email = document.getElementById('login-email').value.trim();
-  const pass  = document.getElementById('login-password').value;
-  const errEl = document.getElementById('login-error');
-  const btn   = document.getElementById('login-btn');
+  const urlRaw = document.getElementById('api-url-input').value;
+  const url    = normalizeUrl(urlRaw);
+  const email  = document.getElementById('login-email').value.trim();
+  const pass   = document.getElementById('login-password').value;
+  const errEl  = document.getElementById('login-error');
+  const btn    = document.getElementById('login-btn');
 
   errEl.style.display = 'none';
 
-  if (!url)   { showErr(errEl, 'Bitte API-Server-URL eingeben.'); return; }
+  // URL-Feld ist optional — leer = nginx-Proxy-Modus
   if (!email) { showErr(errEl, 'Bitte E-Mail eingeben.'); return; }
   if (!pass)  { showErr(errEl, 'Bitte Passwort eingeben.'); return; }
 
-  localStorage.setItem(LS_API_URL, url);
+  // Normalisierte URL speichern (oder löschen wenn leer → Proxy-Modus)
+  if (url) {
+    localStorage.setItem(LS_API_URL, url);
+    document.getElementById('api-url-input').value = url; // normalisiert anzeigen
+  } else {
+    localStorage.removeItem(LS_API_URL);
+  }
+
   btn.disabled = true;
   btn.textContent = 'Anmelde…';
 
@@ -755,7 +774,8 @@ function showApp(user) {
   document.getElementById('login-view').style.display = 'none';
   document.getElementById('app-view').style.display   = 'flex';
   document.getElementById('header-user').textContent  = user;
-  document.getElementById('api-url-display').textContent = apiUrl();
+  const url = apiUrl();
+  document.getElementById('api-url-display').textContent = url || 'nginx-Proxy (intern)';
   loadFirmen();
 }
 
@@ -766,10 +786,14 @@ function openApiSettings() {
 }
 
 function saveApiUrl() {
-  const url = document.getElementById('settings-api-url').value.trim();
-  if (!url) return;
-  localStorage.setItem(LS_API_URL, url);
-  document.getElementById('api-url-display').textContent = url;
+  const url = normalizeUrl(document.getElementById('settings-api-url').value);
+  if (url) {
+    localStorage.setItem(LS_API_URL, url);
+  } else {
+    localStorage.removeItem(LS_API_URL);
+  }
+  document.getElementById('api-url-display').textContent = url || 'nginx-Proxy (intern)';
+  document.getElementById('settings-api-url').value = url;
   closeModal('modal-api-settings');
   loadFirmen();
 }
