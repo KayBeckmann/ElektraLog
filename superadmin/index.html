@@ -494,6 +494,10 @@
     <button class="btn btn-primary" style="width:100%; margin-top:8px; padding:11px;" id="login-btn" onclick="doLogin()">
       Anmelden
     </button>
+
+    <p style="text-align:center; margin-top:14px; font-size:11px; color:var(--muted)">
+      CORS-Fehler? <a href="#" onclick="clearStoredUrl()" style="color:var(--primary)">Gespeicherte URL löschen</a> und URL-Feld leer lassen.
+    </p>
   </div>
 </div>
 
@@ -517,6 +521,7 @@
   <div class="settings-bar">
     <span>API: <span class="api-url-display" id="api-url-display">nginx-Proxy (intern)</span></span>
     <button class="btn btn-ghost btn-sm" onclick="openApiSettings()">URL ändern</button>
+    <button class="btn btn-ghost btn-sm" onclick="resetToProxy()" title="Externe URL löschen → nginx-Proxy verwenden">← Proxy-Modus</button>
   </div>
 
   <main>
@@ -690,6 +695,13 @@ function normalizeUrl(raw) {
   return 'https://' + s;  // Protokoll ergänzen statt 405-Fehler riskieren
 }
 
+// Gespeicherte URL löschen (Login-Seite: CORS-Hinweis)
+function clearStoredUrl() {
+  localStorage.removeItem(LS_API_URL);
+  document.getElementById('api-url-input').value = '';
+  return false;
+}
+
 async function api(method, path, body) {
   const resp = await fetch(apiUrl() + path, {
     method,
@@ -776,6 +788,13 @@ function showApp(user) {
   document.getElementById('header-user').textContent  = user;
   const url = apiUrl();
   document.getElementById('api-url-display').textContent = url || 'nginx-Proxy (intern)';
+  loadFirmen();
+}
+
+// ─── Proxy-Modus ─────────────────────────────────────────────────────────────
+function resetToProxy() {
+  localStorage.removeItem(LS_API_URL);
+  document.getElementById('api-url-display').textContent = 'nginx-Proxy (intern)';
   loadFirmen();
 }
 
