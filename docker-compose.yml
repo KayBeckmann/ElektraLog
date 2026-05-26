@@ -70,11 +70,27 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       SERVERPOD_PORT: ${SERVERPOD_PORT}
       JWT_SECRET: ${JWT_SECRET}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8888}
+      SUPERADMIN_URL: ${SUPERADMIN_URL:-http://localhost:8889}
     ports:
       - "127.0.0.1:${SERVERPOD_PORT}:8080"
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - elektralog
+
+  # ---------------------------------------------------------------------------
+  # SuperAdmin — Verwaltungs-Frontend für Firmen und Zugänge
+  # ---------------------------------------------------------------------------
+  superadmin:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./superadmin:/usr/share/nginx/html:ro
+      - ./superadmin/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "${SUPERADMIN_PORT:-8889}:80"
     networks:
       - elektralog
 

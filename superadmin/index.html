@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ElektraLog — SuperAdmin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0B111A;
+      --surface:   #131C28;
+      --surface2:  #1A2436;
+      --border:    #253044;
+      --primary:   #BCC7DE;
+      --accent:    #D4A21A;
+      --text:      #D8E3F0;
+      --muted:     #6B7D96;
+      --success:   #2ECC71;
+      --error:     #E74C3C;
+      --warning:   #F39C12;
+      --radius:    6px;
+      --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+    }
+
+    /* ── Login ─────────────────────────────────────────────────── */
+    #login-view {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 380px;
+    }
+
+    .login-card .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .login-card .logo svg {
+      width: 36px; height: 36px;
+    }
+
+    .login-card .logo-text {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+
+    .login-card .logo-text span {
+      color: var(--accent);
+      font-size: 10px;
+      display: block;
+      letter-spacing: 0.15em;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-top: 1px;
+    }
+
+    /* ── App shell ─────────────────────────────────────────────── */
+    #app-view {
+      display: none;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.03em;
+    }
+
+    .header-brand svg { width: 28px; height: 28px; }
+
+    .badge-superadmin {
+      background: var(--accent);
+      color: #000;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      padding: 2px 7px;
+      border-radius: 3px;
+      text-transform: uppercase;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-user {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    main {
+      padding: 32px 24px;
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+      flex: 1;
+    }
+
+    /* ── Toolbar ───────────────────────────────────────────────── */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .toolbar-right {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    /* ── Table ─────────────────────────────────────────────────── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      background: var(--surface2);
+    }
+
+    th {
+      text-align: left;
+      padding: 10px 14px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    tr:hover td { background: rgba(188, 199, 222, 0.04); }
+
+    /* ── Status badges ─────────────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .badge-aktiv    { background: rgba(46,204,113,0.12); color: var(--success); }
+    .badge-gesperrt { background: rgba(231,76,60,0.12);  color: var(--error);   }
+
+    /* ── Forms ─────────────────────────────────────────────────── */
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      margin-bottom: 16px;
+    }
+
+    label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="url"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 12px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      font-family: var(--font);
+      outline: none;
+      transition: border-color 0.15s;
+      width: 100%;
+    }
+
+    input:focus {
+      border-color: var(--primary);
+    }
+
+    /* ── Buttons ───────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--font);
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #0B111A;
+    }
+
+    .btn-danger {
+      background: rgba(231,76,60,0.15);
+      color: var(--error);
+      border: 1px solid rgba(231,76,60,0.3);
+    }
+
+    .btn-success {
+      background: rgba(46,204,113,0.15);
+      color: var(--success);
+      border: 1px solid rgba(46,204,113,0.3);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-icon {
+      padding: 8px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .btn-sm {
+      padding: 5px 11px;
+      font-size: 12px;
+    }
+
+    /* ── Modal ─────────────────────────────────────────────────── */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 28px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 22px;
+    }
+
+    .modal-title {
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+      padding: 2px;
+    }
+
+    .modal-close:hover { color: var(--text); }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    /* ── Settings bar ──────────────────────────────────────────── */
+    .settings-bar {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .settings-bar span { flex: 1; }
+
+    .api-url-display {
+      font-family: monospace;
+      color: var(--primary);
+      font-size: 12px;
+    }
+
+    /* ── Alert ─────────────────────────────────────────────────── */
+    .alert {
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .alert-error {
+      background: rgba(231,76,60,0.12);
+      border: 1px solid rgba(231,76,60,0.3);
+      color: #F1948A;
+    }
+
+    /* ── Users sub-table ───────────────────────────────────────── */
+    .sub-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    .sub-table th {
+      background: var(--bg);
+      font-size: 10px;
+    }
+
+    .sub-table td {
+      padding: 9px 12px;
+      font-size: 13px;
+    }
+
+    /* ── Empty state ───────────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: 48px 16px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    /* ── Divider ───────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 16px 0;
+    }
+
+    /* ── Loading ───────────────────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 16px; height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ LOGIN ═════════════════════════════ -->
+<div id="login-view">
+  <div class="login-card">
+    <div class="logo">
+      <svg viewBox="0 0 36 36" fill="none">
+        <circle cx="18" cy="18" r="17" stroke="#BCC7DE" stroke-width="1.5"/>
+        <path d="M14 10h8l-4 7h5l-9 9 2-8H11l3-8z" fill="#D4A21A"/>
+      </svg>
+      <div class="logo-text">
+        ElektraLog
+        <span>SuperAdmin</span>
+      </div>
+    </div>
+
+    <div id="login-error" class="alert alert-error" style="display:none"></div>
+
+    <div class="field">
+      <label>API-Server-URL</label>
+      <input type="url" id="api-url-input" placeholder="http://localhost:8080" />
+    </div>
+
+    <div class="field">
+      <label>E-Mail</label>
+      <input type="email" id="login-email" placeholder="admin@example.com" autocomplete="username" />
+    </div>
+
+    <div class="field">
+      <label>Passwort</label>
+      <input type="password" id="login-password" autocomplete="current-password" />
+    </div>
+
+    <button class="btn btn-primary" style="width:100%; margin-top:8px; padding:11px;" id="login-btn" onclick="doLogin()">
+      Anmelden
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════ APP ══════════════════════════════ -->
+<div id="app-view">
+  <header>
+    <div class="header-brand">
+      <svg viewBox="0 0 36 36" fill="none">
+        <circle cx="18" cy="18" r="17" stroke="#BCC7DE" stroke-width="1.5"/>
+        <path d="M14 10h8l-4 7h5l-9 9 2-8H11l3-8z" fill="#D4A21A"/>
+      </svg>
+      ElektraLog
+      <span class="badge-superadmin">SuperAdmin</span>
+    </div>
+    <div class="header-actions">
+      <span class="header-user" id="header-user"></span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Abmelden</button>
+    </div>
+  </header>
+
+  <div class="settings-bar">
+    <span>API: <span class="api-url-display" id="api-url-display"></span></span>
+    <button class="btn btn-ghost btn-sm" onclick="openApiSettings()">URL ändern</button>
+  </div>
+
+  <main>
+    <!-- Firmen -->
+    <div class="toolbar">
+      <h1>Firmen</h1>
+      <div class="toolbar-right">
+        <button class="btn btn-ghost btn-sm" onclick="loadFirmen()">
+          <span id="reload-icon">↻</span> Aktualisieren
+        </button>
+        <button class="btn btn-primary" onclick="openCreateFirma()">
+          + Firma anlegen
+        </button>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Firma</th>
+            <th>Status</th>
+            <th>Angelegt</th>
+            <th style="text-align:right">Aktionen</th>
+          </tr>
+        </thead>
+        <tbody id="firmen-table-body">
+          <tr><td colspan="4" class="empty"><span class="spinner"></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<!-- ═══════════════════ MODAL: Firma anlegen ══════════════════════ -->
+<div class="modal-backdrop" id="modal-create-firma">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Firma anlegen</div>
+      <button class="modal-close" onclick="closeModal('modal-create-firma')">✕</button>
+    </div>
+
+    <div id="create-firma-error" class="alert alert-error" style="display:none"></div>
+
+    <p class="section-label">Firma</p>
+    <div class="field">
+      <label>Firmenname *</label>
+      <input type="text" id="new-firma-name" placeholder="Elektro Mustermann GmbH" />
+    </div>
+
+    <hr class="divider">
+
+    <p class="section-label">Erster Benutzer (optional)</p>
+    <div class="field">
+      <label>Name</label>
+      <input type="text" id="new-user-name" placeholder="Max Mustermann" />
+    </div>
+    <div class="field">
+      <label>E-Mail</label>
+      <input type="email" id="new-user-email" placeholder="max@mustermann.de" />
+    </div>
+    <div class="field">
+      <label>Passwort</label>
+      <input type="password" id="new-user-pass" />
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-create-firma')">Abbrechen</button>
+      <button class="btn btn-primary" id="btn-create-firma" onclick="doCreateFirma()">Anlegen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL: Firma-Details ══════════════════════ -->
+<div class="modal-backdrop" id="modal-firma-detail">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="detail-firma-name"></div>
+        <div style="color:var(--muted); font-size:12px; margin-top:3px" id="detail-firma-id"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-firma-detail')">✕</button>
+    </div>
+
+    <div id="detail-error" class="alert alert-error" style="display:none"></div>
+
+    <!-- Benutzer -->
+    <p class="section-label">Benutzer</p>
+    <div class="table-wrap">
+      <table class="sub-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>E-Mail</th>
+            <th>Status</th>
+            <th style="text-align:right">Aktionen</th>
+          </tr>
+        </thead>
+        <tbody id="detail-users-body">
+          <tr><td colspan="4" class="empty"><span class="spinner"></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr class="divider">
+
+    <!-- Neuer Benutzer -->
+    <p class="section-label">Neuen Benutzer hinzufügen</p>
+    <div id="add-user-error" class="alert alert-error" style="display:none"></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+      <div class="field" style="margin-bottom:0">
+        <label>Name *</label>
+        <input type="text" id="add-user-name" placeholder="Max Mustermann" />
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>E-Mail *</label>
+        <input type="email" id="add-user-email" placeholder="max@firma.de" />
+      </div>
+    </div>
+    <div class="field" style="margin-top:10px">
+      <label>Passwort *</label>
+      <input type="password" id="add-user-pass" />
+    </div>
+
+    <div class="modal-footer" style="margin-top:14px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-firma-detail')">Schließen</button>
+      <button class="btn btn-primary" id="btn-add-user" onclick="doAddUser()">Benutzer hinzufügen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ MODAL: API-URL ändern ═════════════════════ -->
+<div class="modal-backdrop" id="modal-api-settings">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">API-Server-URL ändern</div>
+      <button class="modal-close" onclick="closeModal('modal-api-settings')">✕</button>
+    </div>
+    <div class="field">
+      <label>Backend-URL</label>
+      <input type="url" id="settings-api-url" placeholder="http://meinserver.de:8080" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-api-settings')">Abbrechen</button>
+      <button class="btn btn-primary" onclick="saveApiUrl()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ──────────────────────────────────────────────────────────────────
+let token = null;
+let currentFirmaId = null;
+
+const LS_TOKEN   = 'el_sa_token';
+const LS_API_URL = 'el_sa_api_url';
+const LS_USER    = 'el_sa_user';
+
+// ─── API ────────────────────────────────────────────────────────────────────
+function apiUrl() {
+  return (localStorage.getItem(LS_API_URL) || '').replace(/\/$/, '');
+}
+
+async function api(method, path, body) {
+  const resp = await fetch(apiUrl() + path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+  return data;
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const savedUrl = localStorage.getItem(LS_API_URL) || '';
+  document.getElementById('api-url-input').value = savedUrl;
+
+  token = localStorage.getItem(LS_TOKEN);
+  if (token) {
+    const user = localStorage.getItem(LS_USER) || '';
+    showApp(user);
+  }
+});
+
+// ─── Login ───────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const url   = document.getElementById('api-url-input').value.trim();
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn   = document.getElementById('login-btn');
+
+  errEl.style.display = 'none';
+
+  if (!url)   { showErr(errEl, 'Bitte API-Server-URL eingeben.'); return; }
+  if (!email) { showErr(errEl, 'Bitte E-Mail eingeben.'); return; }
+  if (!pass)  { showErr(errEl, 'Bitte Passwort eingeben.'); return; }
+
+  localStorage.setItem(LS_API_URL, url);
+  btn.disabled = true;
+  btn.textContent = 'Anmelde…';
+
+  try {
+    const data = await api('POST', '/api/auth/login', { email, passwort: pass });
+    if (!data.istSuperadmin) {
+      showErr(errEl, 'Dieser Account hat keine Superadmin-Berechtigung.');
+      btn.disabled = false; btn.textContent = 'Anmelden';
+      return;
+    }
+    token = data.token;
+    localStorage.setItem(LS_TOKEN, token);
+    localStorage.setItem(LS_USER, data.name || email);
+    showApp(data.name || email);
+  } catch (e) {
+    showErr(errEl, e.message);
+    btn.disabled = false; btn.textContent = 'Anmelden';
+  }
+}
+
+// ─── Logout ──────────────────────────────────────────────────────────────────
+function doLogout() {
+  token = null;
+  localStorage.removeItem(LS_TOKEN);
+  localStorage.removeItem(LS_USER);
+  document.getElementById('login-view').style.display = 'flex';
+  document.getElementById('app-view').style.display   = 'none';
+  document.getElementById('login-password').value = '';
+}
+
+// ─── Show App ────────────────────────────────────────────────────────────────
+function showApp(user) {
+  document.getElementById('login-view').style.display = 'none';
+  document.getElementById('app-view').style.display   = 'flex';
+  document.getElementById('header-user').textContent  = user;
+  document.getElementById('api-url-display').textContent = apiUrl();
+  loadFirmen();
+}
+
+// ─── API-URL Settings ────────────────────────────────────────────────────────
+function openApiSettings() {
+  document.getElementById('settings-api-url').value = apiUrl();
+  openModal('modal-api-settings');
+}
+
+function saveApiUrl() {
+  const url = document.getElementById('settings-api-url').value.trim();
+  if (!url) return;
+  localStorage.setItem(LS_API_URL, url);
+  document.getElementById('api-url-display').textContent = url;
+  closeModal('modal-api-settings');
+  loadFirmen();
+}
+
+// ─── Firmen laden ────────────────────────────────────────────────────────────
+async function loadFirmen() {
+  const tbody = document.getElementById('firmen-table-body');
+  tbody.innerHTML = '<tr><td colspan="4" class="empty"><span class="spinner"></span></td></tr>';
+
+  try {
+    const firmen = await api('GET', '/api/admin/firmen');
+    if (firmen.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">Noch keine Firmen vorhanden.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = firmen.map(f => `
+      <tr>
+        <td>
+          <strong>${esc(f.name)}</strong><br>
+          <span style="color:var(--muted); font-size:11px; font-family:monospace">${esc(f.id)}</span>
+        </td>
+        <td><span class="badge badge-${f.status}">${f.status}</span></td>
+        <td style="color:var(--muted); font-size:12px">${fmtDate(f.erstelltAm)}</td>
+        <td style="text-align:right">
+          <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="openFirmaDetail('${esc(f.id)}', '${esc(f.name)}')">
+              Benutzer
+            </button>
+            ${f.status === 'aktiv'
+              ? `<button class="btn btn-danger btn-sm" onclick="toggleFirma('${esc(f.id)}', 'gesperrt')">Sperren</button>`
+              : `<button class="btn btn-success btn-sm" onclick="toggleFirma('${esc(f.id)}', 'aktiv')">Entsperren</button>`
+            }
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    if (e.message.includes('401') || e.message.includes('403')) { doLogout(); return; }
+    tbody.innerHTML = `<tr><td colspan="4" class="empty" style="color:var(--error)">${esc(e.message)}</td></tr>`;
+  }
+}
+
+// ─── Firma sperren/entsperren ─────────────────────────────────────────────────
+async function toggleFirma(id, newStatus) {
+  try {
+    await api('PATCH', `/api/admin/firmen/${id}/status`, { status: newStatus });
+    loadFirmen();
+  } catch (e) {
+    alert('Fehler: ' + e.message);
+  }
+}
+
+// ─── Firma anlegen ────────────────────────────────────────────────────────────
+function openCreateFirma() {
+  document.getElementById('new-firma-name').value = '';
+  document.getElementById('new-user-name').value  = '';
+  document.getElementById('new-user-email').value = '';
+  document.getElementById('new-user-pass').value  = '';
+  document.getElementById('create-firma-error').style.display = 'none';
+  openModal('modal-create-firma');
+}
+
+async function doCreateFirma() {
+  const firmaName = document.getElementById('new-firma-name').value.trim();
+  const userName  = document.getElementById('new-user-name').value.trim();
+  const userEmail = document.getElementById('new-user-email').value.trim();
+  const userPass  = document.getElementById('new-user-pass').value;
+  const errEl     = document.getElementById('create-firma-error');
+  const btn       = document.getElementById('btn-create-firma');
+
+  errEl.style.display = 'none';
+
+  if (!firmaName) { showErr(errEl, 'Firmenname ist erforderlich.'); return; }
+
+  const hasUser = userName || userEmail || userPass;
+  if (hasUser && (!userName || !userEmail || !userPass)) {
+    showErr(errEl, 'Für den Benutzer sind Name, E-Mail und Passwort erforderlich.');
+    return;
+  }
+
+  btn.disabled = true;
+
+  try {
+    const firma = await api('POST', '/api/admin/firmen', { name: firmaName });
+
+    if (hasUser) {
+      await api('POST', `/api/admin/firmen/${firma.id}/benutzer`, {
+        name: userName, email: userEmail, passwort: userPass,
+      });
+    }
+
+    closeModal('modal-create-firma');
+    loadFirmen();
+  } catch (e) {
+    showErr(errEl, e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ─── Firma-Detail / Benutzer ──────────────────────────────────────────────────
+async function openFirmaDetail(firmaId, firmaName) {
+  currentFirmaId = firmaId;
+  document.getElementById('detail-firma-name').textContent = firmaName;
+  document.getElementById('detail-firma-id').textContent   = firmaId;
+  document.getElementById('add-user-name').value  = '';
+  document.getElementById('add-user-email').value = '';
+  document.getElementById('add-user-pass').value  = '';
+  document.getElementById('detail-error').style.display   = 'none';
+  document.getElementById('add-user-error').style.display = 'none';
+  openModal('modal-firma-detail');
+  await loadBenutzer(firmaId);
+}
+
+async function loadBenutzer(firmaId) {
+  const tbody = document.getElementById('detail-users-body');
+  tbody.innerHTML = '<tr><td colspan="4" class="empty"><span class="spinner"></span></td></tr>';
+
+  try {
+    const users = await api('GET', `/api/admin/firmen/${firmaId}/benutzer`);
+
+    if (users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="empty">Keine Benutzer.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td>${esc(u.name)}</td>
+        <td style="color:var(--muted)">${esc(u.email)}</td>
+        <td><span class="badge badge-${u.status}">${u.status}</span></td>
+        <td style="text-align:right">
+          <div style="display:flex; gap:6px; justify-content:flex-end">
+            ${u.status === 'aktiv'
+              ? `<button class="btn btn-danger btn-sm" onclick="toggleBenutzer('${esc(u.id)}', 'gesperrt')">Sperren</button>`
+              : `<button class="btn btn-success btn-sm" onclick="toggleBenutzer('${esc(u.id)}', 'aktiv')">Aktiv</button>`
+            }
+            <button class="btn btn-ghost btn-sm" onclick="deleteBenutzer('${esc(u.id)}', '${esc(u.name)}')">✕</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="4" class="empty" style="color:var(--error)">${esc(e.message)}</td></tr>`;
+  }
+}
+
+async function toggleBenutzer(id, status) {
+  const errEl = document.getElementById('detail-error');
+  errEl.style.display = 'none';
+  try {
+    await api('PATCH', `/api/admin/benutzer/${id}/status`, { status });
+    await loadBenutzer(currentFirmaId);
+  } catch (e) {
+    showErr(errEl, e.message);
+  }
+}
+
+async function deleteBenutzer(id, name) {
+  if (!confirm(`Benutzer „${name}" wirklich löschen?`)) return;
+  const errEl = document.getElementById('detail-error');
+  errEl.style.display = 'none';
+  try {
+    await api('DELETE', `/api/admin/benutzer/${id}`);
+    await loadBenutzer(currentFirmaId);
+  } catch (e) {
+    showErr(errEl, e.message);
+  }
+}
+
+async function doAddUser() {
+  const name  = document.getElementById('add-user-name').value.trim();
+  const email = document.getElementById('add-user-email').value.trim();
+  const pass  = document.getElementById('add-user-pass').value;
+  const errEl = document.getElementById('add-user-error');
+  const btn   = document.getElementById('btn-add-user');
+
+  errEl.style.display = 'none';
+
+  if (!name || !email || !pass) {
+    showErr(errEl, 'Alle Felder sind erforderlich.');
+    return;
+  }
+
+  btn.disabled = true;
+
+  try {
+    await api('POST', `/api/admin/firmen/${currentFirmaId}/benutzer`, {
+      name, email, passwort: pass,
+    });
+    document.getElementById('add-user-name').value  = '';
+    document.getElementById('add-user-email').value = '';
+    document.getElementById('add-user-pass').value  = '';
+    await loadBenutzer(currentFirmaId);
+  } catch (e) {
+    showErr(errEl, e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function showErr(el, msg) {
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function esc(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleDateString('de-DE'); } catch { return iso; }
+}
+
+// Enter-Taste im Login
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const loginView = document.getElementById('login-view');
+    if (loginView.style.display !== 'none' && !loginView.style.display) doLogin();
+  }
+});
+</script>
+</body>
+</html>

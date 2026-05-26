@@ -35,6 +35,14 @@ void main() async {
     ..post('/api/admin/firmen', (req) => MandantenEndpoint(conn).create(req))
     ..patch('/api/admin/firmen/<id>/status',
         (req, id) => MandantenEndpoint(conn).updateStatus(req, id))
+    ..get('/api/admin/firmen/<id>/benutzer',
+        (req, id) => MandantenEndpoint(conn).listBenutzer(req, id))
+    ..post('/api/admin/firmen/<id>/benutzer',
+        (req, id) => MandantenEndpoint(conn).createBenutzer(req, id))
+    ..patch('/api/admin/benutzer/<id>/status',
+        (req, id) => MandantenEndpoint(conn).updateBenutzerStatus(req, id))
+    ..delete('/api/admin/benutzer/<id>',
+        (req, id) => MandantenEndpoint(conn).deleteBenutzer(req, id))
     // Protokoll-Archiv (append-only, rechtssicher)
     ..post('/api/protokolle', (req) => ProtokollEndpoint(conn).create(req))
     ..get('/api/protokolle', (req) => ProtokollEndpoint(conn).list(req))

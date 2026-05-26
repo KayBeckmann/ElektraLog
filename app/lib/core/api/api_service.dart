@@ -6,13 +6,24 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // Web: same host (Nginx proxy), Native: configurable via --dart-define
+  // Web: same host (Nginx proxy), Native: aus Einstellungen oder Fallback
   static String get baseUrl {
     if (kIsWeb) return '/api';
+    final stored = _cachedServerUrl;
+    if (stored != null && stored.isNotEmpty) {
+      return '${stored.replaceAll(RegExp(r'/$'), '')}/api';
+    }
     return const String.fromEnvironment(
       'API_URL',
       defaultValue: 'http://localhost:8080/api',
     );
+  }
+
+  /// Wird vom EinstellungenProvider befüllt, sobald die Prefs geladen sind.
+  static String? _cachedServerUrl;
+
+  static void setServerUrl(String? url) {
+    _cachedServerUrl = url;
   }
 
   static Future<String?> _getToken() async {

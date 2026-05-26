@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../api/api_service.dart';
 
 // ── Modell ────────────────────────────────────────────────────────────────────
 
@@ -11,6 +12,7 @@ class Einstellungen {
     this.firmaPlz,
     this.firmaOrt,
     this.pruefgeraet,
+    this.serverUrl,
   });
 
   final String? prueferName;
@@ -19,6 +21,8 @@ class Einstellungen {
   final String? firmaPlz;
   final String? firmaOrt;
   final String? pruefgeraet;
+  /// Backend-URL für die Android-App (z.B. https://meinserver.de:8080)
+  final String? serverUrl;
 
   /// Vollständige Adresse als einzeiligen String (leer wenn keine Daten)
   String get firmaAdresse {
@@ -41,6 +45,7 @@ const _kStrasse    = 'einstellungen.firmaStrasse';
 const _kPlz        = 'einstellungen.firmaPlz';
 const _kOrt        = 'einstellungen.firmaOrt';
 const _kPruefgeraet = 'einstellungen.pruefgeraet';
+const _kServerUrl  = 'einstellungen.serverUrl';
 
 // ── Notifier ──────────────────────────────────────────────────────────────────
 
@@ -48,6 +53,8 @@ class EinstellungenNotifier extends AsyncNotifier<Einstellungen> {
   @override
   Future<Einstellungen> build() async {
     final prefs = await SharedPreferences.getInstance();
+    final serverUrl = prefs.getString(_kServerUrl);
+    ApiService.setServerUrl(serverUrl);
     return Einstellungen(
       prueferName: prefs.getString(_kPruefer),
       firma:       prefs.getString(_kFirma),
@@ -55,6 +62,7 @@ class EinstellungenNotifier extends AsyncNotifier<Einstellungen> {
       firmaPlz:    prefs.getString(_kPlz),
       firmaOrt:    prefs.getString(_kOrt),
       pruefgeraet: prefs.getString(_kPruefgeraet),
+      serverUrl:   serverUrl,
     );
   }
 
@@ -65,6 +73,7 @@ class EinstellungenNotifier extends AsyncNotifier<Einstellungen> {
     required String firmaPlz,
     required String firmaOrt,
     required String pruefgeraet,
+    required String serverUrl,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kPruefer, prueferName);
@@ -73,6 +82,8 @@ class EinstellungenNotifier extends AsyncNotifier<Einstellungen> {
     await prefs.setString(_kPlz, firmaPlz);
     await prefs.setString(_kOrt, firmaOrt);
     await prefs.setString(_kPruefgeraet, pruefgeraet);
+    await prefs.setString(_kServerUrl, serverUrl);
+    ApiService.setServerUrl(serverUrl.isEmpty ? null : serverUrl);
     state = AsyncData(Einstellungen(
       prueferName:  prueferName.isEmpty  ? null : prueferName,
       firma:        firma.isEmpty        ? null : firma,
@@ -80,6 +91,7 @@ class EinstellungenNotifier extends AsyncNotifier<Einstellungen> {
       firmaPlz:     firmaPlz.isEmpty     ? null : firmaPlz,
       firmaOrt:     firmaOrt.isEmpty     ? null : firmaOrt,
       pruefgeraet:  pruefgeraet.isEmpty  ? null : pruefgeraet,
+      serverUrl:    serverUrl.isEmpty    ? null : serverUrl,
     ));
   }
 }

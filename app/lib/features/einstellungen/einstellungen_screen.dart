@@ -16,12 +16,13 @@ class EinstellungenScreen extends ConsumerStatefulWidget {
 }
 
 class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
-  final _prueferCtrl   = TextEditingController();
-  final _firmaCtrl     = TextEditingController();
-  final _strasseCtrl   = TextEditingController();
-  final _plzCtrl       = TextEditingController();
-  final _ortCtrl       = TextEditingController();
+  final _prueferCtrl     = TextEditingController();
+  final _firmaCtrl       = TextEditingController();
+  final _strasseCtrl     = TextEditingController();
+  final _plzCtrl         = TextEditingController();
+  final _ortCtrl         = TextEditingController();
   final _pruefgeraetCtrl = TextEditingController();
+  final _serverUrlCtrl   = TextEditingController();
 
   bool _prefilled = false;
 
@@ -32,12 +33,13 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
       if (_prefilled) return;
       final e = ref.read(einstellungenProvider).valueOrNull;
       if (e == null) return;
-      _prueferCtrl.text    = e.prueferName   ?? '';
-      _firmaCtrl.text      = e.firma         ?? '';
-      _strasseCtrl.text    = e.firmaStrasse  ?? '';
-      _plzCtrl.text        = e.firmaPlz      ?? '';
-      _ortCtrl.text        = e.firmaOrt      ?? '';
-      _pruefgeraetCtrl.text = e.pruefgeraet  ?? '';
+      _prueferCtrl.text     = e.prueferName   ?? '';
+      _firmaCtrl.text       = e.firma         ?? '';
+      _strasseCtrl.text     = e.firmaStrasse  ?? '';
+      _plzCtrl.text         = e.firmaPlz      ?? '';
+      _ortCtrl.text         = e.firmaOrt      ?? '';
+      _pruefgeraetCtrl.text = e.pruefgeraet   ?? '';
+      _serverUrlCtrl.text   = e.serverUrl     ?? '';
       _prefilled = true;
     });
   }
@@ -50,6 +52,7 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
     _plzCtrl.dispose();
     _ortCtrl.dispose();
     _pruefgeraetCtrl.dispose();
+    _serverUrlCtrl.dispose();
     super.dispose();
   }
 
@@ -61,6 +64,7 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
       firmaPlz:      _plzCtrl.text.trim(),
       firmaOrt:      _ortCtrl.text.trim(),
       pruefgeraet:   _pruefgeraetCtrl.text.trim(),
+      serverUrl:     _serverUrlCtrl.text.trim(),
     );
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -230,6 +234,31 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
                   borderSide: BorderSide(color: AppColors.outlineVariant),
                 ),
               ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Server ───────────────────────────────────────────────────
+            _SectionLabel('SERVER'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _serverUrlCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Backend-URL',
+                hintText: 'https://meinserver.de:8080',
+                helperText: 'Leer lassen für Standardwert (Web-App: automatisch)',
+                prefixIcon: Icon(Icons.cloud_outlined, size: 18),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.outlineVariant),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.primary),
+                ),
+                border: OutlineInputBorder(
+                  borderSide: BorderSide(color: AppColors.outlineVariant),
+                ),
+              ),
+              keyboardType: TextInputType.url,
+              autocorrect: false,
             ),
             const SizedBox(height: 32),
 
