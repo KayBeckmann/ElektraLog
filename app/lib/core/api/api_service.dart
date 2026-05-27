@@ -13,10 +13,13 @@ class ApiService {
     if (stored != null && stored.isNotEmpty) {
       return '${stored.replaceAll(RegExp(r'/$'), '')}/api';
     }
-    return const String.fromEnvironment(
+    // dart-define-Wert normalisieren: /api anhängen falls nicht vorhanden
+    final env = const String.fromEnvironment(
       'API_URL',
-      defaultValue: 'http://localhost:8080/api',
+      defaultValue: 'http://localhost:8080',
     );
+    final base = env.replaceAll(RegExp(r'/$'), '');
+    return base.endsWith('/api') ? base : '$base/api';
   }
 
   /// Wird vom EinstellungenProvider befüllt, sobald die Prefs geladen sind.
@@ -167,6 +170,24 @@ class ApiService {
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
+  static Future<Map<String, dynamic>> updateTeamBenutzer(
+    String id, {
+    String? name,
+    String? email,
+    String? passwort,
+  }) async {
+    final body = <String, dynamic>{};
+    if (name != null) body['name'] = name;
+    if (email != null) body['email'] = email;
+    if (passwort != null && passwort.isNotEmpty) body['passwort'] = passwort;
+    final resp = await http.patch(
+      Uri.parse('$baseUrl/firma/benutzer/$id'),
+      headers: await _headers(auth: true),
+      body: jsonEncode(body),
+    );
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
   static Future<Map<String, dynamic>> updateTeamBenutzerStatus(
     String id,
     String status,
@@ -175,6 +196,18 @@ class ApiService {
       Uri.parse('$baseUrl/firma/benutzer/$id/status'),
       headers: await _headers(auth: true),
       body: jsonEncode({'status': status}),
+    );
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> updateTeamBenutzerRolle(
+    String id,
+    bool istAdmin,
+  ) async {
+    final resp = await http.patch(
+      Uri.parse('$baseUrl/firma/benutzer/$id/rolle'),
+      headers: await _headers(auth: true),
+      body: jsonEncode({'istAdmin': istAdmin}),
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }

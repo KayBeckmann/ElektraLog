@@ -83,7 +83,8 @@ class AuthEndpoint {
         );
       });
 
-      final token = _issueToken(benutzerId, firmaId, email, name, false);
+      // Registrierender User wird automatisch Firmenadmin
+      final token = _issueToken(benutzerId, firmaId, email, name, false, true);
       return Response.ok(
         jsonEncode({
           'token': token,
@@ -92,6 +93,7 @@ class AuthEndpoint {
           'name': name,
           'firmaName': firmenname,
           'istSuperadmin': false,
+          'istAdmin': true,
         }),
         headers: {'Content-Type': 'application/json'},
       );
@@ -116,7 +118,12 @@ class AuthEndpoint {
       final rows = await db.execute(
         Sql.named(
           'SELECT b.id, b.firma_id, b.passwort_hash, b.name, b.ist_superadmin, '
-          '       f.status AS firma_status, f.name AS firma_name '
+          '       f.status AS firma_status, f.name AS firma_name, '
+          '       EXISTS( '
+          '         SELECT 1 FROM benutzer_rollen br '
+          '         JOIN rollen r ON r.id = br.rollen_id '
+          '         WHERE br.benutzer_id = b.id AND r.ist_vorlage = true '
+          '       ) AS ist_admin '
           'FROM benutzer b '
           'JOIN firmen f ON f.id = b.firma_id '
           "WHERE b.email = @email AND b.status = 'aktiv'",
@@ -159,7 +166,8 @@ class AuthEndpoint {
       final firmaId = row[1].toString();
       final name = row[3] as String;
       final firmaName = row[6] as String;
-      final token = _issueToken(benutzerId, firmaId, email, name, istSuperadmin);
+      final istAdmin = row[7] as bool? ?? false;
+      final token = _issueToken(benutzerId, firmaId, email, name, istSuperadmin, istAdmin);
 
       return Response.ok(
         jsonEncode({
@@ -169,6 +177,7 @@ class AuthEndpoint {
           'name': name,
           'firmaName': firmaName,
           'istSuperadmin': istSuperadmin,
+          'istAdmin': istAdmin,
         }),
         headers: {'Content-Type': 'application/json'},
       );
@@ -182,7 +191,8 @@ class AuthEndpoint {
   }
 
   String _issueToken(
-      String id, String firmaId, String email, String name, bool istSuperadmin) {
+      String id, String firmaId, String email, String name,
+      bool istSuperadmin, bool istAdmin) {
     final secret =
         Platform.environment['JWT_SECRET'] ?? 'changeme_jwt_secret';
     return JWT({
@@ -191,6 +201,7 @@ class AuthEndpoint {
       'email': email,
       'name': name,
       'istSuperadmin': istSuperadmin,
+      'istAdmin': istAdmin,
       'iat': DateTime.now().millisecondsSinceEpoch ~/ 1000,
     }).sign(SecretKey(secret), expiresIn: const Duration(days: 30));
   }

@@ -17,12 +17,14 @@ class AppModusNotifier extends AsyncNotifier<AppModus> {
     String firmaId,
     String name, {
     String? firmaName,
+    bool istAdmin = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('jwt_token', token);
     await prefs.setString('benutzer_id', benutzerId);
     await prefs.setString('firma_id', firmaId);
     await prefs.setString('benutzer_name', name);
+    await prefs.setBool('ist_admin', istAdmin);
     if (firmaName != null && firmaName.isNotEmpty) {
       await prefs.setString('firma_name', firmaName);
     }
@@ -36,6 +38,7 @@ class AppModusNotifier extends AsyncNotifier<AppModus> {
     await prefs.remove('firma_id');
     await prefs.remove('benutzer_name');
     await prefs.remove('firma_name');
+    await prefs.remove('ist_admin');
     state = const AsyncData(AppModus.solo);
   }
 }
@@ -43,7 +46,7 @@ class AppModusNotifier extends AsyncNotifier<AppModus> {
 final appModusProvider =
     AsyncNotifierProvider<AppModusNotifier, AppModus>(AppModusNotifier.new);
 
-final currentUserProvider = FutureProvider<Map<String, String?>>((ref) async {
+final currentUserProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final prefs = await SharedPreferences.getInstance();
   return {
     'token': prefs.getString('jwt_token'),
@@ -51,5 +54,12 @@ final currentUserProvider = FutureProvider<Map<String, String?>>((ref) async {
     'firmaId': prefs.getString('firma_id'),
     'name': prefs.getString('benutzer_name'),
     'firmaName': prefs.getString('firma_name'),
+    'istAdmin': prefs.getBool('ist_admin') ?? false,
   };
+});
+
+/// Convenience-Provider: true wenn eingeloggt UND Firmenadmin
+final isAdminProvider = FutureProvider<bool>((ref) async {
+  final user = await ref.watch(currentUserProvider.future);
+  return user['istAdmin'] as bool? ?? false;
 });

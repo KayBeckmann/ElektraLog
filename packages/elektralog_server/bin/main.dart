@@ -102,8 +102,12 @@ void main() async {
         (req) => FirmaEndpoint(conn).listBenutzer(req))
     ..post('/api/firma/benutzer',
         (req) => FirmaEndpoint(conn).createBenutzer(req))
+    ..patch('/api/firma/benutzer/<id>',
+        (req, id) => FirmaEndpoint(conn).updateBenutzer(req, id))
     ..patch('/api/firma/benutzer/<id>/status',
         (req, id) => FirmaEndpoint(conn).updateBenutzerStatus(req, id))
+    ..patch('/api/firma/benutzer/<id>/rolle',
+        (req, id) => FirmaEndpoint(conn).updateBenutzerRolle(req, id))
     ..delete('/api/firma/benutzer/<id>',
         (req, id) => FirmaEndpoint(conn).deleteBenutzer(req, id))
     // Protokoll-Archiv (append-only, rechtssicher)

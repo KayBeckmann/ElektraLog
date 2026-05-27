@@ -88,6 +88,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
               result['firmaId'] as String,
               result['name'] as String,
               firmaName: result['firmaName'] as String?,
+              istAdmin: result['istAdmin'] as bool? ?? false,
             );
         _showSuccess('Willkommen, ${result['name']}!');
         if (mounted) context.go('/');
@@ -118,6 +119,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen>
               result['firmaId'] as String,
               result['name'] as String,
               firmaName: result['firmaName'] as String?,
+              istAdmin: result['istAdmin'] as bool? ?? true,
             );
         _showSuccess('Konto erstellt! Willkommen, ${result['name']}!');
         if (mounted) context.go('/');

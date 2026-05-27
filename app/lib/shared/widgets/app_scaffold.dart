@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../../core/router.dart';
 import '../../core/providers/app_mode_provider.dart';
+// isAdminProvider kommt aus app_mode_provider
 
 /// Desktop breakpoint: 768px (md)
 const double _kDesktopBreakpoint = 768.0;
@@ -61,9 +62,9 @@ const _teamNavItem = _NavItem(
   label: 'Team',
 );
 
-List<_NavItem> _buildNavItems(bool isCompany) {
-  if (!isCompany) return _baseNavItems;
-  // Im Company-Modus: Team vor Einstellungen einfügen
+List<_NavItem> _buildNavItems({required bool isCompany, required bool isAdmin}) {
+  if (!isCompany || !isAdmin) return _baseNavItems;
+  // Im Company-Modus als Admin: Team vor Einstellungen einfügen
   return [
     _baseNavItems[0],
     _baseNavItems[1],
@@ -127,7 +128,8 @@ class _DesktopDrawer extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.path;
     final isCompany =
         ref.watch(appModusProvider).valueOrNull == AppModus.company;
-    final navItems = _buildNavItems(isCompany);
+    final isAdmin = ref.watch(isAdminProvider).valueOrNull ?? false;
+    final navItems = _buildNavItems(isCompany: isCompany, isAdmin: isAdmin);
 
     return SizedBox(
       width: _kDrawerWidth,
@@ -397,7 +399,8 @@ class _MobileShell extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.path;
     final isCompany =
         ref.watch(appModusProvider).valueOrNull == AppModus.company;
-    final navItems = _buildNavItems(isCompany);
+    final isAdmin = ref.watch(isAdminProvider).valueOrNull ?? false;
+    final navItems = _buildNavItems(isCompany: isCompany, isAdmin: isAdmin);
     final selectedIndex = _selectedIndex(location, navItems);
 
     return Scaffold(
