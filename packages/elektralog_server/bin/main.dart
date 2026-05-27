@@ -95,6 +95,8 @@ void main() async {
         (req, id) => MandantenEndpoint(conn).createBenutzer(req, id))
     ..patch('/api/admin/benutzer/<id>/status',
         (req, id) => MandantenEndpoint(conn).updateBenutzerStatus(req, id))
+    ..patch('/api/admin/benutzer/<id>/rolle',
+        (req, id) => MandantenEndpoint(conn).updateBenutzerRolle(req, id))
     ..delete('/api/admin/benutzer/<id>',
         (req, id) => MandantenEndpoint(conn).deleteBenutzer(req, id))
     // Firma-eigene Benutzerverwaltung (jeder eingeloggte Company-User)

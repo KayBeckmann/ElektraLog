@@ -53,14 +53,33 @@ class MandantenEndpoint {
       final body =
           jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final name = body['name'] as String;
-      final id = const Uuid().v4();
+      final firmaId = const Uuid().v4();
+      final rolleId = const Uuid().v4();
 
-      await db.execute(
-        Sql.named('INSERT INTO firmen (id, name) VALUES (@id, @name)'),
-        parameters: {'id': id, 'name': name},
-      );
+      await db.runTx((ctx) async {
+        await ctx.execute(
+          Sql.named('INSERT INTO firmen (id, name) VALUES (@id, @name)'),
+          parameters: {'id': firmaId, 'name': name},
+        );
+        // Firmenadmin-Rolle sofort anlegen — damit createBenutzer sie findet
+        await ctx.execute(
+          Sql.named(
+            'INSERT INTO rollen (id, firma_id, name, ist_vorlage) '
+            'VALUES (@id, @fid, @name, true)',
+          ),
+          parameters: {'id': rolleId, 'fid': firmaId, 'name': 'Firmenadmin'},
+        );
+        await ctx.execute(
+          Sql.named(
+            'INSERT INTO rollen_berechtigungen (rollen_id, berechtigung_id) '
+            'SELECT @rid, id FROM berechtigungen',
+          ),
+          parameters: {'rid': rolleId},
+        );
+      });
+
       return Response.ok(
-        jsonEncode({'id': id, 'name': name, 'status': 'aktiv'}),
+        jsonEncode({'id': firmaId, 'name': name, 'status': 'aktiv'}),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, st) {
@@ -81,8 +100,15 @@ class MandantenEndpoint {
     try {
       final rows = await db.execute(
         Sql.named(
-          'SELECT id, email, name, status, erstellt_am '
-          'FROM benutzer WHERE firma_id = @firmaId ORDER BY name',
+          'SELECT b.id, b.email, b.name, b.status, b.erstellt_am, '
+          '       EXISTS( '
+          '         SELECT 1 FROM benutzer_rollen br '
+          '         JOIN rollen r ON r.id = br.rollen_id '
+          '         WHERE br.benutzer_id = b.id AND r.ist_vorlage = true '
+          '       ) AS ist_admin '
+          'FROM benutzer b '
+          'WHERE b.firma_id = @firmaId AND b.ist_superadmin = false '
+          'ORDER BY b.name',
         ),
         parameters: {'firmaId': firmaId},
       );
@@ -93,6 +119,7 @@ class MandantenEndpoint {
                 'name': r[2],
                 'status': r[3],
                 'erstelltAm': r[4].toString(),
+                'istAdmin': r[5] as bool? ?? false,
               })
           .toList();
       return Response.ok(
@@ -186,6 +213,83 @@ class MandantenEndpoint {
       );
     } catch (e, st) {
       print('benutzer.create error: $e\n$st');
+      return Response.internalServerError(
+        body: jsonEncode({'error': e.toString()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
+  // PATCH /api/admin/benutzer/:id/rolle — Superadmin: Firmenadmin-Rolle vergeben/entziehen
+  // Body: { "istAdmin": true | false }
+  Future<Response> updateBenutzerRolle(Request request, String id) async {
+    final claims = verifyJwt(request);
+    final err = requireSuperadmin(claims);
+    if (err != null) return err;
+
+    try {
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final istAdmin = body['istAdmin'] as bool?;
+      if (istAdmin == null) {
+        return Response(400,
+            body: jsonEncode({'error': 'istAdmin fehlt'}),
+            headers: {'Content-Type': 'application/json'});
+      }
+
+      // Firma des Benutzers ermitteln
+      final benutzerRows = await db.execute(
+        Sql.named(
+          'SELECT firma_id FROM benutzer '
+          'WHERE id = @id AND ist_superadmin = false',
+        ),
+        parameters: {'id': id},
+      );
+      if (benutzerRows.isEmpty) {
+        return Response(404,
+            body: jsonEncode({'error': 'Benutzer nicht gefunden'}),
+            headers: {'Content-Type': 'application/json'});
+      }
+      final firmaId = benutzerRows.first[0].toString();
+
+      // Firmenadmin-Rolle der Firma ermitteln
+      final rolleRows = await db.execute(
+        Sql.named(
+          'SELECT id FROM rollen WHERE firma_id = @firmaId AND ist_vorlage = true LIMIT 1',
+        ),
+        parameters: {'firmaId': firmaId},
+      );
+      if (rolleRows.isEmpty) {
+        return Response(404,
+            body: jsonEncode({'error': 'Keine Firmenadmin-Rolle gefunden'}),
+            headers: {'Content-Type': 'application/json'});
+      }
+      final rolleId = rolleRows.first[0].toString();
+
+      if (istAdmin) {
+        await db.execute(
+          Sql.named(
+            'INSERT INTO benutzer_rollen (benutzer_id, rollen_id, firma_id) '
+            'VALUES (@bid, @rid, @fid) ON CONFLICT DO NOTHING',
+          ),
+          parameters: {'bid': id, 'rid': rolleId, 'fid': firmaId},
+        );
+      } else {
+        await db.execute(
+          Sql.named(
+            'DELETE FROM benutzer_rollen '
+            'WHERE benutzer_id = @bid AND rollen_id = @rid AND firma_id = @fid',
+          ),
+          parameters: {'bid': id, 'rid': rolleId, 'fid': firmaId},
+        );
+      }
+
+      return Response.ok(
+        jsonEncode({'id': id, 'istAdmin': istAdmin}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, st) {
+      print('benutzer.updateRolle error: $e\n$st');
       return Response.internalServerError(
         body: jsonEncode({'error': e.toString()}),
         headers: {'Content-Type': 'application/json'},

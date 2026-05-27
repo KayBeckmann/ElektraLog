@@ -617,11 +617,12 @@
             <th>Name</th>
             <th>E-Mail</th>
             <th>Status</th>
+            <th>Rolle</th>
             <th style="text-align:right">Aktionen</th>
           </tr>
         </thead>
         <tbody id="detail-users-body">
-          <tr><td colspan="4" class="empty"><span class="spinner"></span></td></tr>
+          <tr><td colspan="5" class="empty"><span class="spinner"></span></td></tr>
         </tbody>
       </table>
     </div>
@@ -930,13 +931,13 @@ async function openFirmaDetail(firmaId, firmaName) {
 
 async function loadBenutzer(firmaId) {
   const tbody = document.getElementById('detail-users-body');
-  tbody.innerHTML = '<tr><td colspan="4" class="empty"><span class="spinner"></span></td></tr>';
+  tbody.innerHTML = '<tr><td colspan="5" class="empty"><span class="spinner"></span></td></tr>';
 
   try {
     const users = await api('GET', `/api/admin/firmen/${firmaId}/benutzer`);
 
     if (users.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" class="empty">Keine Benutzer.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" class="empty">Keine Benutzer.</td></tr>';
       return;
     }
 
@@ -945,8 +946,18 @@ async function loadBenutzer(firmaId) {
         <td>${esc(u.name)}</td>
         <td style="color:var(--muted)">${esc(u.email)}</td>
         <td><span class="badge badge-${u.status}">${u.status}</span></td>
+        <td>
+          ${u.istAdmin
+            ? `<span class="badge badge-superadmin">Admin</span>`
+            : `<span style="color:var(--muted);font-size:.8rem">—</span>`
+          }
+        </td>
         <td style="text-align:right">
           <div style="display:flex; gap:6px; justify-content:flex-end">
+            ${u.istAdmin
+              ? `<button class="btn btn-ghost btn-sm" onclick="toggleRolle('${esc(u.id)}', false)">Admin entziehen</button>`
+              : `<button class="btn btn-ghost btn-sm" onclick="toggleRolle('${esc(u.id)}', true)">Admin machen</button>`
+            }
             ${u.status === 'aktiv'
               ? `<button class="btn btn-danger btn-sm" onclick="toggleBenutzer('${esc(u.id)}', 'gesperrt')">Sperren</button>`
               : `<button class="btn btn-success btn-sm" onclick="toggleBenutzer('${esc(u.id)}', 'aktiv')">Aktiv</button>`
@@ -957,7 +968,7 @@ async function loadBenutzer(firmaId) {
       </tr>
     `).join('');
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="4" class="empty" style="color:var(--error)">${esc(e.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty" style="color:var(--error)">${esc(e.message)}</td></tr>`;
   }
 }
 
@@ -966,6 +977,17 @@ async function toggleBenutzer(id, status) {
   errEl.style.display = 'none';
   try {
     await api('PATCH', `/api/admin/benutzer/${id}/status`, { status });
+    await loadBenutzer(currentFirmaId);
+  } catch (e) {
+    showErr(errEl, e.message);
+  }
+}
+
+async function toggleRolle(id, istAdmin) {
+  const errEl = document.getElementById('detail-error');
+  errEl.style.display = 'none';
+  try {
+    await api('PATCH', `/api/admin/benutzer/${id}/rolle`, { istAdmin });
     await loadBenutzer(currentFirmaId);
   } catch (e) {
     showErr(errEl, e.message);

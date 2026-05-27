@@ -10,100 +10,16 @@ class AuthEndpoint {
   final Connection db;
   AuthEndpoint(this.db);
 
-  // POST /api/auth/register
-  // Body: { "email", "passwort", "name", "firmenname" }
+  // POST /api/auth/register — deaktiviert, Accounts werden durch SuperAdmin angelegt
   Future<Response> register(Request request) async {
-    try {
-      final body =
-          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final email = body['email'] as String;
-      final passwort = body['passwort'] as String;
-      final name = body['name'] as String;
-      final firmenname = body['firmenname'] as String;
-
-      // Prüfe ob Email bereits vergeben
-      final existing = await db.execute(
-        Sql.named('SELECT id FROM benutzer WHERE email = @email'),
-        parameters: {'email': email},
-      );
-      if (existing.isNotEmpty) {
-        return Response(
-          409,
-          body: jsonEncode({'error': 'Email bereits vergeben'}),
-          headers: {'Content-Type': 'application/json'},
-        );
-      }
-
-      final hash = BCrypt.hashpw(passwort, BCrypt.gensalt());
-      final firmaId = const Uuid().v4();
-      final benutzerId = const Uuid().v4();
-
-      // Firma + Benutzer anlegen (Transaktion)
-      await db.runTx((ctx) async {
-        await ctx.execute(
-          Sql.named('INSERT INTO firmen (id, name) VALUES (@id, @name)'),
-          parameters: {'id': firmaId, 'name': firmenname},
-        );
-        await ctx.execute(
-          Sql.named(
-            'INSERT INTO benutzer (id, firma_id, email, passwort_hash, name) '
-            'VALUES (@id, @fid, @email, @hash, @name)',
-          ),
-          parameters: {
-            'id': benutzerId,
-            'fid': firmaId,
-            'email': email,
-            'hash': hash,
-            'name': name,
-          },
-        );
-        // Firmenadmin-Rolle anlegen und zuweisen
-        final rolleId = const Uuid().v4();
-        await ctx.execute(
-          Sql.named(
-            'INSERT INTO rollen (id, firma_id, name, ist_vorlage) '
-            'VALUES (@id, @fid, @name, true)',
-          ),
-          parameters: {'id': rolleId, 'fid': firmaId, 'name': 'Firmenadmin'},
-        );
-        // Alle Berechtigungen der Admin-Rolle zuweisen
-        await ctx.execute(
-          Sql.named(
-            'INSERT INTO rollen_berechtigungen (rollen_id, berechtigung_id) '
-            'SELECT @rid, id FROM berechtigungen',
-          ),
-          parameters: {'rid': rolleId},
-        );
-        await ctx.execute(
-          Sql.named(
-            'INSERT INTO benutzer_rollen (benutzer_id, rollen_id, firma_id) '
-            'VALUES (@bid, @rid, @fid)',
-          ),
-          parameters: {'bid': benutzerId, 'rid': rolleId, 'fid': firmaId},
-        );
-      });
-
-      // Registrierender User wird automatisch Firmenadmin
-      final token = _issueToken(benutzerId, firmaId, email, name, false, true);
-      return Response.ok(
-        jsonEncode({
-          'token': token,
-          'benutzerId': benutzerId,
-          'firmaId': firmaId,
-          'name': name,
-          'firmaName': firmenname,
-          'istSuperadmin': false,
-          'istAdmin': true,
-        }),
-        headers: {'Content-Type': 'application/json'},
-      );
-    } catch (e, st) {
-      print('register error: $e\n$st');
-      return Response.internalServerError(
-        body: jsonEncode({'error': e.toString()}),
-        headers: {'Content-Type': 'application/json'},
-      );
-    }
+    return Response(
+      403,
+      body: jsonEncode({
+        'error': 'Selbst-Registrierung ist deaktiviert. '
+            'Bitte wenden Sie sich an Ihren Administrator.',
+      }),
+      headers: {'Content-Type': 'application/json'},
+    );
   }
 
   // POST /api/auth/login
