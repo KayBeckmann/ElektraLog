@@ -9,6 +9,7 @@ class Kunde {
   final String? kontaktEmail;
   final String? kontaktTelefon;
   final DateTime erstelltAm;
+  final DateTime aktualisiertAm;
 
   Kunde({
     String? uuid,
@@ -19,8 +20,10 @@ class Kunde {
     this.kontaktEmail,
     this.kontaktTelefon,
     DateTime? erstelltAm,
+    DateTime? aktualisiertAm,
   })  : uuid = uuid ?? const Uuid().v4(),
-        erstelltAm = erstelltAm ?? DateTime.now();
+        erstelltAm = erstelltAm ?? DateTime.now(),
+        aktualisiertAm = aktualisiertAm ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
         'uuid': uuid,
@@ -31,6 +34,7 @@ class Kunde {
         'kontaktEmail': kontaktEmail,
         'kontaktTelefon': kontaktTelefon,
         'erstelltAm': erstelltAm.toIso8601String(),
+        'aktualisiertAm': aktualisiertAm.toIso8601String(),
       };
 
   factory Kunde.fromJson(Map<String, dynamic> json) => Kunde(
@@ -42,6 +46,9 @@ class Kunde {
         kontaktEmail: json['kontaktEmail'] as String?,
         kontaktTelefon: json['kontaktTelefon'] as String?,
         erstelltAm: DateTime.parse(json['erstelltAm'] as String),
+        aktualisiertAm: DateTime.tryParse(
+                json['aktualisiertAm'] as String? ?? '') ??
+            DateTime.parse(json['erstelltAm'] as String),
       );
 
   Kunde copyWith({
@@ -61,5 +68,6 @@ class Kunde {
         kontaktEmail: kontaktEmail ?? this.kontaktEmail,
         kontaktTelefon: kontaktTelefon ?? this.kontaktTelefon,
         erstelltAm: erstelltAm,
+        aktualisiertAm: DateTime.now(),
       );
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/api/api_service.dart';
 import '../../shared/theme/app_colors.dart';
@@ -104,6 +105,13 @@ class _ProtokollTile extends StatelessWidget {
 
   final Map<String, dynamic> data;
 
+  Future<void> _downloadPdf() async {
+    final id = data['id'] as String?;
+    if (id == null) return;
+    final url = Uri.parse(ApiService.protokollPdfUrl(id));
+    await launchUrl(url, mode: LaunchMode.externalApplication);
+  }
+
   String _formatDate(String? iso) {
     if (iso == null) return '–';
     try {
@@ -203,6 +211,15 @@ class _ProtokollTile extends StatelessWidget {
                         ),
                   ),
                 ],
+                const SizedBox(height: 4),
+                IconButton(
+                  icon: const Icon(Icons.download_outlined,
+                      size: 18, color: AppColors.primary),
+                  tooltip: 'PDF herunterladen',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: _downloadPdf,
+                ),
               ],
             ),
           ],

@@ -3,9 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/kunde.dart';
 import '../../core/providers/kunden_provider.dart';
-import '../../core/providers/app_mode_provider.dart';
-import '../../core/providers/isar_provider.dart';
-import '../../core/sync/sync_service.dart';
 import '../../shared/theme/app_colors.dart';
 
 class KundeFormular extends ConsumerStatefulWidget {
@@ -233,15 +230,6 @@ class _KundeFormularState extends ConsumerState<KundeFormular> {
     }
 
     await ref.read(kundenRepositoryProvider).save(kunde);
-
-    // Im Company-Modus sofort zum Backend pushen
-    final isCompany =
-        ref.read(appModusProvider).valueOrNull == AppModus.company;
-    if (isCompany) {
-      final db = await ref.read(dbProvider.future);
-      SyncService.pushAfterChange(db);
-    }
-
     if (mounted) Navigator.pop(context);
   }
 }

@@ -17,12 +17,14 @@ void main() async {
   final container = ProviderContainer();
   await container.read(einstellungenProvider.future);
 
-  // Im Company-Modus Kunden beim Start vom Backend holen
+  // Im Company-Modus alle Rohdaten beim Start vom Backend holen
   final modus = container.read(appModusProvider).valueOrNull;
   if (modus == AppModus.company) {
     container.read(dbProvider.future).then((db) {
-      SyncService.pullKunden(db);
-    }).catchError((e) => debugPrint('Startup-Pull fehlgeschlagen: $e'));
+      SyncService.pullAll(db);
+    }).catchError((e) {
+      debugPrint('Startup-Pull fehlgeschlagen: $e');
+    });
   }
 
   runApp(

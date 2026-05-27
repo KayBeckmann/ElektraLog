@@ -3,6 +3,7 @@ import 'package:sembast/sembast.dart';
 
 import '../database/isar_service.dart';
 import '../models/standort.dart';
+import '../sync/sync_service.dart';
 import 'isar_provider.dart';
 
 // ── Repository ────────────────────────────────────────────────────────────────
@@ -52,10 +53,12 @@ class StandorteRepository {
     await StorageService.standorteStore
         .record(standort.uuid)
         .put(_db, standort.toJson().cast<String, Object?>());
+    SyncService.scheduleSync(_db);
   }
 
   Future<void> delete(String uuid) async {
     await StorageService.standorteStore.record(uuid).delete(_db);
+    SyncService.scheduleSync(_db);
   }
 }
 

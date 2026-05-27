@@ -18,6 +18,7 @@ class Sichtpruefung {
   final DateTime? naechstePruefungDatum;
 
   final DateTime erstelltAm;
+  final DateTime aktualisiertAm;
 
   Sichtpruefung({
     String? uuid,
@@ -29,8 +30,10 @@ class Sichtpruefung {
     required this.ergebnis,
     this.naechstePruefungDatum,
     DateTime? erstelltAm,
+    DateTime? aktualisiertAm,
   })  : uuid = uuid ?? const Uuid().v4(),
-        erstelltAm = erstelltAm ?? DateTime.now();
+        erstelltAm = erstelltAm ?? DateTime.now(),
+        aktualisiertAm = aktualisiertAm ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
         'uuid': uuid,
@@ -42,6 +45,7 @@ class Sichtpruefung {
         'ergebnis': ergebnis,
         'naechstePruefungDatum': naechstePruefungDatum?.toIso8601String(),
         'erstelltAm': erstelltAm.toIso8601String(),
+        'aktualisiertAm': aktualisiertAm.toIso8601String(),
       };
 
   factory Sichtpruefung.fromJson(Map<String, dynamic> json) => Sichtpruefung(
@@ -56,6 +60,9 @@ class Sichtpruefung {
             ? DateTime.tryParse(json['naechstePruefungDatum'] as String)
             : null,
         erstelltAm: DateTime.parse(json['erstelltAm'] as String),
+        aktualisiertAm: DateTime.tryParse(
+                json['aktualisiertAm'] as String? ?? '') ??
+            DateTime.parse(json['erstelltAm'] as String),
       );
 
   Sichtpruefung copyWith({
@@ -77,5 +84,6 @@ class Sichtpruefung {
         naechstePruefungDatum:
             naechstePruefungDatum ?? this.naechstePruefungDatum,
         erstelltAm: erstelltAm,
+        aktualisiertAm: DateTime.now(),
       );
 }

@@ -3,6 +3,7 @@ import 'package:sembast/sembast.dart';
 
 import '../database/isar_service.dart';
 import '../models/sichtpruefung.dart';
+import '../sync/sync_service.dart';
 import 'isar_provider.dart';
 
 // ── Repository ────────────────────────────────────────────────────────────────
@@ -43,6 +44,7 @@ class SichtpruefungRepository {
     await StorageService.sichtpruefungStore
         .record(sichtpruefung.uuid)
         .put(_db, sichtpruefung.toJson().cast<String, Object?>());
+    SyncService.scheduleSync(_db);
   }
 }
 

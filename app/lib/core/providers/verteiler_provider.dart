@@ -3,6 +3,7 @@ import 'package:sembast/sembast.dart';
 
 import '../database/isar_service.dart';
 import '../models/verteiler.dart';
+import '../sync/sync_service.dart';
 import 'isar_provider.dart';
 
 // ── Repository ────────────────────────────────────────────────────────────────
@@ -48,10 +49,12 @@ class VerteilerRepository {
     await StorageService.verteilerStore
         .record(verteiler.uuid)
         .put(_db, verteiler.toJson().cast<String, Object?>());
+    SyncService.scheduleSync(_db);
   }
 
   Future<void> delete(String uuid) async {
     await StorageService.verteilerStore.record(uuid).delete(_db);
+    SyncService.scheduleSync(_db);
   }
 }
 

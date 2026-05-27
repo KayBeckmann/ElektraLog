@@ -13,6 +13,7 @@ class Verteiler {
   final int pruefintervallJahre;
 
   final DateTime erstelltAm;
+  final DateTime aktualisiertAm;
 
   Verteiler({
     String? uuid,
@@ -22,8 +23,10 @@ class Verteiler {
     this.anlagendatenJson,
     this.pruefintervallJahre = 4,
     DateTime? erstelltAm,
+    DateTime? aktualisiertAm,
   })  : uuid = uuid ?? const Uuid().v4(),
-        erstelltAm = erstelltAm ?? DateTime.now();
+        erstelltAm = erstelltAm ?? DateTime.now(),
+        aktualisiertAm = aktualisiertAm ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
         'uuid': uuid,
@@ -33,6 +36,7 @@ class Verteiler {
         'anlagendatenJson': anlagendatenJson,
         'pruefintervallJahre': pruefintervallJahre,
         'erstelltAm': erstelltAm.toIso8601String(),
+        'aktualisiertAm': aktualisiertAm.toIso8601String(),
       };
 
   factory Verteiler.fromJson(Map<String, dynamic> json) => Verteiler(
@@ -44,6 +48,9 @@ class Verteiler {
         pruefintervallJahre:
             (json['pruefintervallJahre'] as num?)?.toInt() ?? 4,
         erstelltAm: DateTime.parse(json['erstelltAm'] as String),
+        aktualisiertAm: DateTime.tryParse(
+                json['aktualisiertAm'] as String? ?? '') ??
+            DateTime.parse(json['erstelltAm'] as String),
       );
 
   Verteiler copyWith({
@@ -60,5 +67,6 @@ class Verteiler {
         anlagendatenJson: anlagendatenJson ?? this.anlagendatenJson,
         pruefintervallJahre: pruefintervallJahre ?? this.pruefintervallJahre,
         erstelltAm: erstelltAm,
+        aktualisiertAm: DateTime.now(),
       );
 }

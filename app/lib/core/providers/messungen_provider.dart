@@ -3,6 +3,7 @@ import 'package:sembast/sembast.dart';
 
 import '../database/isar_service.dart';
 import '../models/messung.dart';
+import '../sync/sync_service.dart';
 import 'isar_provider.dart';
 
 // ── Repository ────────────────────────────────────────────────────────────────
@@ -64,10 +65,12 @@ Future<void> deleteByKomponente(String komponenteUuid) async {
     await StorageService.messungenStore
         .record(messung.uuid)
         .put(_db, messung.toJson().cast<String, Object?>());
+    SyncService.scheduleSync(_db);
   }
 
   Future<void> delete(String uuid) async {
     await StorageService.messungenStore.record(uuid).delete(_db);
+    SyncService.scheduleSync(_db);
   }
 
   /// Alle Messungen für eine Liste von Komponenten-UUIDs (für PDF-Export)

@@ -48,7 +48,7 @@ class _UpgradeDialogState extends ConsumerState<_UpgradeDialog> {
   Future<void> _sync() async {
     setState(() => _syncing = true);
     try {
-      final synced = await SyncService.syncToBackend(widget.db);
+      final synced = await SyncService.pushAll(widget.db);
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(

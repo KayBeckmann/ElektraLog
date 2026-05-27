@@ -8,6 +8,7 @@ class Standort {
   final String? plz;
   final String? ort;
   final DateTime erstelltAm;
+  final DateTime aktualisiertAm;
 
   Standort({
     String? uuid,
@@ -17,8 +18,10 @@ class Standort {
     this.plz,
     this.ort,
     DateTime? erstelltAm,
+    DateTime? aktualisiertAm,
   })  : uuid = uuid ?? const Uuid().v4(),
-        erstelltAm = erstelltAm ?? DateTime.now();
+        erstelltAm = erstelltAm ?? DateTime.now(),
+        aktualisiertAm = aktualisiertAm ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
         'uuid': uuid,
@@ -28,6 +31,7 @@ class Standort {
         'plz': plz,
         'ort': ort,
         'erstelltAm': erstelltAm.toIso8601String(),
+        'aktualisiertAm': aktualisiertAm.toIso8601String(),
       };
 
   factory Standort.fromJson(Map<String, dynamic> json) => Standort(
@@ -38,6 +42,9 @@ class Standort {
         plz: json['plz'] as String?,
         ort: json['ort'] as String?,
         erstelltAm: DateTime.parse(json['erstelltAm'] as String),
+        aktualisiertAm: DateTime.tryParse(
+                json['aktualisiertAm'] as String? ?? '') ??
+            DateTime.parse(json['erstelltAm'] as String),
       );
 
   Standort copyWith({
@@ -54,5 +61,6 @@ class Standort {
         plz: plz ?? this.plz,
         ort: ort ?? this.ort,
         erstelltAm: erstelltAm,
+        aktualisiertAm: DateTime.now(),
       );
 }

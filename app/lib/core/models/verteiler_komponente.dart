@@ -23,6 +23,7 @@ class VerteilerKomponente {
   final String? eigenschaftenJson;
 
   final DateTime erstelltAm;
+  final DateTime aktualisiertAm;
 
   VerteilerKomponente({
     String? uuid,
@@ -34,8 +35,10 @@ class VerteilerKomponente {
     this.position = 0,
     this.eigenschaftenJson,
     DateTime? erstelltAm,
+    DateTime? aktualisiertAm,
   })  : uuid = uuid ?? const Uuid().v4(),
-        erstelltAm = erstelltAm ?? DateTime.now();
+        erstelltAm = erstelltAm ?? DateTime.now(),
+        aktualisiertAm = aktualisiertAm ?? DateTime.now();
 
   /// Anzeigename: BMK + Zielbezeichnung, oder nur eines von beiden.
   String get bezeichnung {
@@ -56,6 +59,7 @@ class VerteilerKomponente {
         'position': position,
         'eigenschaftenJson': eigenschaftenJson,
         'erstelltAm': erstelltAm.toIso8601String(),
+        'aktualisiertAm': aktualisiertAm.toIso8601String(),
       };
 
   factory VerteilerKomponente.fromJson(Map<String, dynamic> json) =>
@@ -72,6 +76,9 @@ class VerteilerKomponente {
         position: (json['position'] as num?)?.toInt() ?? 0,
         eigenschaftenJson: json['eigenschaftenJson'] as String?,
         erstelltAm: DateTime.parse(json['erstelltAm'] as String),
+        aktualisiertAm: DateTime.tryParse(
+                json['aktualisiertAm'] as String? ?? '') ??
+            DateTime.parse(json['erstelltAm'] as String),
       );
 
   VerteilerKomponente copyWith({
@@ -92,5 +99,6 @@ class VerteilerKomponente {
         position: position ?? this.position,
         eigenschaftenJson: eigenschaftenJson ?? this.eigenschaftenJson,
         erstelltAm: erstelltAm,
+        aktualisiertAm: DateTime.now(),
       );
 }

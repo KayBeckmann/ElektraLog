@@ -40,6 +40,9 @@ dependencies:
   # Utilities
   uuid: ^4.4.0
 
+  # URL öffnen (PDF-Download im Browser)
+  url_launcher: ^6.3.0
+
   # Network + Auth
   http: ^1.2.2
   shared_preferences: ^2.3.2

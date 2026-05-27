@@ -3,6 +3,7 @@ import 'package:sembast/sembast.dart';
 
 import '../database/isar_service.dart';
 import '../models/verteiler_komponente.dart';
+import '../sync/sync_service.dart';
 import 'isar_provider.dart';
 
 /// Speichert die zuletzt angelegte Komponente als Vorlage für die nächste.
@@ -56,10 +57,12 @@ class KomponentenRepository {
     await StorageService.komponentenStore
         .record(komponente.uuid)
         .put(_db, komponente.toJson().cast<String, Object?>());
+    SyncService.scheduleSync(_db);
   }
 
   Future<void> delete(String uuid) async {
     await StorageService.komponentenStore.record(uuid).delete(_db);
+    SyncService.scheduleSync(_db);
   }
 }
 

@@ -86,12 +86,35 @@ class ApiService {
 
   static Future<void> syncKunden(
       List<Map<String, dynamic>> kunden) async {
+    await syncAll([
+      {'type': 'kunden', 'items': kunden}
+    ]);
+  }
+
+  /// Zieht alle Rohdaten vom Backend (GET /api/sync).
+  static Future<Map<String, dynamic>> pullAll() async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/sync'),
+      headers: await _headers(auth: true),
+    );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    }
+    throw Exception('pullAll HTTP ${resp.statusCode}');
+  }
+
+  /// Schiebt alle Entity-Typen in einem Request zum Backend.
+  /// Format: [{ "type": "kunden", "items": [...] }, ...]
+  static Future<void> syncAll(List<Map<String, dynamic>> batches) async {
     await http.post(
       Uri.parse('$baseUrl/sync'),
       headers: await _headers(auth: true),
-      body: jsonEncode({'type': 'kunden', 'items': kunden}),
+      body: jsonEncode({'batches': batches}),
     );
   }
+
+  /// Gibt die direkte PDF-Download-URL für ein Protokoll zurück.
+  static String protokollPdfUrl(String id) => '$baseUrl/protokolle/$id/pdf';
 
   /// Lädt ein Prüfprotokoll (PDF + Metadaten) in das Backend hoch.
   /// Gibt die Backend-UUID zurück oder null bei Fehler.

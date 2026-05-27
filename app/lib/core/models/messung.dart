@@ -18,6 +18,7 @@ class Messung {
 
   final String? bemerkung;
   final DateTime erstelltAm;
+  final DateTime aktualisiertAm;
 
   Messung({
     String? uuid,
@@ -29,8 +30,10 @@ class Messung {
     required this.ergebnis,
     this.bemerkung,
     DateTime? erstelltAm,
+    DateTime? aktualisiertAm,
   })  : uuid = uuid ?? const Uuid().v4(),
-        erstelltAm = erstelltAm ?? DateTime.now();
+        erstelltAm = erstelltAm ?? DateTime.now(),
+        aktualisiertAm = aktualisiertAm ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
         'uuid': uuid,
@@ -42,6 +45,7 @@ class Messung {
         'ergebnis': ergebnis,
         'bemerkung': bemerkung,
         'erstelltAm': erstelltAm.toIso8601String(),
+        'aktualisiertAm': aktualisiertAm.toIso8601String(),
       };
 
   factory Messung.fromJson(Map<String, dynamic> json) => Messung(
@@ -54,6 +58,9 @@ class Messung {
         ergebnis: json['ergebnis'] as String,
         bemerkung: json['bemerkung'] as String?,
         erstelltAm: DateTime.parse(json['erstelltAm'] as String),
+        aktualisiertAm: DateTime.tryParse(
+                json['aktualisiertAm'] as String? ?? '') ??
+            DateTime.parse(json['erstelltAm'] as String),
       );
 
   Messung copyWith({
@@ -73,5 +80,6 @@ class Messung {
         ergebnis: ergebnis ?? this.ergebnis,
         bemerkung: bemerkung ?? this.bemerkung,
         erstelltAm: erstelltAm,
+        aktualisiertAm: DateTime.now(),
       );
 }
