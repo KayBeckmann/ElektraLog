@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/messungen_provider.dart';
+import '../../core/providers/app_mode_provider.dart';
+import '../../core/router.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
 
@@ -55,6 +58,8 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final kundenAsync = ref.watch(kundenProvider);
     final messungenAsync = ref.watch(alleMessungenProvider);
+    final isCompany =
+        ref.watch(appModusProvider).valueOrNull == AppModus.company;
 
     final today = DateTime.now();
     final dateStr =
@@ -113,6 +118,12 @@ class DashboardScreen extends ConsumerWidget {
 
             // ── Termine ──────────────────────────────────────────────────────
             _TermineCard(),
+
+            // ── Protokolle (Company-Modus) ────────────────────────────────────
+            if (isCompany) ...[
+              const SizedBox(height: 24),
+              _ProtokollCard(),
+            ],
           ],
         ),
       ),
@@ -638,6 +649,70 @@ class _BentoCard extends StatelessWidget {
         ),
       ),
       child: child,
+    );
+  }
+}
+
+// ── Protokoll-Karte (Company-Modus) ───────────────────────────────────────────
+
+class _ProtokollCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      color: AppColors.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: AppColors.outlineVariant),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => context.go(AppRoutes.protokolle),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.secondaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.cloud_done_outlined,
+                  color: AppColors.onSecondaryContainer,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hochgeladene Protokolle',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    Text(
+                      'Alle Prüfprotokolle im Backend anzeigen',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.outline,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

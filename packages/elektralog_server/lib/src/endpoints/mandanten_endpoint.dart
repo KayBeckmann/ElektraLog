@@ -377,6 +377,66 @@ class MandantenEndpoint {
     }
   }
 
+  // DELETE /api/admin/firmen/:id — Superadmin: Firma und alle zugehörigen Daten löschen
+  Future<Response> deleteFirma(Request request, String id) async {
+    final claims = verifyJwt(request);
+    final err = requireSuperadmin(claims);
+    if (err != null) return err;
+
+    try {
+      await db.runTx((ctx) async {
+        // benutzer_rollen der Firma-Benutzer entfernen
+        await ctx.execute(
+          Sql.named(
+            'DELETE FROM benutzer_rollen WHERE benutzer_id IN '
+            '(SELECT id FROM benutzer WHERE firma_id = @id)',
+          ),
+          parameters: {'id': id},
+        );
+        // Rollen-Berechtigungen der Firma-Rollen entfernen
+        await ctx.execute(
+          Sql.named(
+            'DELETE FROM rollen_berechtigungen WHERE rollen_id IN '
+            '(SELECT id FROM rollen WHERE firma_id = @id)',
+          ),
+          parameters: {'id': id},
+        );
+        await ctx.execute(
+          Sql.named('DELETE FROM rollen WHERE firma_id = @id'),
+          parameters: {'id': id},
+        );
+        await ctx.execute(
+          Sql.named('DELETE FROM protokolle WHERE firma_id = @id'),
+          parameters: {'id': id},
+        );
+        await ctx.execute(
+          Sql.named('DELETE FROM kunden WHERE firma_id = @id'),
+          parameters: {'id': id},
+        );
+        await ctx.execute(
+          Sql.named(
+            'DELETE FROM benutzer WHERE firma_id = @id AND ist_superadmin = false',
+          ),
+          parameters: {'id': id},
+        );
+        await ctx.execute(
+          Sql.named('DELETE FROM firmen WHERE id = @id'),
+          parameters: {'id': id},
+        );
+      });
+      return Response.ok(
+        jsonEncode({'deleted': id}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, st) {
+      print('firma.delete error: $e\n$st');
+      return Response.internalServerError(
+        body: jsonEncode({'error': e.toString()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
   // PATCH /api/admin/firmen/:id/status — Superadmin: Firma sperren/entsperren
   // Body: { "status": "gesperrt" | "aktiv" }
   Future<Response> updateStatus(Request request, String id) async {

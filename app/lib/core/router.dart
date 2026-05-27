@@ -14,6 +14,7 @@ import '../features/import/csv_import_screen.dart';
 import '../features/qr/qr_screen.dart';
 import '../features/einstellungen/einstellungen_screen.dart';
 import '../features/team/team_screen.dart';
+import '../features/protokolle/protokolle_screen.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 part 'router.g.dart';
@@ -34,6 +35,7 @@ abstract final class AppRoutes {
   static const String qr = '/qr/:komponenteUuid';
   static const String einstellungen = '/einstellungen';
   static const String team = '/team';
+  static const String protokolle = '/protokolle';
 }
 
 @riverpod
@@ -138,6 +140,12 @@ GoRouter router(Ref ref) {
             path: AppRoutes.team,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: TeamScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.protokolle,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: ProtokollUebersichtScreen(),
             ),
           ),
         ],

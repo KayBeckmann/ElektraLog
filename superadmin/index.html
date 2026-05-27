@@ -847,6 +847,7 @@ async function loadFirmen() {
               ? `<button class="btn btn-danger btn-sm" onclick="toggleFirma('${esc(f.id)}', 'gesperrt')">Sperren</button>`
               : `<button class="btn btn-success btn-sm" onclick="toggleFirma('${esc(f.id)}', 'aktiv')">Entsperren</button>`
             }
+            <button class="btn btn-ghost btn-sm" onclick="deleteFirma('${esc(f.id)}', '${esc(f.name)}')" title="Firma löschen" style="color:var(--error)">✕</button>
           </div>
         </td>
       </tr>
@@ -861,6 +862,16 @@ async function loadFirmen() {
 async function toggleFirma(id, newStatus) {
   try {
     await api('PATCH', `/api/admin/firmen/${id}/status`, { status: newStatus });
+    loadFirmen();
+  } catch (e) {
+    alert('Fehler: ' + e.message);
+  }
+}
+
+async function deleteFirma(id, name) {
+  if (!confirm(`Firma „${name}" und ALLE zugehörigen Daten (Benutzer, Kunden, Protokolle) unwiderruflich löschen?`)) return;
+  try {
+    await api('DELETE', `/api/admin/firmen/${id}`);
     loadFirmen();
   } catch (e) {
     alert('Fehler: ' + e.message);

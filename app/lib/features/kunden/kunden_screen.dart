@@ -6,6 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/kunde.dart';
 import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/standorte_provider.dart';
+import '../../core/providers/app_mode_provider.dart';
+import '../../core/providers/isar_provider.dart';
+import '../../core/sync/sync_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
 import 'kunde_formular.dart';
@@ -256,6 +259,12 @@ class _KundenScreenState extends ConsumerState<KundenScreen> {
     );
     if (confirmed == true && mounted) {
       await ref.read(kundenRepositoryProvider).delete(kunde.uuid);
+      final isCompany =
+          ref.read(appModusProvider).valueOrNull == AppModus.company;
+      if (isCompany) {
+        final db = await ref.read(dbProvider.future);
+        SyncService.pushAfterChange(db);
+      }
     }
   }
 }

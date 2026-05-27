@@ -89,6 +89,8 @@ void main() async {
     ..post('/api/admin/firmen', (req) => MandantenEndpoint(conn).create(req))
     ..patch('/api/admin/firmen/<id>/status',
         (req, id) => MandantenEndpoint(conn).updateStatus(req, id))
+    ..delete('/api/admin/firmen/<id>',
+        (req, id) => MandantenEndpoint(conn).deleteFirma(req, id))
     ..get('/api/admin/firmen/<id>/benutzer',
         (req, id) => MandantenEndpoint(conn).listBenutzer(req, id))
     ..post('/api/admin/firmen/<id>/benutzer',
