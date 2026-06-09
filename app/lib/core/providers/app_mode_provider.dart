@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'einstellungen_provider.dart';
 
 enum AppModus { solo, company }
 
@@ -29,6 +30,9 @@ class AppModusNotifier extends AsyncNotifier<AppModus> {
       await prefs.setString('firma_name', firmaName);
     }
     state = const AsyncData(AppModus.company);
+    // Beide Provider neu laden damit Admin-Status und Firmendaten sofort stimmen
+    ref.invalidate(currentUserProvider);
+    ref.invalidate(einstellungenProvider);
   }
 
   Future<void> logout() async {
@@ -40,6 +44,8 @@ class AppModusNotifier extends AsyncNotifier<AppModus> {
     await prefs.remove('firma_name');
     await prefs.remove('ist_admin');
     state = const AsyncData(AppModus.solo);
+    ref.invalidate(currentUserProvider);
+    ref.invalidate(einstellungenProvider);
   }
 }
 

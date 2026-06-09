@@ -32,21 +32,24 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
   bool _showAltesPasswort = false;
   bool _showNeuesPasswort = false;
 
+  void _fillControllers(Einstellungen e) {
+    _prueferCtrl.text     = e.prueferName   ?? '';
+    _firmaCtrl.text       = e.firma         ?? '';
+    _strasseCtrl.text     = e.firmaStrasse  ?? '';
+    _plzCtrl.text         = e.firmaPlz      ?? '';
+    _ortCtrl.text         = e.firmaOrt      ?? '';
+    _pruefgeraetCtrl.text = e.pruefgeraet   ?? '';
+    _serverUrlCtrl.text   = e.serverUrl     ?? '';
+    _prefilled = true;
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_prefilled) return;
       final e = ref.read(einstellungenProvider).valueOrNull;
-      if (e == null) return;
-      _prueferCtrl.text     = e.prueferName   ?? '';
-      _firmaCtrl.text       = e.firma         ?? '';
-      _strasseCtrl.text     = e.firmaStrasse  ?? '';
-      _plzCtrl.text         = e.firmaPlz      ?? '';
-      _ortCtrl.text         = e.firmaOrt      ?? '';
-      _pruefgeraetCtrl.text = e.pruefgeraet   ?? '';
-      _serverUrlCtrl.text   = e.serverUrl     ?? '';
-      _prefilled = true;
+      if (e != null) _fillControllers(e);
     });
   }
 
@@ -116,6 +119,12 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Felder nachfüllen wenn der Provider nach dem Login neu geladen wurde
+    ref.listen(einstellungenProvider, (_, next) {
+      final e = next.valueOrNull;
+      if (e != null && !_prefilled) _fillControllers(e);
+    });
+
     final modusAsync = ref.watch(appModusProvider);
     final isCompany = modusAsync.valueOrNull == AppModus.company;
 
