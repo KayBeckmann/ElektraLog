@@ -12,6 +12,8 @@ import '../models/verteiler.dart';
 import '../models/verteiler_komponente.dart';
 import '../models/messung.dart';
 import '../models/sichtpruefung.dart';
+import '../providers/app_mode_provider.dart';
+import '../providers/isar_provider.dart';
 
 enum SyncStatus { idle, syncing, error, success }
 
@@ -180,3 +182,18 @@ class SyncService {
 
 final syncStatusProvider =
     StateProvider<SyncStatus>((ref) => SyncStatus.idle);
+
+/// Startet automatisch einen Pull alle 60s wenn im Company-Modus.
+/// Stoppt sich selbst bei Logout. In AppScaffold watchen.
+final autoSyncProvider = Provider<void>((ref) {
+  final modus = ref.watch(appModusProvider).valueOrNull;
+  if (modus != AppModus.company) return;
+
+  final db = ref.watch(dbProvider).valueOrNull;
+  if (db == null) return;
+
+  final timer = Timer.periodic(const Duration(seconds: 60), (_) {
+    SyncService.pullAll(db);
+  });
+  ref.onDispose(timer.cancel);
+});

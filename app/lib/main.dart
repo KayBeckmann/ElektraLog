@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,10 +22,6 @@ void main() async {
   if (modus == AppModus.company) {
     container.read(dbProvider.future).then((db) {
       SyncService.pullAll(db);
-      // Auto-Pull alle 60 Sekunden damit mehrere Nutzer sich gegenseitig sehen
-      Timer.periodic(const Duration(seconds: 60), (_) {
-        SyncService.pullAll(db);
-      });
     }).catchError((e) {
       debugPrint('Startup-Pull fehlgeschlagen: $e');
     });

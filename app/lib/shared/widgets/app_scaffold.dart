@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../../core/router.dart';
 import '../../core/providers/app_mode_provider.dart';
+import '../../core/sync/sync_service.dart';
 // isAdminProvider kommt aus app_mode_provider
 
 /// Desktop breakpoint: 768px (md)
@@ -77,13 +78,16 @@ List<_NavItem> _buildNavItems({required bool isCompany, required bool isAdmin}) 
 /// Main app shell — provides adaptive navigation:
 /// - Mobile (<768px): Fixed bottom navigation bar with 4 tabs
 /// - Desktop (≥768px): 320px fixed left drawer with profile header + nav links
-class AppScaffold extends StatelessWidget {
+class AppScaffold extends ConsumerWidget {
   const AppScaffold({super.key, required this.child});
 
   final Widget child;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Auto-Pull alle 60s im Company-Modus — startet nach Login, stoppt nach Logout
+    ref.watch(autoSyncProvider);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth >= _kDesktopBreakpoint) {
