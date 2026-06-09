@@ -38,13 +38,16 @@ services:
       - elektralog
 
   # ---------------------------------------------------------------------------
-  # App — Flutter Web (gebaut via Dockerfile, serviert durch Nginx)
+  # App — Flutter Web (lokal gebaut, via Git ausgeliefert, Nginx serviert)
+  # WICHTIG: flutter build web läuft LOKAL, nicht auf dem Server (zu wenig RAM).
+  # Build-Output liegt in ./docker/app_web/ und ist per Git committed.
   # ---------------------------------------------------------------------------
   app:
-    build:
-      context: ./app
-      dockerfile: Dockerfile
+    image: nginx:alpine
     restart: unless-stopped
+    volumes:
+      - ./docker/app_web:/usr/share/nginx/html:ro
+      - ./app/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "${APP_PORT}:80"
     depends_on:
