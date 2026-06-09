@@ -5,6 +5,7 @@ import 'package:postgres/postgres.dart';
 import 'package:bcrypt/bcrypt.dart';
 import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart';
 import 'package:uuid/uuid.dart';
+import '../middleware/auth_middleware.dart';
 
 class AuthEndpoint {
   final Connection db;
