@@ -4,8 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/models/kunde.dart';
+import '../../core/providers/app_mode_provider.dart';
+import '../../core/providers/isar_provider.dart';
 import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/standorte_provider.dart';
+import '../../core/sync/sync_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
 import 'kunde_formular.dart';
@@ -20,6 +23,7 @@ class KundenScreen extends ConsumerStatefulWidget {
 class _KundenScreenState extends ConsumerState<KundenScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
+  bool _isRefreshing = false;
 
   @override
   void dispose() {
@@ -27,9 +31,21 @@ class _KundenScreenState extends ConsumerState<KundenScreen> {
     super.dispose();
   }
 
+  Future<void> _refreshData() async {
+    setState(() => _isRefreshing = true);
+    try {
+      final db = await ref.read(dbProvider.future);
+      await SyncService.pullAll(db);
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final kundenAsync = ref.watch(kundenProvider);
+    final isAdmin = ref.watch(isAdminProvider).valueOrNull ?? false;
+    final isCompany = ref.watch(appModusProvider).valueOrNull == AppModus.company;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -64,11 +80,26 @@ class _KundenScreenState extends ConsumerState<KundenScreen> {
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: () => _showKundeFormular(context, null),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Neuer Kunde'),
-                ),
+                if (isCompany)
+                  _isRefreshing
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : IconButton(
+                          icon: const Icon(Icons.refresh),
+                          tooltip: 'Aktualisieren',
+                          onPressed: _refreshData,
+                        ),
+                if (isAdmin) ...[
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => _showKundeFormular(context, null),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Neuer Kunde'),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 20),
@@ -163,13 +194,15 @@ class _KundenScreenState extends ConsumerState<KundenScreen> {
                                   color: AppColors.onSurfaceVariant,
                                 ),
                           ),
-                          const SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            onPressed: () =>
-                                _showKundeFormular(context, null),
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Ersten Kunden anlegen'),
-                          ),
+                          if (isAdmin) ...[
+                            const SizedBox(height: 8),
+                            ElevatedButton.icon(
+                              onPressed: () =>
+                                  _showKundeFormular(context, null),
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('Ersten Kunden anlegen'),
+                            ),
+                          ],
                         ],
                       ),
                     );
@@ -196,6 +229,7 @@ class _KundenScreenState extends ConsumerState<KundenScreen> {
                         itemBuilder: (ctx, i) {
                           return _KundeCard(
                             kunde: filtered[i],
+                            isAdmin: isAdmin,
                             onEdit: () =>
                                 _showKundeFormular(context, filtered[i]),
                             onDelete: () =>
@@ -265,12 +299,14 @@ class _KundenScreenState extends ConsumerState<KundenScreen> {
 class _KundeCard extends ConsumerWidget {
   const _KundeCard({
     required this.kunde,
+    required this.isAdmin,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
 
   final Kunde kunde;
+  final bool isAdmin;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -369,8 +405,10 @@ class _KundeCard extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    _MoreMenu(onEdit: onEdit, onDelete: onDelete),
+                    if (isAdmin) ...[
+                      const SizedBox(width: 4),
+                      _MoreMenu(onEdit: onEdit, onDelete: onDelete),
+                    ],
                   ],
                 ),
                 const Icon(

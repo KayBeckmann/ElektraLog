@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/standort.dart';
+import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../shared/theme/app_colors.dart';
@@ -26,6 +27,7 @@ class KundenDetailScreen extends ConsumerWidget {
       loading: () => null,
       error: (_, __) => null,
     );
+    final isAdmin = ref.watch(isAdminProvider).valueOrNull ?? false;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -34,13 +36,15 @@ class KundenDetailScreen extends ConsumerWidget {
         title: Text(kunde?.name ?? 'Kunde'),
         backgroundColor: AppColors.surface,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showStandortFormular(context, ref, kundeUuid),
-        icon: const Icon(Icons.add_location_alt_outlined),
-        label: const Text('Standort'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.onPrimary,
-      ),
+      floatingActionButton: isAdmin
+          ? FloatingActionButton.extended(
+              onPressed: () => _showStandortFormular(context, ref, kundeUuid),
+              icon: const Icon(Icons.add_location_alt_outlined),
+              label: const Text('Standort'),
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.onPrimary,
+            )
+          : null,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -173,13 +177,15 @@ class KundenDetailScreen extends ConsumerWidget {
                               ?.copyWith(
                                   color: AppColors.onSurfaceVariant),
                         ),
-                        const SizedBox(height: 16),
-                        OutlinedButton.icon(
-                          onPressed: () => _showStandortFormular(
-                              context, ref, kundeUuid),
-                          icon: const Icon(Icons.add, size: 16),
-                          label: const Text('Standort hinzufügen'),
-                        ),
+                        if (isAdmin) ...[
+                          const SizedBox(height: 16),
+                          OutlinedButton.icon(
+                            onPressed: () => _showStandortFormular(
+                                context, ref, kundeUuid),
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Standort hinzufügen'),
+                          ),
+                        ],
                       ],
                     ),
                   );
