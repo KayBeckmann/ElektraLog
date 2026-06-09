@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import '../../core/router.dart';
 import '../../core/providers/app_mode_provider.dart';
+import '../../core/providers/isar_provider.dart';
 import '../../core/sync/sync_service.dart';
 // isAdminProvider kommt aus app_mode_provider
 
@@ -126,9 +127,27 @@ class _DesktopShell extends StatelessWidget {
   }
 }
 
-class _DesktopDrawer extends ConsumerWidget {
+class _DesktopDrawer extends ConsumerStatefulWidget {
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_DesktopDrawer> createState() => _DesktopDrawerState();
+}
+
+class _DesktopDrawerState extends ConsumerState<_DesktopDrawer> {
+  bool _isSyncing = false;
+
+  Future<void> _sync() async {
+    setState(() => _isSyncing = true);
+    try {
+      final db = await ref.read(dbProvider.future);
+      await SyncService.pullAll(db);
+      await SyncService.pushAll(db);
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
     final isCompany =
         ref.watch(appModusProvider).valueOrNull == AppModus.company;
@@ -200,13 +219,14 @@ class _DesktopDrawer extends ConsumerWidget {
                       ),
                     ),
 
-                    // ── CSV-Import ───────────────────────────────────
-                    const Divider(color: AppColors.outlineVariant),
-                    _DrawerActionItem(
-                      icon: Icons.upload_file_outlined,
-                      label: 'CSV-Import',
-                      onTap: () => context.go('/import'),
-                    ),
+                    // ── Sync ─────────────────────────────────────────
+                    if (isCompany) ...[
+                      const Divider(color: AppColors.outlineVariant),
+                      _SyncButton(
+                        isSyncing: _isSyncing,
+                        onTap: _isSyncing ? null : _sync,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -346,16 +366,11 @@ class _DrawerNavItem extends StatelessWidget {
   }
 }
 
-class _DrawerActionItem extends StatelessWidget {
-  const _DrawerActionItem({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
+class _SyncButton extends StatelessWidget {
+  const _SyncButton({required this.isSyncing, required this.onTap});
 
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
+  final bool isSyncing;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -369,16 +384,27 @@ class _DrawerActionItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             children: [
-              Icon(
-                icon,
-                size: 22,
-                color: AppColors.onSurfaceVariant,
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: isSyncing
+                    ? const CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      )
+                    : const Icon(
+                        Icons.sync,
+                        size: 22,
+                        color: AppColors.onSurfaceVariant,
+                      ),
               ),
               const SizedBox(width: 16),
               Text(
-                label,
+                isSyncing ? 'Synchronisiert …' : 'Synchronisieren',
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.onSurfaceVariant,
+                      color: isSyncing
+                          ? AppColors.primary
+                          : AppColors.onSurfaceVariant,
                     ),
               ),
             ],
