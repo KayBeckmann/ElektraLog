@@ -67,12 +67,23 @@ class ApiService {
     String email,
     String passwort,
   ) async {
+    await _ensureServerUrl();
+    if (_cachedServerUrl == null || _cachedServerUrl!.isEmpty) {
+      return {'error': 'Keine Server-URL konfiguriert. Bitte in den Einstellungen hinterlegen.'};
+    }
     final resp = await http.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: await _headers(),
       body: jsonEncode({'email': email, 'passwort': passwort}),
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
+  static Future<void> _ensureServerUrl() async {
+    if (_cachedServerUrl != null && _cachedServerUrl!.isNotEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    final url = prefs.getString('einstellungen.serverUrl');
+    if (url != null && url.isNotEmpty) _cachedServerUrl = url;
   }
 
   // Kunden
