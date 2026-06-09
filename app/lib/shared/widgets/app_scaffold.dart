@@ -57,9 +57,9 @@ const _baseNavItems = [
 
 const _teamNavItem = _NavItem(
   route: AppRoutes.team,
-  icon: Icons.group_outlined,
-  selectedIcon: Icons.group,
-  label: 'Team',
+  icon: Icons.manage_accounts_outlined,
+  selectedIcon: Icons.manage_accounts,
+  label: 'Benutzerverwaltung',
 );
 
 List<_NavItem> _buildNavItems({required bool isCompany, required bool isAdmin}) {

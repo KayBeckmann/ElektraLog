@@ -242,6 +242,28 @@ class ApiService {
     );
   }
 
+  /// Ändert das eigene Passwort (kein Admin nötig).
+  /// Wirft Exception wenn das alte Passwort falsch ist oder Server-Fehler.
+  static Future<void> changeOwnPassword({
+    required String altesPasswort,
+    required String neuesPasswort,
+  }) async {
+    final resp = await http.patch(
+      Uri.parse('$baseUrl/auth/me/passwort'),
+      headers: await _headers(auth: true),
+      body: jsonEncode({
+        'altesPasswort': altesPasswort,
+        'neuesPasswort': neuesPasswort,
+      }),
+    );
+    if (resp.statusCode != 200) {
+      final msg = (jsonDecode(resp.body) as Map<String, dynamic>)['error']
+              as String? ??
+          'Passwort konnte nicht geändert werden';
+      throw Exception(msg);
+    }
+  }
+
   /// Gibt die Protokoll-Liste der eigenen Firma zurück.
   static Future<List<Map<String, dynamic>>> getProtokolle() async {
     try {

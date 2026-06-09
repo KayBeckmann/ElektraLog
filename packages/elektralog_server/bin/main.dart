@@ -75,6 +75,8 @@ void main() async {
     // Auth (public)
     ..post('/api/auth/register', (req) => AuthEndpoint(conn).register(req))
     ..post('/api/auth/login', (req) => AuthEndpoint(conn).login(req))
+    // Auth (requires JWT)
+    ..patch('/api/auth/me/passwort', (req) => AuthEndpoint(conn).changePassword(req))
     // Kunden (requires JWT)
     ..get('/api/kunden', (req) => KundenEndpoint(conn).list(req))
     ..post('/api/kunden', (req) => KundenEndpoint(conn).create(req))

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/api/api_service.dart';
 import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/einstellungen_provider.dart';
 import '../../core/router.dart';
@@ -16,15 +17,20 @@ class EinstellungenScreen extends ConsumerStatefulWidget {
 }
 
 class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
-  final _prueferCtrl     = TextEditingController();
-  final _firmaCtrl       = TextEditingController();
-  final _strasseCtrl     = TextEditingController();
-  final _plzCtrl         = TextEditingController();
-  final _ortCtrl         = TextEditingController();
-  final _pruefgeraetCtrl = TextEditingController();
-  final _serverUrlCtrl   = TextEditingController();
+  final _prueferCtrl      = TextEditingController();
+  final _firmaCtrl        = TextEditingController();
+  final _strasseCtrl      = TextEditingController();
+  final _plzCtrl          = TextEditingController();
+  final _ortCtrl          = TextEditingController();
+  final _pruefgeraetCtrl  = TextEditingController();
+  final _serverUrlCtrl    = TextEditingController();
+  final _altesPasswortCtrl = TextEditingController();
+  final _neuesPasswortCtrl = TextEditingController();
 
-  bool _prefilled = false;
+  bool _prefilled        = false;
+  bool _savingPasswort   = false;
+  bool _showAltesPasswort = false;
+  bool _showNeuesPasswort = false;
 
   @override
   void initState() {
@@ -53,6 +59,8 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
     _ortCtrl.dispose();
     _pruefgeraetCtrl.dispose();
     _serverUrlCtrl.dispose();
+    _altesPasswortCtrl.dispose();
+    _neuesPasswortCtrl.dispose();
     super.dispose();
   }
 
@@ -70,6 +78,39 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Einstellungen gespeichert')),
       );
+    }
+  }
+
+  Future<void> _onChangePassword() async {
+    final altes = _altesPasswortCtrl.text.trim();
+    final neues = _neuesPasswortCtrl.text.trim();
+    if (altes.isEmpty || neues.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bitte beide Felder ausfüllen')),
+      );
+      return;
+    }
+    setState(() => _savingPasswort = true);
+    try {
+      await ApiService.changeOwnPassword(
+        altesPasswort: altes,
+        neuesPasswort: neues,
+      );
+      _altesPasswortCtrl.clear();
+      _neuesPasswortCtrl.clear();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Kennwort erfolgreich geändert')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _savingPasswort = false);
     }
   }
 
@@ -283,7 +324,7 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
             const SizedBox(height: 12),
 
             if (isCompany) ...[
-              // Company-Modus: Abmelden
+              // Company-Modus: Status-Info
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -321,7 +362,87 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 24),
+
+              // ── Kennwort ändern ──────────────────────────────────────
+              _SectionLabel('KENNWORT ÄNDERN'),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _altesPasswortCtrl,
+                obscureText: !_showAltesPasswort,
+                decoration: InputDecoration(
+                  labelText: 'Aktuelles Kennwort',
+                  prefixIcon: const Icon(Icons.lock_outline, size: 18),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _showAltesPasswort
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 18,
+                    ),
+                    onPressed: () => setState(
+                        () => _showAltesPasswort = !_showAltesPasswort),
+                  ),
+                  enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.outlineVariant),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primary),
+                  ),
+                  border: const OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.outlineVariant),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _neuesPasswortCtrl,
+                obscureText: !_showNeuesPasswort,
+                decoration: InputDecoration(
+                  labelText: 'Neues Kennwort (mind. 6 Zeichen)',
+                  prefixIcon: const Icon(Icons.lock_reset_outlined, size: 18),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _showNeuesPasswort
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 18,
+                    ),
+                    onPressed: () => setState(
+                        () => _showNeuesPasswort = !_showNeuesPasswort),
+                  ),
+                  enabledBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.outlineVariant),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.primary),
+                  ),
+                  border: const OutlineInputBorder(
+                    borderSide: BorderSide(color: AppColors.outlineVariant),
+                  ),
+                ),
+              ),
               const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _savingPasswort ? null : _onChangePassword,
+                  icon: _savingPasswort
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.key_outlined, size: 18),
+                  label: const Text('Kennwort ändern'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ── Abmelden ────────────────────────────────────────────
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(

@@ -106,6 +106,70 @@ class AuthEndpoint {
     }
   }
 
+  // PATCH /api/auth/me/passwort
+  // Body: { "altesPasswort", "neuesPasswort" }
+  Future<Response> changePassword(Request request) async {
+    final claims = verifyJwt(request);
+    if (claims == null) {
+      return Response(401,
+          body: jsonEncode({'error': 'Nicht angemeldet'}),
+          headers: {'Content-Type': 'application/json'});
+    }
+    final benutzerId = claims['sub'] as String;
+
+    try {
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final altesPasswort = body['altesPasswort'] as String? ?? '';
+      final neuesPasswort = body['neuesPasswort'] as String? ?? '';
+
+      if (altesPasswort.isEmpty || neuesPasswort.isEmpty) {
+        return Response(400,
+            body: jsonEncode({'error': 'Altes und neues Passwort erforderlich'}),
+            headers: {'Content-Type': 'application/json'});
+      }
+      if (neuesPasswort.length < 6) {
+        return Response(400,
+            body: jsonEncode({'error': 'Neues Passwort muss mindestens 6 Zeichen haben'}),
+            headers: {'Content-Type': 'application/json'});
+      }
+
+      final rows = await db.execute(
+        Sql.named('SELECT passwort_hash FROM benutzer WHERE id = @id'),
+        parameters: {'id': benutzerId},
+      );
+      if (rows.isEmpty) {
+        return Response(404,
+            body: jsonEncode({'error': 'Benutzer nicht gefunden'}),
+            headers: {'Content-Type': 'application/json'});
+      }
+
+      final storedHash = rows.first[0] as String;
+      if (!BCrypt.checkpw(altesPasswort, storedHash)) {
+        return Response(401,
+            body: jsonEncode({'error': 'Aktuelles Passwort ist falsch'}),
+            headers: {'Content-Type': 'application/json'});
+      }
+
+      final newHash = BCrypt.hashpw(neuesPasswort, BCrypt.gensalt());
+      await db.execute(
+        Sql.named('UPDATE benutzer SET passwort_hash = @hash WHERE id = @id'),
+        parameters: {'hash': newHash, 'id': benutzerId},
+      );
+
+      return Response.ok(
+        jsonEncode({'message': 'Passwort erfolgreich geändert'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, st) {
+      print('changePassword error: $e\n$st');
+      return Response.internalServerError(
+        body: jsonEncode({'error': e.toString()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
   String _issueToken(
       String id, String firmaId, String email, String name,
       bool istSuperadmin, bool istAdmin) {

@@ -53,28 +53,54 @@ class MandantenEndpoint {
       final body =
           jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final name = body['name'] as String;
-      final firmaId = const Uuid().v4();
-      final rolleId = const Uuid().v4();
+      final firmaId         = const Uuid().v4();
+      final adminRolleId    = const Uuid().v4();
+      final plRolleId       = const Uuid().v4();
+      final monteurRolleId  = const Uuid().v4();
 
       await db.runTx((ctx) async {
         await ctx.execute(
           Sql.named('INSERT INTO firmen (id, name) VALUES (@id, @name)'),
           parameters: {'id': firmaId, 'name': name},
         );
-        // Firmenadmin-Rolle sofort anlegen — damit createBenutzer sie findet
+
+        // Firmenadmin (ist_vorlage=true) — alle Berechtigungen
         await ctx.execute(
-          Sql.named(
-            'INSERT INTO rollen (id, firma_id, name, ist_vorlage) '
-            'VALUES (@id, @fid, @name, true)',
-          ),
-          parameters: {'id': rolleId, 'fid': firmaId, 'name': 'Firmenadmin'},
+          Sql.named('INSERT INTO rollen (id, firma_id, name, ist_vorlage) '
+              'VALUES (@id, @fid, @name, true)'),
+          parameters: {'id': adminRolleId, 'fid': firmaId, 'name': 'Firmenadmin'},
         );
         await ctx.execute(
-          Sql.named(
-            'INSERT INTO rollen_berechtigungen (rollen_id, berechtigung_id) '
-            'SELECT @rid, id FROM berechtigungen',
-          ),
-          parameters: {'rid': rolleId},
+          Sql.named('INSERT INTO rollen_berechtigungen (rollen_id, berechtigung_id) '
+              'SELECT @rid, id FROM berechtigungen'),
+          parameters: {'rid': adminRolleId},
+        );
+
+        // Projektleiter — Stammdaten r/w, Messungen, Export, Firma-Einstellungen
+        await ctx.execute(
+          Sql.named('INSERT INTO rollen (id, firma_id, name, ist_vorlage) '
+              'VALUES (@id, @fid, @name, false)'),
+          parameters: {'id': plRolleId, 'fid': firmaId, 'name': 'Projektleiter'},
+        );
+        await ctx.execute(
+          Sql.named("INSERT INTO rollen_berechtigungen (rollen_id, berechtigung_id) "
+              "SELECT @rid, id FROM berechtigungen "
+              "WHERE id IN ('stammdaten:read','stammdaten:write',"
+              "'messungen:create','messungen:read','protokolle:export','firma:settings')"),
+          parameters: {'rid': plRolleId},
+        );
+
+        // Monteur — Stammdaten lesen, Messungen erfassen/lesen
+        await ctx.execute(
+          Sql.named('INSERT INTO rollen (id, firma_id, name, ist_vorlage) '
+              'VALUES (@id, @fid, @name, false)'),
+          parameters: {'id': monteurRolleId, 'fid': firmaId, 'name': 'Monteur'},
+        );
+        await ctx.execute(
+          Sql.named("INSERT INTO rollen_berechtigungen (rollen_id, berechtigung_id) "
+              "SELECT @rid, id FROM berechtigungen "
+              "WHERE id IN ('stammdaten:read','messungen:create','messungen:read')"),
+          parameters: {'rid': monteurRolleId},
         );
       });
 

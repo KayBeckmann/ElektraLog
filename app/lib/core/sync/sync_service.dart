@@ -21,7 +21,7 @@ class SyncService {
   // ── Pull ──────────────────────────────────────────────────────────────────
 
   /// Zieht alle Rohdaten vom Backend und speichert sie lokal.
-  /// Last-write-wins: Server-Datensatz gewinnt nur wenn neuer als lokaler.
+  /// Server hat immer Vorrang: Server-Datensatz überschreibt immer den lokalen.
   static Future<void> pullAll(Database db) async {
     try {
       final data = await ApiService.pullAll();
@@ -86,7 +86,7 @@ class SyncService {
     }
   }
 
-  /// Speichert Server-Datensätze lokal, wenn neuer als lokale Version.
+  /// Speichert Server-Datensätze lokal — Server hat immer Vorrang.
   static Future<void> _mergeList<T>({
     required Database db,
     required StoreRef store,
@@ -95,16 +95,8 @@ class SyncService {
   }) async {
     for (final item in items) {
       final json = (item as dynamic).toJson() as Map<String, dynamic>;
-      final uuid = json['uuid'] as String;
-      final serverTs = DateTime.tryParse(json[timestampKey] as String? ?? '');
-      if (serverTs == null) continue;
-
-      final existing = await store.record(uuid).get(db) as Map?;
-      if (existing != null) {
-        final localTs = DateTime.tryParse(
-            existing[timestampKey] as String? ?? existing['erstelltAm'] as String? ?? '');
-        if (localTs != null && !serverTs.isAfter(localTs)) continue;
-      }
+      final uuid = json['uuid'] as String?;
+      if (uuid == null) continue;
       await store.record(uuid).put(db, json.cast<String, Object?>());
     }
   }
