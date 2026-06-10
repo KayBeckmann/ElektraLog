@@ -1,4 +1,4 @@
-package com.example.elektralog
+package de.elektralog.app
 
 import io.flutter.embedding.android.FlutterActivity
 
