@@ -127,6 +127,17 @@ class ApiService {
   /// Gibt die direkte PDF-Download-URL für ein Protokoll zurück.
   static String protokollPdfUrl(String id) => '$baseUrl/protokolle/$id/pdf';
 
+  /// Lädt die PDF-Bytes eines Prüfprotokolls mit Auth-Header.
+  /// Gibt null zurück bei Fehler (z.B. 401 ohne gültiges Token).
+  static Future<Uint8List?> getProtokollPdf(String id) async {
+    final resp = await http.get(
+      Uri.parse(protokollPdfUrl(id)),
+      headers: await _headers(auth: true),
+    );
+    if (resp.statusCode == 200) return resp.bodyBytes;
+    return null;
+  }
+
   /// Lädt ein Prüfprotokoll (PDF + Metadaten) in das Backend hoch.
   /// Gibt die Backend-UUID zurück oder null bei Fehler.
   /// Nicht-blockierend — Fehler werden geloggt, nicht geworfen.

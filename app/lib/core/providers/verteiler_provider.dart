@@ -78,3 +78,9 @@ final verteilerByStandortProvider =
     error: (e, _) => Stream.error(e),
   );
 });
+
+final verteilerByUuidProvider =
+    FutureProvider.family<Verteiler?, String>((ref, uuid) async {
+  final db = await ref.watch(dbProvider.future);
+  return VerteilerRepository(db).getByUuid(uuid);
+});

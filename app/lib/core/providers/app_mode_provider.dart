@@ -54,13 +54,15 @@ final appModusProvider =
 
 final currentUserProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('jwt_token');
   return {
-    'token': prefs.getString('jwt_token'),
+    'token': token,
     'benutzerId': prefs.getString('benutzer_id'),
     'firmaId': prefs.getString('firma_id'),
     'name': prefs.getString('benutzer_name'),
     'firmaName': prefs.getString('firma_name'),
-    'istAdmin': prefs.getBool('ist_admin') ?? false,
+    // Solo-Modus (kein Token) → Nutzer hat immer Vollzugriff/Admin-Rechte.
+    'istAdmin': token == null ? true : (prefs.getBool('ist_admin') ?? false),
   };
 });
 

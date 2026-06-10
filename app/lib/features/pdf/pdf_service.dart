@@ -105,12 +105,6 @@ class PdfService {
     // Komponenten in Baumreihenfolge (depth-first) sortieren
     final geordnet = _flattenTree(komponenten);
 
-    // Nur Komponenten mit Messungen auf Seite 2+, Reihenfolge beibehalten
-    final komponentenMitMessungen = geordnet
-        .where((entry) =>
-            (messungenByKomponente[entry.komponente.uuid] ?? []).isNotEmpty)
-        .toList();
-
     // Datum und Ort trennen (Format: "TT.MM.JJJJ, Ort" oder nur Datum)
     String datum = datumOrt;
     String ort = '';
@@ -312,8 +306,8 @@ class PdfService {
             ),
             pw.SizedBox(height: 8),
             // Checkliste
-            _sichtpruefungChecklist(latestSichtpruefung, fontR, fontB,
-                fontM, success, error, surface, greyLight),
+            _checklisteTable(latestSichtpruefung, _sichtpruefungLabels,
+                fontR, fontB, fontM, success, error, surface, greyLight),
             if (latestSichtpruefung.maengel != null &&
                 latestSichtpruefung.maengel!.isNotEmpty) ...[
               pw.SizedBox(height: 6),
@@ -438,60 +432,73 @@ class PdfService {
           ),
 
           // ══════════════════════════════════════════════════════════════
-          //  SEITENUMBRUCH → SEITE 2+ MESSWERTE
+          //  SEITENUMBRUCH → SEITE 2: ERPROBUNG + MESSWERTE
           // ══════════════════════════════════════════════════════════════
-          if (komponentenMitMessungen.isNotEmpty) ...[
+          if (latestSichtpruefung != null || geordnet.isNotEmpty) ...[
             pw.NewPage(),
-            _sectionTitle('MESSWERTE — DETAILAUSWERTUNG', primary, fontB),
-            pw.SizedBox(height: 4),
-            pw.Text(
-              '${komponentenMitMessungen.length} Komponente(n) mit Messungen · '
-              'Verteiler: ${verteiler.bezeichnung}',
-              style: pw.TextStyle(
-                  font: fontR, fontSize: 9, color: PdfColors.grey600),
-            ),
-            pw.SizedBox(height: 12),
-            ...komponentenMitMessungen.expand((entry) {
-              final kMessungen =
-                  messungenByKomponente[entry.komponente.uuid] ?? [];
-              final header = _komponenteHeader(
-                entry.komponente, entry.depth,
-                primary, surface, fontR, fontB,
-              );
+            if (latestSichtpruefung != null) ...[
+              _sectionTitle('ERPROBUNG', primary, fontB),
+              pw.SizedBox(height: 8),
+              _checklisteTable(latestSichtpruefung, _erprobungLabels,
+                  fontR, fontB, fontM, success, error, surface, greyLight),
+              pw.SizedBox(height: 14),
+            ],
+            if (geordnet.isNotEmpty) ...[
+              _sectionTitle('MESSWERTE — DETAILAUSWERTUNG', primary, fontB),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                '${geordnet.length} Strukturelement(e) · '
+                'Verteiler: ${verteiler.bezeichnung}',
+                style: pw.TextStyle(
+                    font: fontR, fontSize: 9, color: PdfColors.grey600),
+              ),
+              pw.SizedBox(height: 12),
+              ...geordnet.expand((entry) {
+                final kMessungen =
+                    messungenByKomponente[entry.komponente.uuid] ?? [];
+                final header = _komponenteHeader(
+                  entry.komponente, entry.depth,
+                  primary, surface, fontR, fontB,
+                );
 
-              if (kMessungen.isEmpty) {
-                return [
-                  pw.Column(children: [header]),
-                  pw.SizedBox(height: 12),
+                if (kMessungen.isEmpty) {
+                  return [
+                    pw.Inseparable(child: pw.Column(children: [header])),
+                    pw.SizedBox(height: 12),
+                  ];
+                }
+
+                // Header + erste Messung zusammen halten
+                final result = <pw.Widget>[
+                  pw.Inseparable(
+                    child: pw.Column(children: [
+                      header,
+                      _messungBlock(
+                        kMessungen.first,
+                        success, successBg, error, errorBg,
+                        greyLight, surface, fontR, fontB, fontM,
+                      ),
+                    ]),
+                  ),
                 ];
-              }
 
-              // Header + erste Messung zusammen halten
-              final result = <pw.Widget>[
-                pw.Column(children: [
-                  header,
-                  _messungBlock(
-                    kMessungen.first,
-                    success, successBg, error, errorBg,
-                    greyLight, surface, fontR, fontB, fontM,
-                  ),
-                ]),
-              ];
-
-              // Weitere Messungen: jeweils mit Mini-Header (Komponente als Kontext)
-              for (final m in kMessungen.skip(1)) {
-                result.add(pw.Column(children: [
-                  _komponenteFortsContinuedHeader(
-                      entry.komponente, fontR, fontB),
-                  _messungBlock(
-                    m, success, successBg, error, errorBg,
-                    greyLight, surface, fontR, fontB, fontM,
-                  ),
-                ]));
-              }
-              result.add(pw.SizedBox(height: 12));
-              return result;
-            }),
+                // Weitere Messungen: jeweils mit Mini-Header (Komponente als Kontext)
+                for (final m in kMessungen.skip(1)) {
+                  result.add(pw.Inseparable(
+                    child: pw.Column(children: [
+                      _komponenteFortsContinuedHeader(
+                          entry.komponente, fontR, fontB),
+                      _messungBlock(
+                        m, success, successBg, error, errorBg,
+                        greyLight, surface, fontR, fontB, fontM,
+                      ),
+                    ]),
+                  ));
+                }
+                result.add(pw.SizedBox(height: 12));
+                return result;
+              }),
+            ],
           ],
         ],
       ),
@@ -660,10 +667,11 @@ class PdfService {
         ),
       );
 
-  // ── Sichtprüfungs-Checkliste ──────────────────────────────────────────────
+  // ── Prüf-Checkliste (Sichtprüfung / Erprobung) ────────────────────────────
 
-  static pw.Widget _sichtpruefungChecklist(
+  static pw.Widget _checklisteTable(
     Sichtpruefung sp,
+    Map<String, String> labels,
     pw.Font fontR,
     pw.Font fontB,
     pw.Font fontM,
@@ -679,7 +687,7 @@ class PdfService {
       } catch (_) {}
     }
 
-    pw.TableRow _buildRow(String key, String label, bool alt) {
+    pw.TableRow buildRow(String key, String label, bool alt) {
       final rawStatus = checkliste[key] as String? ?? 'nicht_zutreffend';
       final status = _normalizePunktStatus(rawStatus);
       return pw.TableRow(
@@ -698,22 +706,6 @@ class PdfService {
       );
     }
 
-    pw.TableRow _sectionHeaderRow(String title) => pw.TableRow(
-      decoration: pw.BoxDecoration(color: PdfColor.fromHex('#1A2B45')),
-      children: [
-        pw.Padding(
-          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: pw.Text(
-            title,
-            style: pw.TextStyle(
-                font: fontB, fontSize: 8,
-                color: PdfColors.white, letterSpacing: 0.5),
-          ),
-        ),
-        pw.SizedBox(),
-      ],
-    );
-
     final rows = <pw.TableRow>[
       pw.TableRow(
         decoration: pw.BoxDecoration(color: surface),
@@ -722,19 +714,11 @@ class PdfService {
           _th('Ergebnis', fontB, align: pw.TextAlign.center),
         ],
       ),
-      _sectionHeaderRow('SICHTPRÜFUNG'),
     ];
 
     bool alt = false;
-    for (final entry in _sichtpruefungLabels.entries) {
-      rows.add(_buildRow(entry.key, entry.value, alt));
-      alt = !alt;
-    }
-
-    rows.add(_sectionHeaderRow('ERPROBUNG'));
-    alt = false;
-    for (final entry in _erprobungLabels.entries) {
-      rows.add(_buildRow(entry.key, entry.value, alt));
+    for (final entry in labels.entries) {
+      rows.add(buildRow(entry.key, entry.value, alt));
       alt = !alt;
     }
 

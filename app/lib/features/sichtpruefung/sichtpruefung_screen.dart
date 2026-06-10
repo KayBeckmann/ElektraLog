@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/models/sichtpruefung.dart';
 import '../../core/providers/sichtpruefung_provider.dart';
+import '../../core/providers/verteiler_provider.dart';
 import '../../shared/theme/app_colors.dart';
 
 // ── Sichtprüfung Checkpunkte ──────────────────────────────────────────────────
@@ -158,6 +159,7 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
   bool _isSaving = false;
   String? _editingUuid;
   DateTime? _naechstePruefung;
+  bool _naechstePruefungVorbelegt = false;
 
   @override
   void dispose() {
@@ -256,6 +258,7 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
         setState(() {
           _editingUuid = null;
           _naechstePruefung = null;
+          _naechstePruefungVorbelegt = false;
           for (final p in ChecklistePunkt.values) {
             _checkliste[p] = PunktStatus.nichtZutreffend;
           }
@@ -279,6 +282,28 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
       ..._checkliste.values,
       ..._erprobung.values
     ].any((v) => v == PunktStatus.durchgefallen);
+
+    // Datum der nächsten Prüfung vorbelegen: heute + Prüfintervall des Verteilers
+    final verteilerAsync =
+        ref.watch(verteilerByUuidProvider(widget.verteilerUuid));
+    if (!_naechstePruefungVorbelegt &&
+        _naechstePruefung == null &&
+        ergebnis == 'bestanden') {
+      final verteiler = verteilerAsync.value;
+      if (verteiler != null) {
+        _naechstePruefungVorbelegt = true;
+        final heute = DateTime.now();
+        final vorschlag = DateTime(
+            heute.year + verteiler.pruefintervallJahre,
+            heute.month,
+            heute.day);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _naechstePruefung == null) {
+            setState(() => _naechstePruefung = vorschlag);
+          }
+        });
+      }
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -461,6 +486,7 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
                 onPressed: () => setState(() {
                   _editingUuid = null;
                   _naechstePruefung = null;
+                  _naechstePruefungVorbelegt = false;
                   for (final p in ChecklistePunkt.values) {
                     _checkliste[p] = PunktStatus.nichtZutreffend;
                   }

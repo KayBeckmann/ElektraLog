@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/models/messung.dart';
+import '../../core/models/pruefprotokoll.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../core/providers/pruefprotokoll_provider.dart';
 import '../../shared/theme/app_colors.dart';
@@ -28,12 +29,12 @@ class MessungenListe extends ConsumerWidget {
     final protokolleAsync = verteilerUuid != null
         ? ref.watch(pruefprotokolleByVerteilerProvider(verteilerUuid!))
         : null;
-    final keinProtokoll = protokolleAsync == null ||
-        protokolleAsync.when(
-          data: (list) => list.isEmpty,
-          loading: () => false,
-          error: (_, __) => false,
-        );
+    final gesperrteUuids = protokolleAsync?.when(
+          data: _gesperrteMessungUuids,
+          loading: () => const <String>{},
+          error: (_, __) => const <String>{},
+        ) ??
+        const <String>{};
 
     return messungenAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -81,7 +82,7 @@ class MessungenListe extends ConsumerWidget {
             else
               ...messungen.map((m) => _MessungTile(
                     messung: m,
-                    keinProtokoll: keinProtokoll,
+                    gesperrt: gesperrteUuids.contains(m.uuid),
                     onTap: () => _showMesswertDetail(context, m),
                     onEditMessung: () =>
                         _showMessungFormular(context, m),
@@ -90,6 +91,32 @@ class MessungenListe extends ConsumerWidget {
         );
       },
     );
+  }
+
+  /// Sammelt die UUIDs aller Messungen, die in einem Messdaten-Snapshot
+  /// (= bereits in ein Protokoll überführt) enthalten sind.
+  static Set<String> _gesperrteMessungUuids(List<Pruefprotokoll> protokolle) {
+    final result = <String>{};
+    for (final p in protokolle) {
+      final raw = p.messdatenSnapshot;
+      if (raw == null || raw.isEmpty) continue;
+      try {
+        final snapshot = jsonDecode(raw) as Map<String, dynamic>;
+        final komponenten = snapshot['komponenten'] as List<dynamic>? ?? [];
+        for (final k in komponenten) {
+          final messungen = (k as Map<String, dynamic>)['messungen']
+                  as List<dynamic>? ??
+              [];
+          for (final m in messungen) {
+            final uuid = (m as Map<String, dynamic>)['uuid'] as String?;
+            if (uuid != null) result.add(uuid);
+          }
+        }
+      } catch (_) {
+        // Ungültiger Snapshot — ignorieren
+      }
+    }
+    return result;
   }
 
   Future<void> _showMessungFormular(
@@ -130,13 +157,16 @@ class MessungenListe extends ConsumerWidget {
 class _MessungTile extends ConsumerWidget {
   const _MessungTile({
     required this.messung,
-    required this.keinProtokoll,
+    required this.gesperrt,
     required this.onTap,
     required this.onEditMessung,
   });
 
   final Messung messung;
-  final bool keinProtokoll;
+
+  /// true, wenn diese Messung bereits in ein Prüfprotokoll überführt wurde
+  /// und daher nicht mehr verändert werden darf.
+  final bool gesperrt;
   final VoidCallback onTap;
   final VoidCallback onEditMessung;
 
@@ -238,17 +268,27 @@ class _MessungTile extends ConsumerWidget {
                 ],
               ),
             ),
-            // Bemerkung bearbeiten
+            // Bemerkung bearbeiten (gesperrt sobald in einem Protokoll enthalten)
             IconButton(
               icon: const Icon(Icons.edit_note_outlined, size: 16),
-              tooltip: 'Bemerkung bearbeiten',
+              tooltip: gesperrt
+                  ? 'Bereits in Protokoll enthalten — keine Änderung möglich'
+                  : 'Bemerkung bearbeiten',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
-              color: AppColors.onSurfaceVariant,
-              onPressed: () => _showBemerkungSheet(context, ref),
+              color:
+                  gesperrt ? AppColors.outlineVariant : AppColors.onSurfaceVariant,
+              onPressed:
+                  gesperrt ? null : () => _showBemerkungSheet(context, ref),
             ),
-            // Messung bearbeiten (nur wenn kein Protokoll erstellt)
-            if (keinProtokoll)
+            // Messung bearbeiten (nur solange noch in keinem Protokoll enthalten)
+            if (gesperrt)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4),
+                child: Icon(Icons.lock_outline,
+                    size: 16, color: AppColors.outlineVariant),
+              )
+            else
               IconButton(
                 icon: const Icon(Icons.open_in_new_outlined, size: 16),
                 tooltip: 'Messung bearbeiten',
