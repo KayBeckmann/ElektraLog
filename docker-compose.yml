@@ -58,6 +58,9 @@ services:
 
   # ---------------------------------------------------------------------------
   # Serverpod — Dart HTTP backend (always active from Phase 2)
+  # Port öffentlich gebunden (wie app/superadmin), da der externe Reverse-Proxy
+  # (NPM) elektralogbackend.kay-beckmann.de direkt auf SERVERPOD_PORT über die
+  # Server-IP weiterleitet, nicht über das Docker-Netzwerk.
   # ---------------------------------------------------------------------------
   serverpod:
     build:
@@ -76,7 +79,7 @@ services:
       SUPERADMIN_EMAIL: ${SUPERADMIN_EMAIL:-}
       SUPERADMIN_PASSWORD: ${SUPERADMIN_PASSWORD:-}
     ports:
-      - "127.0.0.1:${SERVERPOD_PORT}:8080"
+      - "${SERVERPOD_PORT}:8080"
     depends_on:
       postgres:
         condition: service_healthy
