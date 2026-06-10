@@ -108,20 +108,20 @@ class _ProtokollTile extends StatelessWidget {
   Future<void> _downloadPdf(BuildContext context) async {
     final id = data['id'] as String?;
     if (id == null) return;
-    final bytes = await ApiService.getProtokollPdf(id);
-    if (bytes == null) {
+    try {
+      final bytes = await ApiService.getProtokollPdf(id);
+      final verteiler = data['verteilerBezeichnung'] as String? ?? 'Protokoll';
+      await Printing.layoutPdf(
+        onLayout: (_) async => bytes,
+        name: 'Protokoll_$verteiler',
+      );
+    } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PDF konnte nicht geladen werden')),
+          SnackBar(content: Text('PDF-Fehler: $e')),
         );
       }
-      return;
     }
-    final verteiler = data['verteilerBezeichnung'] as String? ?? 'Protokoll';
-    await Printing.layoutPdf(
-      onLayout: (_) async => bytes,
-      name: 'Protokoll_$verteiler',
-    );
   }
 
   String _formatDate(String? iso) {

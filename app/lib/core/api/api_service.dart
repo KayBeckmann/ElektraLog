@@ -165,14 +165,24 @@ class ApiService {
   static String protokollPdfUrl(String id) => '$baseUrl/protokolle/$id/pdf';
 
   /// Lädt die PDF-Bytes eines Prüfprotokolls mit Auth-Header.
-  /// Gibt null zurück bei Fehler (z.B. 401 ohne gültiges Token).
-  static Future<Uint8List?> getProtokollPdf(String id) async {
+  /// Wirft eine [ApiException] mit Klartext-Meldung bei Fehler
+  /// (z.B. 401 ohne gültiges Token, 404 wenn nicht gefunden).
+  static Future<Uint8List> getProtokollPdf(String id) async {
     final resp = await http.get(
       Uri.parse(protokollPdfUrl(id)),
       headers: await _headers(auth: true),
     );
     if (resp.statusCode == 200) return resp.bodyBytes;
-    return null;
+
+    var message = 'PDF konnte nicht geladen werden (HTTP ${resp.statusCode}).';
+    final contentType = resp.headers['content-type'] ?? '';
+    if (contentType.contains('application/json')) {
+      try {
+        final body = jsonDecode(resp.body) as Map<String, dynamic>;
+        if (body['error'] is String) message = body['error'] as String;
+      } catch (_) {}
+    }
+    throw ApiException(resp.statusCode, message);
   }
 
   /// Lädt ein Prüfprotokoll (PDF + Metadaten) in das Backend hoch.

@@ -114,6 +114,75 @@ class PdfService {
       ort = datumOrt.substring(commaIdx + 1).trim();
     }
 
+    // Unterschrift-Block: steht direkt unter ERPROBUNG auf Seite 2 (oder auf
+    // Seite 1, falls keine Sichtprüfung/Erprobung existiert, siehe unten).
+    final unterschriftSection = pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        _sectionTitle('UNTERSCHRIFT', primary, fontB),
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.end,
+          children: [
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  if (signaturPng != null)
+                    pw.Container(
+                      height: 56,
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border(
+                            bottom: pw.BorderSide(color: primary, width: 1)),
+                      ),
+                      child: pw.Image(
+                        pw.MemoryImage(signaturPng),
+                        fit: pw.BoxFit.contain,
+                      ),
+                    )
+                  else
+                    pw.Container(
+                      height: 56,
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border(
+                            bottom: pw.BorderSide(color: primary, width: 1)),
+                      ),
+                    ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(prueferName,
+                      style: pw.TextStyle(font: fontR, fontSize: 9)),
+                  pw.Text('Prüfer',
+                      style: pw.TextStyle(
+                          font: fontR, fontSize: 8,
+                          color: PdfColors.grey600)),
+                ],
+              ),
+            ),
+            pw.SizedBox(width: 32),
+            pw.Expanded(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Container(
+                    height: 56,
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border(
+                          bottom: pw.BorderSide(
+                              color: PdfColors.grey400, width: 1)),
+                    ),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text('Auftraggeber',
+                      style: pw.TextStyle(
+                          font: fontR, fontSize: 8,
+                          color: PdfColors.grey600)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
     // ── Dokument bauen ────────────────────────────────────────────────────────
     doc.addPage(
       pw.MultiPage(
@@ -368,79 +437,28 @@ class PdfService {
                     font: fontR, fontSize: 10, color: PdfColors.grey)),
           pw.SizedBox(height: 14),
 
-          // Unterschrift
-          _sectionTitle('UNTERSCHRIFT', primary, fontB),
-          pw.Row(
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
-            children: [
-              pw.Expanded(
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    if (signaturPng != null)
-                      pw.Container(
-                        height: 56,
-                        decoration: pw.BoxDecoration(
-                          border: pw.Border(
-                              bottom: pw.BorderSide(color: primary, width: 1)),
-                        ),
-                        child: pw.Image(
-                          pw.MemoryImage(signaturPng),
-                          fit: pw.BoxFit.contain,
-                        ),
-                      )
-                    else
-                      pw.Container(
-                        height: 56,
-                        decoration: pw.BoxDecoration(
-                          border: pw.Border(
-                              bottom: pw.BorderSide(color: primary, width: 1)),
-                        ),
-                      ),
-                    pw.SizedBox(height: 4),
-                    pw.Text(prueferName,
-                        style: pw.TextStyle(font: fontR, fontSize: 9)),
-                    pw.Text('Prüfer',
-                        style: pw.TextStyle(
-                            font: fontR, fontSize: 8,
-                            color: PdfColors.grey600)),
-                  ],
-                ),
-              ),
-              pw.SizedBox(width: 32),
-              pw.Expanded(
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Container(
-                      height: 56,
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border(
-                            bottom: pw.BorderSide(
-                                color: PdfColors.grey400, width: 1)),
-                      ),
-                    ),
-                    pw.SizedBox(height: 4),
-                    pw.Text('Auftraggeber',
-                        style: pw.TextStyle(
-                            font: fontR, fontSize: 8,
-                            color: PdfColors.grey600)),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          // Unterschrift bleibt auf Seite 1, falls keine Erprobung folgt
+          // (sonst steht sie auf Seite 2 direkt unter ERPROBUNG, s.u.)
+          if (latestSichtpruefung == null) ...[
+            unterschriftSection,
+          ],
 
           // ══════════════════════════════════════════════════════════════
-          //  SEITENUMBRUCH → SEITE 2: ERPROBUNG + MESSWERTE
+          //  SEITENUMBRUCH → SEITE 2: ERPROBUNG + UNTERSCHRIFT + MESSWERTE
           // ══════════════════════════════════════════════════════════════
           if (latestSichtpruefung != null || geordnet.isNotEmpty) ...[
             pw.NewPage(),
             if (latestSichtpruefung != null) ...[
-              _sectionTitle('ERPROBUNG', primary, fontB),
-              pw.SizedBox(height: 8),
-              _checklisteTable(latestSichtpruefung, _erprobungLabels,
-                  fontR, fontB, fontM, success, error, surface, greyLight),
+              pw.Inseparable(
+                child: pw.Column(children: [
+                  _sectionTitle('ERPROBUNG', primary, fontB),
+                  pw.SizedBox(height: 8),
+                  _checklisteTable(latestSichtpruefung, _erprobungLabels,
+                      fontR, fontB, fontM, success, error, surface, greyLight),
+                  pw.SizedBox(height: 14),
+                  unterschriftSection,
+                ]),
+              ),
               pw.SizedBox(height: 14),
             ],
             if (geordnet.isNotEmpty) ...[
