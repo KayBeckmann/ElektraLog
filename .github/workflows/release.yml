@@ -37,7 +37,7 @@ jobs:
           flutter-version: 'stable'
       - run: flutter pub get
         working-directory: app
-      - run: flutter build apk --release --no-tree-shake-icons
+      - run: flutter build apk --release --no-tree-shake-icons --dart-define=API_URL=https://elektralogbackend.kay-beckmann.de
         working-directory: app
       - uses: actions/upload-artifact@v4
         with:

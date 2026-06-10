@@ -5,6 +5,18 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Wird geworfen, wenn der Server nicht mit JSON antwortet (z.B. HTML-Fehlerseite
+/// eines Reverse-Proxys bei falscher Server-URL) oder einen Fehlerstatus liefert.
+class ApiException implements Exception {
+  ApiException(this.statusCode, this.message);
+
+  final int statusCode;
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class ApiService {
   // Web: same host (Nginx proxy), Native: aus Einstellungen oder Fallback
   static String get baseUrl {
@@ -34,6 +46,31 @@ class ApiService {
     return prefs.getString('jwt_token');
   }
 
+  /// Dekodiert eine JSON-Objekt-Antwort und prüft vorher den Content-Type.
+  /// Antwortet der Server mit HTML (z.B. SPA-Fallback eines Reverse-Proxys
+  /// bei falscher Server-URL) oder ungültigem JSON, wird eine
+  /// [ApiException] mit verständlicher Fehlermeldung geworfen statt einer
+  /// rohen FormatException.
+  static Map<String, dynamic> _decodeJsonObject(http.Response resp) {
+    final contentType = resp.headers['content-type'] ?? '';
+    if (!contentType.contains('application/json')) {
+      throw ApiException(
+        resp.statusCode,
+        'Server antwortet nicht mit JSON (HTTP ${resp.statusCode}). '
+        'Server-URL in den Einstellungen prüfen.',
+      );
+    }
+    try {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    } on FormatException {
+      throw ApiException(
+        resp.statusCode,
+        'Ungültige Server-Antwort (HTTP ${resp.statusCode}). '
+        'Server-URL in den Einstellungen prüfen.',
+      );
+    }
+  }
+
   static Future<Map<String, String>> _headers({bool auth = false}) async {
     final h = <String, String>{'Content-Type': 'application/json'};
     if (auth) {
@@ -60,7 +97,7 @@ class ApiService {
         'firmenname': firmenname,
       }),
     );
-    return jsonDecode(resp.body) as Map<String, dynamic>;
+    return _decodeJsonObject(resp);
   }
 
   static Future<Map<String, dynamic>> login(
@@ -76,7 +113,7 @@ class ApiService {
       headers: await _headers(),
       body: jsonEncode({'email': email, 'passwort': passwort}),
     );
-    return jsonDecode(resp.body) as Map<String, dynamic>;
+    return _decodeJsonObject(resp);
   }
 
   static Future<void> _ensureServerUrl() async {
