@@ -110,6 +110,7 @@ class _MessungFormularState extends ConsumerState<MessungFormular> {
       'rcd': 'RCD / FI-Schutzschalter',
       'fi_ls': 'FI/LS-Kombination',
       'ls_schalter': 'LS-Schalter',
+      'motorschutzschalter': 'Motorschutzschalter',
       'vorsicherung': 'Vorsicherung',
       'nh_sicherung': 'NH-Sicherung',
       'neozed': 'NeoZed-Sicherung',
@@ -217,7 +218,7 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
       widget.komponenteTyp == 'rcd' || widget.komponenteTyp == 'fi_ls';
 
   bool get _isLs => const [
-        'ls_schalter', 'vorsicherung', 'nh_sicherung',
+        'ls_schalter', 'motorschutzschalter', 'vorsicherung', 'nh_sicherung',
         'neozed', 'diazed', 'hauptschalter', 'fi_ls',
       ].contains(widget.komponenteTyp);
 
@@ -246,9 +247,12 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
 
   /// Anzahl der zu messenden Phasen aus Pole-Eigenschaft.
   /// 4-polige Schalter: 3 Phasen (N wird nicht separat gemessen).
+  /// 2-poliger RCD/FI-LS: 1 Phase (L) + 1 Neutral → nur 1 Messblock.
   int get _poleCount {
     final p = (widget.komponenteEigenschaften?['pole'] as num?)?.toInt() ?? 1;
-    return p >= 4 ? 3 : p;
+    if (p >= 4) return 3;
+    if (p == 2 && _isRcd) return 1;
+    return p;
   }
 
   /// Phasenbeschriftungen je nach Polzahl

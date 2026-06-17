@@ -43,6 +43,7 @@ class _KomponenteFormularState
 
   static const _typen = [
     ('ls_schalter', 'LS-Schalter'),
+    ('motorschutzschalter', 'Motorschutzschalter'),
     ('rcd', 'RCD (FI-Schalter)'),
     ('fi_ls', 'FI/LS-Kombination'),
     ('hauptschalter', 'Hauptschalter'),

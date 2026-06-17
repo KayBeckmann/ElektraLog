@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/api/api_service.dart';
 import '../../core/models/verteiler_komponente.dart';
+import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/komponenten_provider.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../features/messungen/messung_formular.dart';
@@ -236,6 +237,36 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
   Future<void> _showLoeschenDialog(
       BuildContext context, VerteilerKomponente k) async {
     final descs = _descendants(k);
+
+    // R8.2: Komponenten mit Messungen → nur Admin darf löschen
+    final istAdmin = ref.read(isAdminProvider).valueOrNull ?? false;
+    if (!istAdmin) {
+      final messRepo = ref.read(messungenRepositoryProvider);
+      for (final uuid in descs) {
+        final messungen = await messRepo.getByKomponente(uuid);
+        if (messungen.isNotEmpty) {
+          if (!mounted) return;
+          await showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Löschen nicht möglich'),
+              content: const Text(
+                'Diese Komponente enthält Messungen. '
+                'Nur ein Administrator darf Komponenten mit Messungen löschen.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Verstanden'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+      }
+    }
+
     final childCount = descs.length - 1;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -731,6 +762,9 @@ class _TypIcon extends StatelessWidget {
         color = AppColors.secondary;
       case 'ls_schalter':
         icon = Icons.power;
+        color = AppColors.secondary;
+      case 'motorschutzschalter':
+        icon = Icons.electric_bolt;
         color = AppColors.secondary;
       case 'fi_ls':
         icon = Icons.power;
