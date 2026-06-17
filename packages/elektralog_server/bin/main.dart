@@ -84,6 +84,9 @@ void main() async {
         (req, uuid) => KundenEndpoint(conn).update(req, uuid))
     ..delete('/api/kunden/<uuid>',
         (req, uuid) => KundenEndpoint(conn).delete(req, uuid))
+    // Komponenten
+    ..delete('/api/komponenten/<uuid>',
+        (req, uuid) => KundenEndpoint(conn).deleteKomponente(req, uuid))
     // Sync endpoints
     ..get('/api/sync', (req) => KundenEndpoint(conn).pullAll(req))
     ..post('/api/sync', (req) => KundenEndpoint(conn).sync(req))

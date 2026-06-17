@@ -88,7 +88,8 @@ class SyncService {
     }
   }
 
-  /// Speichert Server-Datensätze lokal — Server hat immer Vorrang.
+  /// Speichert Server-Datensätze lokal — Last-Write-Wins per aktualisiertAm.
+  /// Lokale Version bleibt erhalten wenn ihr Timestamp neuer ist (ungesyncte Änderungen).
   static Future<void> _mergeList<T>({
     required Database db,
     required StoreRef store,
@@ -99,6 +100,20 @@ class SyncService {
       final json = (item as dynamic).toJson() as Map<String, dynamic>;
       final uuid = json['uuid'] as String?;
       if (uuid == null) continue;
+
+      final existing = await store.record(uuid).get(db);
+      if (existing != null) {
+        final localTs = existing[timestampKey] as String?;
+        final serverTs = json[timestampKey] as String?;
+        if (localTs != null && serverTs != null) {
+          try {
+            if (DateTime.parse(localTs).isAfter(DateTime.parse(serverTs))) {
+              continue; // Lokale Version ist neuer → behalten
+            }
+          } catch (_) {}
+        }
+      }
+
       await store.record(uuid).put(db, json.cast<String, Object?>());
     }
   }

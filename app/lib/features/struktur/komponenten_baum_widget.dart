@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/api/api_service.dart';
 import '../../core/models/verteiler_komponente.dart';
 import '../../core/providers/komponenten_provider.dart';
 import '../../core/providers/messungen_provider.dart';
@@ -267,6 +268,10 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
     for (final uuid in descs) {
       await messRepo.deleteByKomponente(uuid);
       await kompRepo.delete(uuid);
+    }
+    // Server informieren — fire-and-forget; 401 im Offline-Modus ist erwartet
+    for (final uuid in descs) {
+      ApiService.deleteKomponente(uuid).catchError((_) {});
     }
   }
 

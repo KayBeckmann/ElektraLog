@@ -311,6 +311,13 @@ class ApiService {
     );
   }
 
+  static Future<void> deleteKomponente(String uuid) async {
+    await http.delete(
+      Uri.parse('$baseUrl/komponenten/$uuid'),
+      headers: await _headers(auth: true),
+    );
+  }
+
   /// Ändert das eigene Passwort (kein Admin nötig).
   /// Wirft Exception wenn das alte Passwort falsch ist oder Server-Fehler.
   static Future<void> changeOwnPassword({

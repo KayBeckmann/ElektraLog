@@ -169,6 +169,31 @@ class KundenEndpoint {
     }
   }
 
+  // DELETE /api/komponenten/:uuid
+  Future<Response> deleteKomponente(Request request, String uuid) async {
+    final claims = verifyJwt(request);
+    if (claims == null) {
+      return Response(401,
+          body: jsonEncode({'error': 'Nicht authentifiziert'}),
+          headers: {'Content-Type': 'application/json'});
+    }
+    try {
+      final firmaId = claims['firmaId'] as String;
+      await db.execute(
+        Sql.named(
+            'DELETE FROM verteiler_komponenten WHERE uuid = @uuid AND firma_id = @fid'),
+        parameters: {'uuid': uuid, 'fid': firmaId},
+      );
+      return Response.ok(jsonEncode({'success': true}),
+          headers: {'Content-Type': 'application/json'});
+    } catch (e, st) {
+      print('komponenten.delete error: $e\n$st');
+      return Response.internalServerError(
+          body: jsonEncode({'error': e.toString()}),
+          headers: {'Content-Type': 'application/json'});
+    }
+  }
+
   // GET /api/sync — Alle Rohdaten der Firma für Client-Pull
   Future<Response> pullAll(Request request) async {
     final claims = verifyJwt(request);
