@@ -84,8 +84,8 @@ class MessungenListe extends ConsumerWidget {
                     messung: m,
                     gesperrt: gesperrteUuids.contains(m.uuid),
                     onTap: () => _showMesswertDetail(context, m),
-                    onEditMessung: () =>
-                        _showMessungFormular(context, m),
+                    onEditMessung: () => _showMessungFormular(context, m),
+                    onDelete: () => _deleteMessung(context, ref, m),
                   )),
           ],
         );
@@ -137,6 +137,35 @@ class MessungenListe extends ConsumerWidget {
     );
   }
 
+  Future<void> _deleteMessung(
+      BuildContext context, WidgetRef ref, Messung messung) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Messung löschen?'),
+        content: const Text(
+            'Diese Messung wurde noch nicht in ein Protokoll übernommen und wird unwiderruflich gelöscht.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.onError,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(messungenRepositoryProvider).delete(messung.uuid);
+    }
+  }
+
   void _showMesswertDetail(BuildContext context, Messung messung) {
     showModalBottomSheet(
       context: context,
@@ -160,6 +189,7 @@ class _MessungTile extends ConsumerWidget {
     required this.gesperrt,
     required this.onTap,
     required this.onEditMessung,
+    required this.onDelete,
   });
 
   final Messung messung;
@@ -169,6 +199,7 @@ class _MessungTile extends ConsumerWidget {
   final bool gesperrt;
   final VoidCallback onTap;
   final VoidCallback onEditMessung;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -281,14 +312,14 @@ class _MessungTile extends ConsumerWidget {
               onPressed:
                   gesperrt ? null : () => _showBemerkungSheet(context, ref),
             ),
-            // Messung bearbeiten (nur solange noch in keinem Protokoll enthalten)
+            // Messung bearbeiten / Lock-Icon (gesperrt)
             if (gesperrt)
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 4),
                 child: Icon(Icons.lock_outline,
                     size: 16, color: AppColors.outlineVariant),
               )
-            else
+            else ...[
               IconButton(
                 icon: const Icon(Icons.open_in_new_outlined, size: 16),
                 tooltip: 'Messung bearbeiten',
@@ -297,6 +328,15 @@ class _MessungTile extends ConsumerWidget {
                 color: AppColors.onSurfaceVariant,
                 onPressed: () => _confirmEditMessung(context),
               ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, size: 16),
+                tooltip: 'Messung löschen',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                color: AppColors.error,
+                onPressed: onDelete,
+              ),
+            ],
           ],
         ),
       ),

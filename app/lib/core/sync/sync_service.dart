@@ -101,8 +101,9 @@ class SyncService {
       final uuid = json['uuid'] as String?;
       if (uuid == null) continue;
 
-      final existing = await store.record(uuid).get(db);
-      if (existing != null) {
+      final rawExisting = await store.record(uuid).get(db);
+      if (rawExisting != null) {
+        final existing = rawExisting as Map<String, dynamic>;
         final localTs = existing[timestampKey] as String?;
         final serverTs = json[timestampKey] as String?;
         if (localTs != null && serverTs != null) {

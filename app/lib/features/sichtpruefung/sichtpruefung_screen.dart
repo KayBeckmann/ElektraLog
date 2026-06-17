@@ -192,6 +192,10 @@ class _SichtpruefungScreenState extends ConsumerState<SichtpruefungScreen> {
   }
 
   String _berechneErgebnis() {
+    // RCD-Durchfall bedeutet Anlage nicht bestanden (sicherheitskritisch)
+    if (_erprobung[ErprobungPunkt.rcdErprobung] == PunktStatus.durchgefallen) {
+      return 'nicht_bestanden';
+    }
     final allValues = [
       ..._checkliste.values,
       ..._erprobung.values,
