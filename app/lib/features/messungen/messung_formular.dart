@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/messung.dart';
+import '../../core/models/verteiler_komponente.dart';
 import '../../core/providers/einstellungen_provider.dart';
 import '../../core/providers/messungen_provider.dart';
+import '../../core/providers/komponenten_provider.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
 
@@ -22,10 +24,10 @@ class MessungFormular extends ConsumerStatefulWidget {
 
   final String komponenteUuid;
 
-  /// Typ der Komponente — steuert welche Felder angezeigt werden
+  /// Typ der Komponente — steuert welche Felder angezeigt werden (Fallback falls provider lädt)
   final String? komponenteTyp;
 
-  /// Bereits geparste eigenschaftenJson der Komponente
+  /// Bereits geparste eigenschaftenJson der Komponente (Fallback)
   final Map<String, dynamic>? komponenteEigenschaften;
 
   final Messung? existingMessung;
@@ -37,71 +39,99 @@ class MessungFormular extends ConsumerStatefulWidget {
 class _MessungFormularState extends ConsumerState<MessungFormular> {
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+    final komponenteAsync = ref.watch(komponenteProvider(widget.komponenteUuid));
+
+    return komponenteAsync.when(
+      loading: () => const SizedBox(
+        height: 150,
+        child: Center(child: CircularProgressIndicator()),
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      error: (e, _) => Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Text('Fehler beim Laden der Komponente: $e'),
+      ),
+      data: (komponente) {
+        final bmk = komponente?.betriebsmittelkennzeichen ?? '';
+        final typ = komponente?.typ ?? widget.komponenteTyp;
+        Map<String, dynamic>? props;
+        if (komponente?.eigenschaftenJson != null) {
+          try {
+            props = jsonDecode(komponente!.eigenschaftenJson!) as Map<String, dynamic>;
+          } catch (_) {}
+        } else {
+          props = widget.komponenteEigenschaften;
+        }
+
+        final titleText = 'Prüfung erfassen${bmk.isNotEmpty ? ' ($bmk)' : ''}';
+        final subtitleText = typ != null
+            ? '${_typLabel(typ)}${komponente?.zielbezeichnung.isNotEmpty == true ? ' — ${komponente!.zielbezeichnung}' : ''}'
+            : 'DIN VDE 0100';
+
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Prüfung erfassen',
-                        style: Theme.of(context).textTheme.titleLarge,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            titleText,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          Text(
+                            subtitleText,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: AppColors.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        widget.komponenteTyp != null
-                            ? _typLabel(widget.komponenteTyp!)
-                            : 'DIN VDE 0100',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.onSurfaceVariant,
-                            ),
-                      ),
-                    ],
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryContainer,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'DIN VDE 0100',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: AppColors.onPrimaryContainer,
+                          fontWeight: FontWeight.w600,
+                        ),
                   ),
                 ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
+                const SizedBox(height: 20),
+                _Vde0100Form(
+                  komponenteUuid: widget.komponenteUuid,
+                  existingMessung: widget.existingMessung,
+                  onSaved: () => Navigator.pop(context),
+                  komponenteTyp: typ,
+                  komponenteEigenschaften: props,
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.primaryContainer,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                'DIN VDE 0100',
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: AppColors.onPrimaryContainer,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            _Vde0100Form(
-              komponenteUuid: widget.komponenteUuid,
-              existingMessung: widget.existingMessung,
-              onSaved: () => Navigator.pop(context),
-              komponenteTyp: widget.komponenteTyp,
-              komponenteEigenschaften: widget.komponenteEigenschaften,
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
