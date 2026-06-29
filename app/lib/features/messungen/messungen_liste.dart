@@ -402,6 +402,8 @@ class _MesswertDetailSheet extends StatelessWidget {
       } catch (_) {}
     }
 
+    final phasen = werte?['phasen'] as List<dynamic>?;
+
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -422,34 +424,102 @@ class _MesswertDetailSheet extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          if (werte != null)
-            ...werte.entries
-                .where((e) => e.value != null)
-                .map((e) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              e.key,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                      color: AppColors.onSurfaceVariant),
-                            ),
-                          ),
-                          Text(
-                            e.value.toString(),
-                            style: GoogleFonts.jetBrainsMono(
-                              fontSize: 13,
-                              color: AppColors.onSurface,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ))
-          else
+          if (werte != null) ...[
+            if (phasen != null && phasen.isNotEmpty) ...[
+              Text(
+                'Phasenmessungen (VDE 0100)',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Table(
+                border: TableBorder.all(color: AppColors.outlineVariant, width: 0.5),
+                columnWidths: const {
+                  0: FlexColumnWidth(1.2),
+                  1: FlexColumnWidth(2.5),
+                  2: FlexColumnWidth(2.5),
+                  3: FlexColumnWidth(2),
+                },
+                children: [
+                  TableRow(
+                    decoration: const BoxDecoration(color: AppColors.surfaceContainerLow),
+                    children: [
+                      _headerCell('Phase'),
+                      _headerCell('Schleife L-PE'),
+                      _headerCell('Schleife L-N'),
+                      _headerCell('Isolation'),
+                    ],
+                  ),
+                  ...phasen.map((p) {
+                    final pMap = p as Map<String, dynamic>;
+                    final phase = pMap['phase']?.toString() ?? '—';
+                    
+                    final lpeOhm = pMap['schleifenimpedanz_l_pe_ohm'] ?? pMap['schleifenimpedanz_ohm'];
+                    final lpeAmp = pMap['kurzschlussstrom_l_pe_a'] ?? pMap['kurzschlussstrom_a'];
+                    String lpeStr = '—';
+                    if (lpeOhm != null && lpeAmp != null) {
+                      lpeStr = '$lpeOhm Ω / $lpeAmp A';
+                    } else if (lpeOhm != null) {
+                      lpeStr = '$lpeOhm Ω';
+                    } else if (lpeAmp != null) {
+                      lpeStr = '$lpeAmp A';
+                    }
+                    
+                    final lnOhm = pMap['schleifenimpedanz_l_n_ohm'];
+                    final lnAmp = pMap['kurzschlussstrom_l_n_a'];
+                    String lnStr = '—';
+                    if (lnOhm != null && lnAmp != null) {
+                      lnStr = '$lnOhm Ω / $lnAmp A';
+                    } else if (lnOhm != null) {
+                      lnStr = '$lnOhm Ω';
+                    } else if (lnAmp != null) {
+                      lnStr = '$lnAmp A';
+                    }
+
+                    final iso = pMap['isolationswiderstand_mohm'];
+                    final isoStr = iso != null ? '$iso MΩ' : '—';
+                    
+                    return TableRow(
+                      children: [
+                        _valueCell(phase, isBold: true),
+                        _valueCell(lpeStr),
+                        _valueCell(lnStr),
+                        _valueCell(isoStr),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Sonstige Werte (RCD, Erdung, Drehfeld)
+            Table(
+              border: TableBorder.all(color: AppColors.outlineVariant, width: 0.5),
+              columnWidths: const {
+                0: FlexColumnWidth(3),
+                1: FlexColumnWidth(2),
+              },
+              children: [
+                if (werte['rcd_nenn_differenzstrom_ma'] != null)
+                  _row('Nenn-Differenzstrom I∆n', '${werte['rcd_nenn_differenzstrom_ma']} mA'),
+                if (werte['rcd_gemessen_differenzstrom_ma'] != null)
+                  _row('Auslösestrom I∆', '${werte['rcd_gemessen_differenzstrom_ma']} mA'),
+                if (werte['rcd_ausloesezeit_ms'] != null)
+                  _row('Auslösezeit', '${werte['rcd_ausloesezeit_ms']} ms'),
+                if (phasen == null && werte['schleifenimpedanz_ohm'] != null)
+                  _row('Schleifenimpedanz Zs', '${werte['schleifenimpedanz_ohm']} Ω'),
+                if (phasen == null && werte['isolationswiderstand_mohm'] != null)
+                  _row('Isolationswiderstand', '${werte['isolationswiderstand_mohm']} MΩ'),
+                if (werte['erdungswiderstand_ohm'] != null)
+                  _row('Erdungswiderstand', '${werte['erdungswiderstand_ohm']} Ω'),
+                if (werte['drehfeld_richtig'] != null)
+                  _row('Drehfeldrichtung korrekt', werte['drehfeld_richtig'] == true ? 'Ja' : 'Nein'),
+              ],
+            ),
+          ] else
             Text(
               'Keine Messwerte gespeichert.',
               style: Theme.of(context)
@@ -467,6 +537,65 @@ class _MesswertDetailSheet extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _headerCell(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      child: Text(
+        text,
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: AppColors.onSurface,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  Widget _valueCell(String text, {bool isBold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      child: Text(
+        text,
+        style: GoogleFonts.jetBrainsMono(
+          fontSize: 11,
+          fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+          color: AppColors.onSurface,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  TableRow _row(String label, String value) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              color: AppColors.onSurfaceVariant,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            value,
+            style: GoogleFonts.jetBrainsMono(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: AppColors.onSurface,
+            ),
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
     );
   }
 }
