@@ -456,17 +456,17 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 
 ### M7.1 — Synchronisation & Datenintegrität
 - 📋 Synchronisation: Neuster Eintrag gewinnt
-- 📋 Alte Messungen nicht in neues Protokoll
-- 📋 Messwerte, die in einem Protokoll sind, dürfen nicht mehr verändert werden
-- 📋 Neue Messungen darf der User noch bearbeiten
-- 📋 Im Protokoll wird immer nur der neuste Messwert pro BMK angezeigt.
+- ✅ Alte Messungen nicht in neues Protokoll
+- ✅ Messwerte, die in einem Protokoll sind, dürfen nicht mehr verändert werden
+- ✅ Neue Messungen darf der User noch bearbeiten
+- ✅ Im Protokoll wird immer nur der neuste Messwert pro BMK angezeigt.
 
 ### M7.2 — Dashboard- & UI-Optimierungen
-- 📋 Dashboard dynamisieren:
-  - Anstehende Termine -> Die nächsten 90 Tage
-  - Aktiv -> Messungen ohne Prüfprotokoll
-- 📋 Im Fenster "Prüfung erfassen" soll das BMK mit angezeigt werden
-- 📋 Messwerte-Anzeige: Schleifenmessung + Isomessung in einer Tabelle anzeigen
+- ✅ Dashboard dynamisieren:
+  - ✅ Anstehende Termine -> Die nächsten 90 Tage
+  - ✅ Aktiv -> Messungen ohne Prüfprotokoll
+- ✅ Im Fenster "Prüfung erfassen" soll das BMK mit angezeigt werden
+- ✅ Messwerte-Anzeige: Schleifenmessung + Isomessung in einer Tabelle anzeigen
 
 ### M7.3 — Einstellungen & API-Fixes
 - 📋 Download der Archivierten Prüfprotokolle wirft einen Fehler: `{"error":"Nicht authentifiziert"}`
