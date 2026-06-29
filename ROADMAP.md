@@ -470,7 +470,7 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 
 ### M7.3 — Einstellungen & API-Fixes
 - 📋 Download der Archivierten Prüfprotokolle wirft einen Fehler: `{"error":"Nicht authentifiziert"}`
-- 📋 In den Einstellungen die Firma inklusive Adresse vom Server übernehmen, wenn man angemeldet ist.
+- ✅ In den Einstellungen die Firma inklusive Adresse vom Server übernehmen, wenn man angemeldet ist.
 
 ---
 
