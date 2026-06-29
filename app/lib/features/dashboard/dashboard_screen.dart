@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,265 +7,68 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../core/providers/app_mode_provider.dart';
+import '../../core/providers/pruefprotokoll_provider.dart';
+import '../../core/providers/verteiler_provider.dart';
+import '../../core/providers/standorte_provider.dart';
+import '../../core/models/pruefprotokoll.dart';
+import '../../core/models/verteiler.dart';
+import '../../core/models/standort.dart';
+import '../../core/models/kunde.dart';
+import '../../core/models/messung.dart';
 import '../../core/router.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
 
-// ── Mock appointment data ─────────────────────────────────────────────────────
-
-class _Termin {
-  const _Termin({
-    required this.zeit,
-    required this.firma,
-    required this.adresse,
-    required this.status,
-  });
-
-  final String zeit;
-  final String firma;
-  final String adresse;
-  final _TerminStatus status;
-}
-
-enum _TerminStatus { offen, inBearbeitung, abgeschlossen }
-
-const _mockTermine = [
-  _Termin(
-    zeit: '08:00',
-    firma: 'Muster GmbH',
-    adresse: 'Musterstraße 1, 12345 Berlin',
-    status: _TerminStatus.abgeschlossen,
-  ),
-  _Termin(
-    zeit: '10:30',
-    firma: 'Beispiel AG',
-    adresse: 'Beispielweg 42, 54321 Hamburg',
-    status: _TerminStatus.inBearbeitung,
-  ),
-  _Termin(
-    zeit: '14:00',
-    firma: 'Test Elektro KG',
-    adresse: 'Teststraße 7, 80333 München',
-    status: _TerminStatus.offen,
-  ),
-];
-
-// ── Screen ────────────────────────────────────────────────────────────────────
-
-class DashboardScreen extends ConsumerWidget {
-  const DashboardScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final kundenAsync = ref.watch(kundenProvider);
-    final messungenAsync = ref.watch(alleMessungenProvider);
-    final isCompany =
-        ref.watch(appModusProvider).valueOrNull == AppModus.company;
-
-    final today = DateTime.now();
-    final dateStr =
-        '${today.day.toString().padLeft(2, '0')}.${today.month.toString().padLeft(2, '0')}.${today.year}';
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Page Header ─────────────────────────────────────────────────
-            _PageHeader(dateStr: dateStr),
-            const SizedBox(height: 24),
-
-            // ── Bento Grid KPI ───────────────────────────────────────────────
-            LayoutBuilder(
-              builder: (ctx, constraints) {
-                final isDesktop = constraints.maxWidth >= 600;
-                if (isDesktop) {
-                  return IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: _KpiPruefungenCard(
-                            messungenAsync: messungenAsync,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _KpiLaufendePruefungCard(
-                            kundenAsync: kundenAsync,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                return Column(
-                  children: [
-                    _KpiPruefungenCard(messungenAsync: messungenAsync),
-                    const SizedBox(height: 16),
-                    _KpiLaufendePruefungCard(kundenAsync: kundenAsync),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 24),
-
-            // ── Statistik Section ─────────────────────────────────────────────
-            _StatistikSection(
-                messungenAsync: messungenAsync, kundenAsync: kundenAsync),
-            const SizedBox(height: 24),
-
-            // ── Termine ──────────────────────────────────────────────────────
-            _TermineCard(),
-
-            // ── Protokolle (Company-Modus) ────────────────────────────────────
-            if (isCompany) ...[
-              const SizedBox(height: 24),
-              _ProtokollCard(),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Page Header ───────────────────────────────────────────────────────────────
-
-class _PageHeader extends StatelessWidget {
-  const _PageHeader({required this.dateStr});
-
-  final String dateStr;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'DASHBOARD',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                    letterSpacing: 0.08 * 12,
-                  ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Übersicht',
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                    color: AppColors.primary,
-                  ),
-            ),
-          ],
-        ),
-        const Spacer(),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainer,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppColors.outlineVariant),
-          ),
-          child: Text(
-            dateStr,
-            style: AppTheme.dataMono(
-              fontSize: 13,
-              color: AppColors.onSurfaceVariant,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── KPI — Prüfungen Gesamt ────────────────────────────────────────────────────
-
-class _KpiPruefungenCard extends StatelessWidget {
-  const _KpiPruefungenCard({required this.messungenAsync});
-
-  final AsyncValue<dynamic> messungenAsync;
-
-  @override
-  Widget build(BuildContext context) {
-    final int total = messungenAsync.when(
-      data: (list) => (list as List).length,
-      loading: () => 0,
-      error: (_, __) => 0,
-    );
-    final int bestanden = messungenAsync.when(
-      data: (list) =>
-          (list as List).where((m) => m.ergebnis == 'bestanden').length,
-      loading: () => 0,
-      error: (_, __) => 0,
-    );
-    final double progress = total == 0 ? 0 : bestanden / total;
-
-    return _BentoCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'PRÜFUNGEN GESAMT',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                  letterSpacing: 0.06 * 12,
-                ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '$bestanden / $total',
-            style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                  color: AppColors.primary,
-                  fontSize: 36,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Messungen bestanden',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                ),
-          ),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 6,
-              backgroundColor: AppColors.surfaceContainerHigh,
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(AppColors.primary),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 // ── KPI — Laufende Prüfung ────────────────────────────────────────────────────
 
-class _KpiLaufendePruefungCard extends StatelessWidget {
+class _KpiLaufendePruefungCard extends ConsumerWidget {
   const _KpiLaufendePruefungCard({required this.kundenAsync});
 
   final AsyncValue<dynamic> kundenAsync;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final int kundenAnzahl = kundenAsync.when(
       data: (list) => (list as List).length,
       loading: () => 0,
       error: (_, __) => 0,
     );
 
+    final messungenAsync = ref.watch(alleMessungenProvider);
+    final protokolleAsync = ref.watch(allePruefprotokolleProvider);
+
+    final int activeMessungenCount = messungenAsync.when(
+      data: (list) {
+        final messungen = list;
+        final protokolle = protokolleAsync.valueOrNull ?? [];
+        final gesperrteUuids = <String>{};
+        for (final p in protokolle) {
+          final raw = p.messdatenSnapshot;
+          if (raw == null || raw.isEmpty) continue;
+          try {
+            final snapshot = jsonDecode(raw) as Map<String, dynamic>;
+            final komponenten = snapshot['komponenten'] as List<dynamic>? ?? [];
+            for (final k in komponenten) {
+              final snapsMessungen = (k as Map<String, dynamic>)['messungen']
+                      as List<dynamic>? ??
+                  [];
+              for (final m in snapsMessungen) {
+                final uuid = (m as Map<String, dynamic>)['uuid'] as String?;
+                if (uuid != null) gesperrteUuids.add(uuid);
+              }
+            }
+          } catch (_) {}
+        }
+        return messungen.where((m) => !gesperrteUuids.contains(m.uuid)).length;
+      },
+      loading: () => 0,
+      error: (_, __) => 0,
+    );
+
+    final bool hatAktivePruefung = activeMessungenCount > 0;
+
     return _BentoCard(
-      highlighted: true,
+      highlighted: hatAktivePruefung,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -274,15 +78,15 @@ class _KpiLaufendePruefungCard extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.primary,
+                  color: hatAktivePruefung ? AppColors.primary : AppColors.outline,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
-                  'Laufende Prüfung',
+                  hatAktivePruefung ? 'Prüfung läuft' : 'Keine aktive Prüfung',
                   style: GoogleFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.onPrimary,
+                    color: hatAktivePruefung ? AppColors.onPrimary : AppColors.surface,
                     letterSpacing: 0.05 * 11,
                   ),
                 ),
@@ -297,9 +101,12 @@ class _KpiLaufendePruefungCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Keine aktive Prüfung',
+            hatAktivePruefung
+                ? '$activeMessungenCount Messung(en) ohne Protokoll'
+                : 'Bereit für neue Prüfungen',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.onSurfaceVariant,
+                  color: hatAktivePruefung ? AppColors.primary : AppColors.onSurfaceVariant,
+                  fontWeight: hatAktivePruefung ? FontWeight.w600 : null,
                 ),
           ),
           const SizedBox(height: 4),
@@ -317,9 +124,78 @@ class _KpiLaufendePruefungCard extends StatelessWidget {
 
 // ── Termine ───────────────────────────────────────────────────────────────────
 
-class _TermineCard extends StatelessWidget {
+class _TermineCard extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final verteilerAsync = ref.watch(alleVerteilerProvider);
+    final protokolleAsync = ref.watch(allePruefprotokolleProvider);
+    final standorteAsync = ref.watch(alleStandorteProvider);
+    final kundenAsync = ref.watch(kundenProvider);
+
+    final dueVerteilers = <({
+      Verteiler verteiler,
+      DateTime naechste,
+      String kundenName,
+      String standortName,
+      String kundeUuid,
+      bool istUeberfaellig
+    })>[];
+
+    bool isLoading = verteilerAsync.isLoading ||
+        protokolleAsync.isLoading ||
+        standorteAsync.isLoading ||
+        kundenAsync.isLoading;
+
+    if (!isLoading &&
+        verteilerAsync.hasValue &&
+        protokolleAsync.hasValue &&
+        standorteAsync.hasValue &&
+        kundenAsync.hasValue) {
+      final verteilers = verteilerAsync.value!;
+      final protokolle = protokolleAsync.value!;
+      final standorte = standorteAsync.value!;
+      final kunden = kundenAsync.value!;
+
+      final latestProtMap = <String, Pruefprotokoll>{};
+      for (final p in protokolle) {
+        final existing = latestProtMap[p.verteilerUuid];
+        if (existing == null || p.protokollDatum.isAfter(existing.protokollDatum)) {
+          latestProtMap[p.verteilerUuid] = p;
+        }
+      }
+
+      final now = DateTime.now();
+      final threshold = now.add(const Duration(days: 90));
+
+      for (final v in verteilers) {
+        final letztes = latestProtMap[v.uuid];
+        if (letztes == null) continue;
+
+        final naechste = DateTime(
+          letztes.protokollDatum.year + v.pruefintervallJahre,
+          letztes.protokollDatum.month,
+          letztes.protokollDatum.day,
+        );
+
+        if (naechste.isBefore(threshold)) {
+          final st = standorte.firstWhere((s) => s.uuid == v.standortUuid,
+              orElse: () => Standort(kundeUuid: '', bezeichnung: 'Unbekannt'));
+          final kd = kunden.firstWhere((k) => k.uuid == st.kundeUuid,
+              orElse: () => Kunde(name: 'Unbekannt'));
+
+          dueVerteilers.add((
+            verteiler: v,
+            naechste: naechste,
+            kundenName: kd.name,
+            standortName: st.bezeichnung,
+            kundeUuid: st.kundeUuid,
+            istUeberfaellig: naechste.isBefore(now),
+          ));
+        }
+      }
+      dueVerteilers.sort((a, b) => a.naechste.compareTo(b.naechste));
+    }
+
     return _BentoCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,32 +203,68 @@ class _TermineCard extends StatelessWidget {
           Row(
             children: [
               Text(
-                'Anstehende Termine',
+                'Anstehende Termine (90 Tage)',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(width: 8),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.secondaryContainer,
-                  borderRadius: BorderRadius.circular(999),
+              if (!isLoading)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: dueVerteilers.isNotEmpty
+                        ? (dueVerteilers.any((x) => x.istUeberfaellig)
+                            ? AppColors.errorContainer
+                            : AppColors.secondaryContainer)
+                        : AppColors.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '${dueVerteilers.length}',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: dueVerteilers.isNotEmpty
+                              ? (dueVerteilers.any((x) => x.istUeberfaellig)
+                                  ? AppColors.error
+                                  : AppColors.onSecondaryContainer)
+                              : AppColors.onSurfaceVariant,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
                 ),
-                child: Text(
-                  '${_mockTermine.length}',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppColors.onSecondaryContainer,
-                      ),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 12),
           const Divider(color: AppColors.outlineVariant),
           const SizedBox(height: 4),
-          ..._mockTermine.map(
-            (t) => _TerminItem(termin: t),
-          ),
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (dueVerteilers.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  'Keine anstehenden Termine in den nächsten 90 Tagen',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                ),
+              ),
+            )
+          else
+            ...dueVerteilers.map(
+              (t) => _TerminItem(
+                titel: '${t.kundenName} — ${t.verteiler.bezeichnung}',
+                subtitel: t.standortName,
+                datum: '${t.naechste.day.toString().padLeft(2, '0')}.${t.naechste.month.toString().padLeft(2, '0')}.${t.naechste.year}',
+                istUeberfaellig: t.istUeberfaellig,
+                onTap: () {
+                  context.go('${AppRoutes.kunden}/${t.kundeUuid}/standort/${t.verteiler.standortUuid}/verteiler/${t.verteiler.uuid}');
+                },
+              ),
+            ),
         ],
       ),
     );
@@ -360,110 +272,104 @@ class _TermineCard extends StatelessWidget {
 }
 
 class _TerminItem extends StatelessWidget {
-  const _TerminItem({required this.termin});
+  const _TerminItem({
+    required this.titel,
+    required this.subtitel,
+    required this.datum,
+    required this.istUeberfaellig,
+    required this.onTap,
+  });
 
-  final _Termin termin;
+  final String titel;
+  final String subtitel;
+  final String datum;
+  final bool istUeberfaellig;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Zeit
-          Container(
-            width: 52,
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: AppColors.outlineVariant),
-            ),
-            child: Text(
-              termin.zeit,
-              style: AppTheme.dataMono(fontSize: 12),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  termin.firma,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: istUeberfaellig ? AppColors.errorContainer : AppColors.surfaceContainerLow,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: istUeberfaellig ? AppColors.error : AppColors.outlineVariant,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  termin.adresse,
-                  style: Theme.of(context).textTheme.bodySmall,
+              ),
+              child: Text(
+                datum,
+                style: AppTheme.dataMono(
+                  fontSize: 11,
+                  color: istUeberfaellig ? AppColors.error : AppColors.onSurfaceVariant,
+                  fontWeight: istUeberfaellig ? FontWeight.bold : null,
                 ),
-              ],
+                textAlign: TextAlign.center,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-
-          // Status Pill
-          _StatusPill(status: termin.status),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    titel,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitel,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            _StatusPill(istUeberfaellig: istUeberfaellig),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.status});
+  const _StatusPill({required this.istUeberfaellig});
 
-  final _TerminStatus status;
+  final bool istUeberfaellig;
 
   @override
   Widget build(BuildContext context) {
-    Color bg;
-    Color fg;
-    IconData icon;
-    String label;
-
-    switch (status) {
-      case _TerminStatus.abgeschlossen:
-        bg = AppColors.successContainer;
-        fg = AppColors.success;
-        icon = Icons.check_circle_outline;
-        label = 'Fertig';
-      case _TerminStatus.inBearbeitung:
-        bg = AppColors.secondaryContainer;
-        fg = AppColors.secondary;
-        icon = Icons.pending_outlined;
-        label = 'Aktiv';
-      case _TerminStatus.offen:
-        bg = AppColors.surfaceContainerHigh;
-        fg = AppColors.onSurfaceVariant;
-        icon = Icons.schedule_outlined;
-        label = 'Offen';
-    }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: bg,
+        color: istUeberfaellig ? AppColors.errorContainer : AppColors.warningContainer,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: fg),
+          Icon(
+            istUeberfaellig ? Icons.error_outline : Icons.schedule_outlined,
+            size: 12,
+            color: istUeberfaellig ? AppColors.error : AppColors.warning,
+          ),
           const SizedBox(width: 4),
           Text(
-            label,
+            istUeberfaellig ? 'Überfällig' : 'Fällig',
             style: GoogleFonts.inter(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: fg,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: istUeberfaellig ? AppColors.error : AppColors.warning,
             ),
           ),
         ],

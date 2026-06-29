@@ -84,3 +84,19 @@ final verteilerByUuidProvider =
   final db = await ref.watch(dbProvider.future);
   return VerteilerRepository(db).getByUuid(uuid);
 });
+
+final alleVerteilerProvider = StreamProvider<List<Verteiler>>((ref) {
+  final dbAsync = ref.watch(dbProvider);
+  return dbAsync.when(
+    data: (db) {
+      return StorageService.verteilerStore
+          .query(finder: Finder(sortOrders: [SortOrder('bezeichnung')]))
+          .onSnapshots(db)
+          .map((snaps) => snaps
+              .map((snap) => Verteiler.fromJson(snap.value.cast<String, dynamic>()))
+              .toList());
+    },
+    loading: () => const Stream.empty(),
+    error: (e, _) => Stream.error(e),
+  );
+});

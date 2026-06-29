@@ -76,3 +76,22 @@ final pruefprotokolleByVerteilerProvider =
     error: (e, _) => Stream.error(e),
   );
 });
+
+final allePruefprotokolleProvider =
+    StreamProvider<List<Pruefprotokoll>>((ref) {
+  final dbAsync = ref.watch(dbProvider);
+  return dbAsync.when(
+    data: (db) {
+      final finder = Finder(sortOrders: [SortOrder('protokollDatum', false)]);
+      return StorageService.pruefprotokollStore
+          .query(finder: finder)
+          .onSnapshots(db)
+          .map((snaps) => snaps
+              .map((snap) =>
+                  Pruefprotokoll.fromJson(snap.value.cast<String, dynamic>()))
+              .toList());
+    },
+    loading: () => const Stream.empty(),
+    error: (e, _) => Stream.error(e),
+  );
+});

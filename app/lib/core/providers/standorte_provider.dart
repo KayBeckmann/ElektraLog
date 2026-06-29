@@ -82,3 +82,19 @@ final standorteByKundeProvider =
     error: (e, _) => Stream.error(e),
   );
 });
+
+final alleStandorteProvider = StreamProvider<List<Standort>>((ref) {
+  final dbAsync = ref.watch(dbProvider);
+  return dbAsync.when(
+    data: (db) {
+      return StorageService.standorteStore
+          .query(finder: Finder(sortOrders: [SortOrder('bezeichnung')]))
+          .onSnapshots(db)
+          .map((snaps) => snaps
+              .map((snap) => Standort.fromJson(snap.value.cast<String, dynamic>()))
+              .toList());
+    },
+    loading: () => const Stream.empty(),
+    error: (e, _) => Stream.error(e),
+  );
+});
