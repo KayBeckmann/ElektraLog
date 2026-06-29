@@ -62,7 +62,10 @@ class _MessungFormularState extends ConsumerState<MessungFormular> {
           props = widget.komponenteEigenschaften;
         }
 
-        final titleText = 'Prüfung erfassen${bmk.isNotEmpty ? ' ($bmk)' : ''}';
+                final istEdit = widget.existingMessung != null;
+        final titleText = istEdit
+            ? 'Prüfung bearbeiten${bmk.isNotEmpty ? ' ($bmk)' : ''}'
+            : 'Prüfung erfassen${bmk.isNotEmpty ? ' ($bmk)' : ''}';
         final subtitleText = typ != null
             ? '${_typLabel(typ)}${komponente?.zielbezeichnung.isNotEmpty == true ? ' — ${komponente!.zielbezeichnung}' : ''}'
             : 'DIN VDE 0100';
@@ -105,19 +108,40 @@ class _MessungFormularState extends ConsumerState<MessungFormular> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryContainer,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'DIN VDE 0100',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: AppColors.onPrimaryContainer,
-                          fontWeight: FontWeight.w600,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryContainer,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'DIN VDE 0100',
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                              color: AppColors.onPrimaryContainer,
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                    if (bmk.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.secondaryContainer,
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                  ),
+                        child: Text(
+                          'BMK: $bmk',
+                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                color: AppColors.onSecondaryContainer,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 20),
                 _Vde0100Form(
