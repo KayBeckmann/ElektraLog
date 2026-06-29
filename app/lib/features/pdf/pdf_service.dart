@@ -6,6 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../core/models/messung.dart';
+import '../../core/models/pruefprotokoll.dart';
 import '../../core/models/sichtpruefung.dart';
 import '../../core/models/verteiler.dart';
 import '../../core/models/verteiler_komponente.dart';

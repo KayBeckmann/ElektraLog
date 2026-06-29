@@ -309,7 +309,7 @@ class _TerminItem extends StatelessWidget {
                 style: AppTheme.dataMono(
                   fontSize: 11,
                   color: istUeberfaellig ? AppColors.error : AppColors.onSurfaceVariant,
-                  fontWeight: istUeberfaellig ? FontWeight.bold : null,
+                  fontWeight: istUeberfaellig ? FontWeight.bold : FontWeight.w500,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -555,6 +555,42 @@ class _BentoCard extends StatelessWidget {
         ),
       ),
       child: child,
+    );
+  }
+}
+
+// ── Dashboard Screen ──────────────────────────────────────────────────────────
+
+class DashboardScreen extends ConsumerWidget {
+  const DashboardScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final kundenAsync = ref.watch(kundenProvider);
+    final messungenAsync = ref.watch(alleMessungenProvider);
+    final appModusAsync = ref.watch(appModusProvider);
+    final isCompany = appModusAsync.valueOrNull == AppModus.company;
+
+    return Scaffold(
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _KpiLaufendePruefungCard(kundenAsync: kundenAsync),
+            const SizedBox(height: 12),
+            _TermineCard(),
+            const SizedBox(height: 20),
+            _StatistikSection(
+              messungenAsync: messungenAsync,
+              kundenAsync: kundenAsync,
+            ),
+            if (isCompany) ...[
+              const SizedBox(height: 20),
+              _ProtokollCard(),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
