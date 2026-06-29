@@ -23,6 +23,19 @@ class PruefprotokollRepository {
             .toList());
   }
 
+  Future<List<Pruefprotokoll>> getByVerteiler(String verteilerUuid) async {
+    final finder = Finder(
+      filter: Filter.equals('verteilerUuid', verteilerUuid),
+      sortOrders: [SortOrder('protokollDatum', false)],
+    );
+    final snaps =
+        await StorageService.pruefprotokollStore.find(_db, finder: finder);
+    return snaps
+        .map((snap) =>
+            Pruefprotokoll.fromJson(snap.value.cast<String, dynamic>()))
+        .toList();
+  }
+
   Future<Pruefprotokoll?> latestByVerteiler(String verteilerUuid) async {
     final finder = Finder(
       filter: Filter.equals('verteilerUuid', verteilerUuid),

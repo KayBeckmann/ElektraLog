@@ -87,3 +87,8 @@ final komponentenByVerteilerProvider =
     error: (e, _) => Stream.error(e),
   );
 });
+
+final komponenteProvider = FutureProvider.family<VerteilerKomponente?, String>((ref, uuid) async {
+  final repo = ref.watch(komponentenRepositoryProvider);
+  return repo.getByUuid(uuid);
+});

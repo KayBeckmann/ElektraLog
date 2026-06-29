@@ -244,6 +244,13 @@ class _VerteilerDetailScreenState
           .read(messungenRepositoryProvider)
           .getByKomponenteUuids(kompUuids);
 
+      final protokolle = await ref
+          .read(pruefprotokollRepositoryProvider)
+          .getByVerteiler(widget.verteilerUuid);
+
+      final gefilterteMessungen =
+          PdfService.filterMessungenForProtokoll(messungen, protokolle);
+
       final einstellungen =
           ref.read(einstellungenProvider).valueOrNull;
 
@@ -260,7 +267,7 @@ class _VerteilerDetailScreenState
         verteiler: verteiler,
         sichtpruefungen: sichtpruefungen.cast(),
         komponenten: kompList,
-        messungen: messungen,
+        messungen: gefilterteMessungen,
         signaturPng: opts.signaturPng,
         bemerkung: verteiler.bemerkung?.isNotEmpty == true
             ? verteiler.bemerkung
@@ -270,7 +277,7 @@ class _VerteilerDetailScreenState
       // Messdaten-Snapshot einfrieren
       final snapshot = _buildSnapshot(
         komponenten: kompList,
-        messungen: messungen,
+        messungen: gefilterteMessungen,
         sichtpruefungen: sichtpruefungen.cast(),
       );
 

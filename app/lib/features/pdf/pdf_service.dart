@@ -38,6 +38,44 @@ const _erprobungLabels = <String, String>{
 };
 
 class PdfService {
+  /// Filtert Messungen für ein neues Protokoll:
+  /// 1. Schließt Messungen aus, die bereits in früheren Protokollen archiviert sind.
+  /// 2. Behält nur den neuesten Messwert pro Komponente (BMK).
+  static List<Messung> filterMessungenForProtokoll(
+      List<Messung> messungen, List<Pruefprotokoll> protokolle) {
+    final gesperrteUuids = <String>{};
+    for (final p in protokolle) {
+      final raw = p.messdatenSnapshot;
+      if (raw == null || raw.isEmpty) continue;
+      try {
+        final snapshot = jsonDecode(raw) as Map<String, dynamic>;
+        final komponenten = snapshot['komponenten'] as List<dynamic>? ?? [];
+        for (final k in komponenten) {
+          final snapsMessungen = (k as Map<String, dynamic>)['messungen']
+                  as List<dynamic>? ??
+              [];
+          for (final m in snapsMessungen) {
+            final uuid = (m as Map<String, dynamic>)['uuid'] as String?;
+            if (uuid != null) gesperrteUuids.add(uuid);
+          }
+        }
+      } catch (_) {}
+    }
+
+    final active = messungen.where((m) => !gesperrteUuids.contains(m.uuid)).toList();
+
+    final newestByKomp = <String, Messung>{};
+    for (final m in active) {
+      if (m.komponenteUuid == null) continue;
+      final existing = newestByKomp[m.komponenteUuid!];
+      if (existing == null || m.pruefungDatum.isAfter(existing.pruefungDatum)) {
+        newestByKomp[m.komponenteUuid!] = m;
+      }
+    }
+
+    return newestByKomp.values.toList();
+  }
+
   /// Generiert ein ZVEH-angelehtes Prüfprotokoll.
   ///
   /// Seite 1: Deckblatt mit Auftragnehmer, Prüfobjekt, Anlagendaten,
