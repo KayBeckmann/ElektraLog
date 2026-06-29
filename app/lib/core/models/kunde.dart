@@ -22,8 +22,8 @@ class Kunde {
     DateTime? erstelltAm,
     DateTime? aktualisiertAm,
   })  : uuid = uuid ?? const Uuid().v4(),
-        erstelltAm = erstelltAm ?? DateTime.now(),
-        aktualisiertAm = aktualisiertAm ?? DateTime.now();
+        erstelltAm = erstelltAm ?? DateTime.now().toUtc(),
+        aktualisiertAm = aktualisiertAm ?? DateTime.now().toUtc();
 
   Map<String, dynamic> toJson() => {
         'uuid': uuid,
@@ -33,8 +33,8 @@ class Kunde {
         'ort': ort,
         'kontaktEmail': kontaktEmail,
         'kontaktTelefon': kontaktTelefon,
-        'erstelltAm': erstelltAm.toIso8601String(),
-        'aktualisiertAm': aktualisiertAm.toIso8601String(),
+        'erstelltAm': erstelltAm.toUtc().toIso8601String(),
+        'aktualisiertAm': aktualisiertAm.toUtc().toIso8601String(),
       };
 
   factory Kunde.fromJson(Map<String, dynamic> json) => Kunde(
@@ -68,6 +68,6 @@ class Kunde {
         kontaktEmail: kontaktEmail ?? this.kontaktEmail,
         kontaktTelefon: kontaktTelefon ?? this.kontaktTelefon,
         erstelltAm: erstelltAm,
-        aktualisiertAm: DateTime.now(),
+        aktualisiertAm: DateTime.now().toUtc(),
       );
 }

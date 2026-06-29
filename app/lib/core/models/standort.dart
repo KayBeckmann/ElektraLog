@@ -20,8 +20,8 @@ class Standort {
     DateTime? erstelltAm,
     DateTime? aktualisiertAm,
   })  : uuid = uuid ?? const Uuid().v4(),
-        erstelltAm = erstelltAm ?? DateTime.now(),
-        aktualisiertAm = aktualisiertAm ?? DateTime.now();
+        erstelltAm = erstelltAm ?? DateTime.now().toUtc(),
+        aktualisiertAm = aktualisiertAm ?? DateTime.now().toUtc();
 
   Map<String, dynamic> toJson() => {
         'uuid': uuid,
@@ -30,8 +30,8 @@ class Standort {
         'strasse': strasse,
         'plz': plz,
         'ort': ort,
-        'erstelltAm': erstelltAm.toIso8601String(),
-        'aktualisiertAm': aktualisiertAm.toIso8601String(),
+        'erstelltAm': erstelltAm.toUtc().toIso8601String(),
+        'aktualisiertAm': aktualisiertAm.toUtc().toIso8601String(),
       };
 
   factory Standort.fromJson(Map<String, dynamic> json) => Standort(
@@ -61,6 +61,6 @@ class Standort {
         plz: plz ?? this.plz,
         ort: ort ?? this.ort,
         erstelltAm: erstelltAm,
-        aktualisiertAm: DateTime.now(),
+        aktualisiertAm: DateTime.now().toUtc(),
       );
 }

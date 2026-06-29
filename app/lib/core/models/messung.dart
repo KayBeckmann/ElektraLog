@@ -32,8 +32,8 @@ class Messung {
     DateTime? erstelltAm,
     DateTime? aktualisiertAm,
   })  : uuid = uuid ?? const Uuid().v4(),
-        erstelltAm = erstelltAm ?? DateTime.now(),
-        aktualisiertAm = aktualisiertAm ?? DateTime.now();
+        erstelltAm = erstelltAm ?? DateTime.now().toUtc(),
+        aktualisiertAm = aktualisiertAm ?? DateTime.now().toUtc();
 
   Map<String, dynamic> toJson() => {
         'uuid': uuid,
@@ -44,8 +44,8 @@ class Messung {
         'messwertJson': messwertJson,
         'ergebnis': ergebnis,
         'bemerkung': bemerkung,
-        'erstelltAm': erstelltAm.toIso8601String(),
-        'aktualisiertAm': aktualisiertAm.toIso8601String(),
+        'erstelltAm': erstelltAm.toUtc().toIso8601String(),
+        'aktualisiertAm': aktualisiertAm.toUtc().toIso8601String(),
       };
 
   factory Messung.fromJson(Map<String, dynamic> json) => Messung(
@@ -80,6 +80,6 @@ class Messung {
         ergebnis: ergebnis ?? this.ergebnis,
         bemerkung: bemerkung ?? this.bemerkung,
         erstelltAm: erstelltAm,
-        aktualisiertAm: DateTime.now(),
+        aktualisiertAm: DateTime.now().toUtc(),
       );
 }

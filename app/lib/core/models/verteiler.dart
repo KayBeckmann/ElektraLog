@@ -25,8 +25,8 @@ class Verteiler {
     DateTime? erstelltAm,
     DateTime? aktualisiertAm,
   })  : uuid = uuid ?? const Uuid().v4(),
-        erstelltAm = erstelltAm ?? DateTime.now(),
-        aktualisiertAm = aktualisiertAm ?? DateTime.now();
+        erstelltAm = erstelltAm ?? DateTime.now().toUtc(),
+        aktualisiertAm = aktualisiertAm ?? DateTime.now().toUtc();
 
   Map<String, dynamic> toJson() => {
         'uuid': uuid,
@@ -35,8 +35,8 @@ class Verteiler {
         'bemerkung': bemerkung,
         'anlagendatenJson': anlagendatenJson,
         'pruefintervallJahre': pruefintervallJahre,
-        'erstelltAm': erstelltAm.toIso8601String(),
-        'aktualisiertAm': aktualisiertAm.toIso8601String(),
+        'erstelltAm': erstelltAm.toUtc().toIso8601String(),
+        'aktualisiertAm': aktualisiertAm.toUtc().toIso8601String(),
       };
 
   factory Verteiler.fromJson(Map<String, dynamic> json) => Verteiler(
@@ -67,6 +67,6 @@ class Verteiler {
         anlagendatenJson: anlagendatenJson ?? this.anlagendatenJson,
         pruefintervallJahre: pruefintervallJahre ?? this.pruefintervallJahre,
         erstelltAm: erstelltAm,
-        aktualisiertAm: DateTime.now(),
+        aktualisiertAm: DateTime.now().toUtc(),
       );
 }

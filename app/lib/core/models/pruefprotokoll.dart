@@ -39,12 +39,12 @@ class Pruefprotokoll {
     this.backendUuid,
     DateTime? erstelltAm,
   })  : uuid = uuid ?? const Uuid().v4(),
-        erstelltAm = erstelltAm ?? DateTime.now();
+        erstelltAm = erstelltAm ?? DateTime.now().toUtc();
 
   Map<String, dynamic> toJson() => {
         'uuid': uuid,
         'verteilerUuid': verteilerUuid,
-        'protokollDatum': protokollDatum.toIso8601String(),
+        'protokollDatum': protokollDatum.toUtc().toIso8601String(),
         'prueferName': prueferName,
         'firma': firma,
         'verteilerBezeichnung': verteilerBezeichnung,
@@ -52,7 +52,7 @@ class Pruefprotokoll {
         'kundenBezeichnung': kundenBezeichnung,
         'messdatenSnapshot': messdatenSnapshot,
         'backendUuid': backendUuid,
-        'erstelltAm': erstelltAm.toIso8601String(),
+        'erstelltAm': erstelltAm.toUtc().toIso8601String(),
       };
 
   factory Pruefprotokoll.fromJson(Map<String, dynamic> json) => Pruefprotokoll(

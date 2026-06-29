@@ -37,8 +37,8 @@ class VerteilerKomponente {
     DateTime? erstelltAm,
     DateTime? aktualisiertAm,
   })  : uuid = uuid ?? const Uuid().v4(),
-        erstelltAm = erstelltAm ?? DateTime.now(),
-        aktualisiertAm = aktualisiertAm ?? DateTime.now();
+        erstelltAm = erstelltAm ?? DateTime.now().toUtc(),
+        aktualisiertAm = aktualisiertAm ?? DateTime.now().toUtc();
 
   /// Anzeigename: BMK + Zielbezeichnung, oder nur eines von beiden.
   String get bezeichnung {
@@ -58,8 +58,8 @@ class VerteilerKomponente {
         'zielbezeichnung': zielbezeichnung,
         'position': position,
         'eigenschaftenJson': eigenschaftenJson,
-        'erstelltAm': erstelltAm.toIso8601String(),
-        'aktualisiertAm': aktualisiertAm.toIso8601String(),
+        'erstelltAm': erstelltAm.toUtc().toIso8601String(),
+        'aktualisiertAm': aktualisiertAm.toUtc().toIso8601String(),
       };
 
   factory VerteilerKomponente.fromJson(Map<String, dynamic> json) =>
@@ -99,6 +99,6 @@ class VerteilerKomponente {
         position: position ?? this.position,
         eigenschaftenJson: eigenschaftenJson ?? this.eigenschaftenJson,
         erstelltAm: erstelltAm,
-        aktualisiertAm: DateTime.now(),
+        aktualisiertAm: DateTime.now().toUtc(),
       );
 }
