@@ -56,22 +56,56 @@ class EinstellungenNotifier extends AsyncNotifier<Einstellungen> {
     final serverUrl = prefs.getString(_kServerUrl);
     ApiService.setServerUrl(serverUrl);
 
-    // Firmenname aus Backend-Login vorbelegen, wenn lokal noch leer
     var firma = prefs.getString(_kFirma);
-    if (firma == null || firma.isEmpty) {
-      final backendFirmaName = prefs.getString('firma_name');
-      if (backendFirmaName != null && backendFirmaName.isNotEmpty) {
-        firma = backendFirmaName;
-        await prefs.setString(_kFirma, firma);
+    var strasse = prefs.getString(_kStrasse);
+    var plz = prefs.getString(_kPlz);
+    var ort = prefs.getString(_kOrt);
+
+    final token = prefs.getString('jwt_token');
+    if (token != null && token.isNotEmpty) {
+      try {
+        final serverFirma = await ApiService.getFirma();
+        final name = serverFirma['name'] as String?;
+        final str = serverFirma['strasse'] as String?;
+        final p = serverFirma['plz'] as String?;
+        final o = serverFirma['ort'] as String?;
+
+        if (name != null && name.isNotEmpty) {
+          firma = name;
+          await prefs.setString(_kFirma, firma);
+        }
+        if (str != null) {
+          strasse = str;
+          await prefs.setString(_kStrasse, strasse);
+        }
+        if (p != null) {
+          plz = p;
+          await prefs.setString(_kPlz, plz);
+        }
+        if (o != null) {
+          ort = o;
+          await prefs.setString(_kOrt, ort);
+        }
+      } catch (e) {
+        print('EinstellungenNotifier.build error fetching company: $e');
+      }
+    } else {
+      // Firmenname aus Backend-Login vorbelegen, wenn lokal noch leer (Solo-Fallback)
+      if (firma == null || firma.isEmpty) {
+        final backendFirmaName = prefs.getString('firma_name');
+        if (backendFirmaName != null && backendFirmaName.isNotEmpty) {
+          firma = backendFirmaName;
+          await prefs.setString(_kFirma, firma);
+        }
       }
     }
 
     return Einstellungen(
       prueferName: prefs.getString(_kPruefer),
       firma:       firma,
-      firmaStrasse: prefs.getString(_kStrasse),
-      firmaPlz:    prefs.getString(_kPlz),
-      firmaOrt:    prefs.getString(_kOrt),
+      firmaStrasse: strasse,
+      firmaPlz:    plz,
+      firmaOrt:    ort,
       pruefgeraet: prefs.getString(_kPruefgeraet),
       serverUrl:   serverUrl,
     );
@@ -87,6 +121,19 @@ class EinstellungenNotifier extends AsyncNotifier<Einstellungen> {
     required String serverUrl,
   }) async {
     final prefs = await SharedPreferences.getInstance();
+
+    final token = prefs.getString('jwt_token');
+    final istAdmin = prefs.getBool('ist_admin') == true;
+    if (token != null && token.isNotEmpty && istAdmin) {
+      // Pushes updates to the server company
+      await ApiService.updateFirma(
+        name: firma,
+        strasse: firmaStrasse,
+        plz: firmaPlz,
+        ort: firmaOrt,
+      );
+    }
+
     await prefs.setString(_kPruefer, prueferName);
     await prefs.setString(_kFirma, firma);
     await prefs.setString(_kStrasse, firmaStrasse);

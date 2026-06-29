@@ -120,6 +120,11 @@ void main() async {
         (req, id) => FirmaEndpoint(conn).updateBenutzerRolle(req, id))
     ..delete('/api/firma/benutzer/<id>',
         (req, id) => FirmaEndpoint(conn).deleteBenutzer(req, id))
+    // Eigene Firma
+    ..get('/api/firma',
+        (req) => FirmaEndpoint(conn).getFirma(req))
+    ..put('/api/firma',
+        (req) => FirmaEndpoint(conn).updateFirma(req))
     // Protokoll-Archiv (append-only, rechtssicher)
     ..post('/api/protokolle', (req) => ProtokollEndpoint(conn).create(req))
     ..get('/api/protokolle', (req) => ProtokollEndpoint(conn).list(req))

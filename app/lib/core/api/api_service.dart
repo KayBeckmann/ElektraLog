@@ -355,4 +355,38 @@ class ApiService {
     } catch (_) {}
     return [];
   }
+
+  /// Holt die Details der eigenen Firma vom Server.
+  static Future<Map<String, dynamic>> getFirma() async {
+    final resp = await http.get(
+      Uri.parse('$baseUrl/firma'),
+      headers: await _headers(auth: true),
+    );
+    return _decodeJsonObject(resp);
+  }
+
+  /// Aktualisiert die Details der eigenen Firma auf dem Server.
+  static Future<void> updateFirma({
+    required String name,
+    String? strasse,
+    String? plz,
+    String? ort,
+  }) async {
+    final resp = await http.put(
+      Uri.parse('$baseUrl/firma'),
+      headers: await _headers(auth: true),
+      body: jsonEncode({
+        'name': name,
+        'strasse': strasse,
+        'plz': plz,
+        'ort': ort,
+      }),
+    );
+    if (resp.statusCode != 200) {
+      final msg = (jsonDecode(resp.body) as Map<String, dynamic>)['error']
+              as String? ??
+          'Firma konnte nicht aktualisiert werden';
+      throw Exception(msg);
+    }
+  }
 }

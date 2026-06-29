@@ -127,6 +127,8 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
 
     final modusAsync = ref.watch(appModusProvider);
     final isCompany = modusAsync.valueOrNull == AppModus.company;
+    final isAdmin = ref.watch(isAdminProvider).valueOrNull ?? false;
+    final kannFirmaBearbeiten = !isCompany || isAdmin;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -178,8 +180,48 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
             // ── Unternehmen ──────────────────────────────────────────────
             _SectionLabel('UNTERNEHMEN'),
             const SizedBox(height: 8),
+            if (isCompany) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: kannFirmaBearbeiten
+                      ? AppColors.primaryContainer.withOpacity(0.15)
+                      : AppColors.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: kannFirmaBearbeiten
+                        ? AppColors.primary.withOpacity(0.3)
+                        : AppColors.outlineVariant,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      kannFirmaBearbeiten ? Icons.info_outline : Icons.lock_outline,
+                      size: 16,
+                      color: kannFirmaBearbeiten ? AppColors.primary : AppColors.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        kannFirmaBearbeiten
+                            ? 'Die Änderungen an der Firma werden mit dem Server synchronisiert.'
+                            : 'Firmen- und Adressdaten werden vom Server vorgegeben. Nur Administratoren können sie bearbeiten.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: kannFirmaBearbeiten
+                                  ? AppColors.primary
+                                  : AppColors.onSurfaceVariant,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             TextField(
               controller: _firmaCtrl,
+              readOnly: !kannFirmaBearbeiten,
               decoration: const InputDecoration(
                 labelText: 'Firma / Unternehmen',
                 hintText: 'Elektro Mustermann GmbH',
@@ -199,6 +241,7 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
             const SizedBox(height: 10),
             TextField(
               controller: _strasseCtrl,
+              readOnly: !kannFirmaBearbeiten,
               decoration: const InputDecoration(
                 labelText: 'Straße und Hausnummer',
                 hintText: 'Musterstraße 1',
@@ -221,6 +264,7 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
                   width: 110,
                   child: TextField(
                     controller: _plzCtrl,
+                    readOnly: !kannFirmaBearbeiten,
                     decoration: const InputDecoration(
                       labelText: 'PLZ',
                       hintText: '12345',
@@ -243,6 +287,7 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
                 Expanded(
                   child: TextField(
                     controller: _ortCtrl,
+                    readOnly: !kannFirmaBearbeiten,
                     decoration: const InputDecoration(
                       labelText: 'Ort',
                       hintText: 'Musterstadt',

@@ -373,6 +373,97 @@ class FirmaEndpoint {
     }
   }
 
+  // GET /api/firma — eigene Firma abrufen
+  Future<Response> getFirma(Request request) async {
+    final claims = verifyJwt(request);
+    if (claims == null) return _unauthorized();
+    final firmaId = claims['firmaId'] as String;
+
+    try {
+      final rows = await db.execute(
+        Sql.named('SELECT id, name, strasse, plz, ort FROM firmen WHERE id = @id'),
+        parameters: {'id': firmaId},
+      );
+      if (rows.isEmpty) {
+        return Response(404,
+            body: jsonEncode({'error': 'Firma nicht gefunden'}),
+            headers: {'Content-Type': 'application/json'});
+      }
+      final r = rows.first;
+      return Response.ok(
+        jsonEncode({
+          'id': r[0].toString(),
+          'name': r[1],
+          'strasse': r[2] ?? '',
+          'plz': r[3] ?? '',
+          'ort': r[4] ?? '',
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, st) {
+      print('firma.getFirma error: $e\n$st');
+      return Response.internalServerError(
+        body: jsonEncode({'error': e.toString()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
+  // PUT /api/firma — eigene Firma bearbeiten (nur für Admins)
+  Future<Response> updateFirma(Request request) async {
+    final claims = verifyJwt(request);
+    if (claims == null) return _unauthorized();
+    final firmaId = claims['firmaId'] as String;
+    final istAdmin = claims['istAdmin'] as bool? ?? false;
+
+    if (!istAdmin) {
+      return Response(403,
+          body: jsonEncode({'error': 'Keine Berechtigung (nur für Admins)'}),
+          headers: {'Content-Type': 'application/json'});
+    }
+
+    try {
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final name = body['name'] as String?;
+      final strasse = body['strasse'] as String?;
+      final plz = body['plz'] as String?;
+      final ort = body['ort'] as String?;
+
+      if (name == null || name.trim().isEmpty) {
+        return Response(400,
+            body: jsonEncode({'error': 'Name darf nicht leer sein'}),
+            headers: {'Content-Type': 'application/json'});
+      }
+
+      await db.execute(
+        Sql.named(
+          'UPDATE firmen '
+          'SET name = @name, strasse = @strasse, plz = @plz, ort = @ort '
+          'WHERE id = @id',
+        ),
+        parameters: {
+          'id': firmaId,
+          'name': name.trim(),
+          'strasse': strasse?.trim(),
+          'plz': plz?.trim(),
+          'ort': ort?.trim(),
+        },
+      );
+
+      return Response.ok(
+        jsonEncode({'status': 'ok'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, st) {
+      print('firma.updateFirma error: $e\n$st');
+      return Response.internalServerError(
+        body: jsonEncode({'error': e.toString()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
   Response _unauthorized() => Response(
         401,
         body: jsonEncode({'error': 'Nicht authentifiziert'}),
