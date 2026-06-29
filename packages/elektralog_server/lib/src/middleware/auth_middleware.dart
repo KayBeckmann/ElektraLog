@@ -21,15 +21,21 @@ const _corsHeaders = {
 /// Verifiziert den JWT aus dem Authorization-Header.
 /// Gibt die Claims zurück oder null bei ungültigem Token.
 Map<String, dynamic>? verifyJwt(Request request) {
-  final auth = request.headers['authorization'];
-  if (auth == null || !auth.startsWith('Bearer ')) return null;
+  print('verifyJwt: request path = ${request.url.path}');
+  print('verifyJwt: request headers = ${request.headers}');
+  final auth = request.headers['authorization'] ?? request.headers['Authorization'];
+  if (auth == null || !auth.startsWith('Bearer ')) {
+    print('verifyJwt: auth header missing or invalid: $auth');
+    return null;
+  }
   final token = auth.substring(7);
   try {
     final secret =
         Platform.environment['JWT_SECRET'] ?? 'changeme_jwt_secret';
     final jwt = JWT.verify(token, SecretKey(secret));
     return jwt.payload as Map<String, dynamic>;
-  } catch (_) {
+  } catch (e) {
+    print('verifyJwt: verification failed: $e');
     return null;
   }
 }
