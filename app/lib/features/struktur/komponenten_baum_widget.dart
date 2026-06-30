@@ -6,9 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../core/api/api_service.dart';
 import '../../core/models/verteiler_komponente.dart';
-import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/komponenten_provider.dart';
 import '../../core/providers/messungen_provider.dart';
+import '../../core/providers/permission_provider.dart';
 import '../../features/messungen/messung_formular.dart';
 import '../../features/messungen/messungen_liste.dart';
 import '../../shared/theme/app_colors.dart';
@@ -238,9 +238,10 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
       BuildContext context, VerteilerKomponente k) async {
     final descs = _descendants(k);
 
-    // R8.2: Komponenten mit Messungen → nur Admin darf löschen
-    final istAdmin = ref.read(isAdminProvider).valueOrNull ?? false;
-    if (!istAdmin) {
+    // R8.2: Komponenten mit Messungen → nur Firmenadmin/Projektleiter dürfen löschen
+    final hatVollzugriff =
+        ref.read(berechtigungenProvider).valueOrNull?.hatVollzugriff ?? false;
+    if (!hatVollzugriff) {
       final messRepo = ref.read(messungenRepositoryProvider);
       for (final uuid in descs) {
         final messungen = await messRepo.getByKomponente(uuid);

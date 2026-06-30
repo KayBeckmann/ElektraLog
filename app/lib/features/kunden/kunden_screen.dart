@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/models/kunde.dart';
 import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/kunden_provider.dart';
+import '../../core/providers/permission_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
@@ -31,7 +32,8 @@ class _KundenScreenState extends ConsumerState<KundenScreen> {
   @override
   Widget build(BuildContext context) {
     final kundenAsync = ref.watch(kundenProvider);
-    final isAdmin = ref.watch(isAdminProvider).valueOrNull ?? false;
+    final berechtigungen = ref.watch(berechtigungenProvider).valueOrNull ??
+        const Berechtigungen(rolleMonteur);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -201,7 +203,7 @@ class _KundenScreenState extends ConsumerState<KundenScreen> {
                         itemBuilder: (ctx, i) {
                           return _KundeCard(
                             kunde: filtered[i],
-                            isAdmin: isAdmin,
+                            berechtigungen: berechtigungen,
                             onEdit: () =>
                                 _showKundeFormular(context, filtered[i]),
                             onDelete: () =>
@@ -271,14 +273,14 @@ class _KundenScreenState extends ConsumerState<KundenScreen> {
 class _KundeCard extends ConsumerWidget {
   const _KundeCard({
     required this.kunde,
-    required this.isAdmin,
+    required this.berechtigungen,
     required this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
 
   final Kunde kunde;
-  final bool isAdmin;
+  final Berechtigungen berechtigungen;
   final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -377,7 +379,9 @@ class _KundeCard extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    if (isAdmin) ...[
+                    if (berechtigungen.kannBearbeitenOderLoeschen(
+                      hatAbhaengigeDaten: standortCount > 0,
+                    )) ...[
                       const SizedBox(width: 4),
                       _MoreMenu(onEdit: onEdit, onDelete: onDelete),
                     ],

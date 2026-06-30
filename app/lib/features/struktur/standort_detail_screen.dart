@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/verteiler.dart';
+import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/kunden_provider.dart';
+import '../../core/providers/permission_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../core/providers/verteiler_provider.dart';
 import '../../shared/theme/app_colors.dart';
@@ -48,6 +50,13 @@ class StandortDetailScreen extends ConsumerWidget {
       error: (_, __) => null,
     );
 
+    final berechtigungen = ref.watch(berechtigungenProvider).valueOrNull ??
+        const Berechtigungen(rolleMonteur);
+    final hatVerteiler = verteilerAsync.value?.isNotEmpty ?? false;
+    final standortBearbeitbar = berechtigungen.kannBearbeitenOderLoeschen(
+      hatAbhaengigeDaten: hatVerteiler,
+    );
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -68,7 +77,7 @@ class StandortDetailScreen extends ConsumerWidget {
                   standortBezeichnung: standort?.bezeichnung),
             ),
           ),
-          if (standort != null)
+          if (standort != null && standortBearbeitbar)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
               onPressed: () => showModalBottomSheet(
@@ -371,7 +380,7 @@ class StandortDetailScreen extends ConsumerWidget {
   }
 }
 
-class _VerteilerTile extends StatelessWidget {
+class _VerteilerTile extends ConsumerWidget {
   const _VerteilerTile({
     required this.verteiler,
     required this.kundeUuid,
@@ -387,7 +396,16 @@ class _VerteilerTile extends StatelessWidget {
   final VoidCallback onDelete;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final berechtigungen = ref.watch(berechtigungenProvider).valueOrNull ??
+        const Berechtigungen(rolleMonteur);
+    final komponentenAsync =
+        ref.watch(komponentenByVerteilerProvider(verteiler.uuid));
+    final hatKomponenten = komponentenAsync.value?.isNotEmpty ?? false;
+    final bearbeitbar = berechtigungen.kannBearbeitenOderLoeschen(
+      hatAbhaengigeDaten: hatKomponenten,
+    );
+
     return GestureDetector(
       onTap: () => context.go(
         '/kunden/$kundeUuid/standort/$standortUuid/verteiler/${verteiler.uuid}',
@@ -424,38 +442,39 @@ class _VerteilerTile extends StatelessWidget {
                 ],
               ),
             ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert,
-                  size: 18, color: AppColors.onSurfaceVariant),
-              itemBuilder: (_) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit_outlined, size: 16),
-                      SizedBox(width: 8),
-                      Text('Bearbeiten'),
-                    ],
+            if (bearbeitbar)
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert,
+                    size: 18, color: AppColors.onSurfaceVariant),
+                itemBuilder: (_) => [
+                  const PopupMenuItem(
+                    value: 'edit',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit_outlined, size: 16),
+                        SizedBox(width: 8),
+                        Text('Bearbeiten'),
+                      ],
+                    ),
                   ),
-                ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.delete_outlined,
-                          size: 16, color: AppColors.error),
-                      const SizedBox(width: 8),
-                      Text('Löschen',
-                          style: TextStyle(color: AppColors.error)),
-                    ],
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.delete_outlined,
+                            size: 16, color: AppColors.error),
+                        const SizedBox(width: 8),
+                        Text('Löschen',
+                            style: TextStyle(color: AppColors.error)),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-              onSelected: (v) {
-                if (v == 'edit') onEdit();
-                if (v == 'delete') onDelete();
-              },
-            ),
+                ],
+                onSelected: (v) {
+                  if (v == 'edit') onEdit();
+                  if (v == 'delete') onDelete();
+                },
+              ),
             const Icon(Icons.arrow_forward,
                 size: 16, color: AppColors.onSurfaceVariant),
           ],
