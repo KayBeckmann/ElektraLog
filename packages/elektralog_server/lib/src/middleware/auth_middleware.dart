@@ -82,6 +82,26 @@ Middleware firmaSperreMiddleware(Connection db) =>
           return handler(request);
         };
 
+/// Prüft ob die Claims einen Firmenadmin ausweisen.
+/// Gibt 403 zurück wenn nicht; null bei Erfolg (Response nur bei Fehler).
+Response? requireAdmin(Map<String, dynamic>? claims) {
+  if (claims == null) {
+    return Response(
+      401,
+      body: jsonEncode({'error': 'Nicht authentifiziert'}),
+      headers: {'Content-Type': 'application/json'},
+    );
+  }
+  if (claims['istAdmin'] != true) {
+    return Response(
+      403,
+      body: jsonEncode({'error': 'Keine Berechtigung (nur für Admins)'}),
+      headers: {'Content-Type': 'application/json'},
+    );
+  }
+  return null;
+}
+
 /// Prüft ob die Claims einen Superadmin ausweisen.
 /// Gibt 403 zurück wenn nicht; null bei Erfolg (Response nur bei Fehler).
 Response? requireSuperadmin(Map<String, dynamic>? claims) {

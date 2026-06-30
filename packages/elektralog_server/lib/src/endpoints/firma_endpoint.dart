@@ -12,8 +12,9 @@ class FirmaEndpoint {
   // GET /api/firma/benutzer — eigene Mitarbeiter auflisten
   Future<Response> listBenutzer(Request request) async {
     final claims = verifyJwt(request);
-    if (claims == null) return _unauthorized();
-    final firmaId = claims['firmaId'] as String;
+    final forbidden = requireAdmin(claims);
+    if (forbidden != null) return forbidden;
+    final firmaId = claims!['firmaId'] as String;
 
     try {
       final rows = await db.execute(
@@ -57,8 +58,9 @@ class FirmaEndpoint {
   // Body: { "name"?, "email"?, "passwort"? }
   Future<Response> updateBenutzer(Request request, String id) async {
     final claims = verifyJwt(request);
-    if (claims == null) return _unauthorized();
-    final firmaId = claims['firmaId'] as String;
+    final forbidden = requireAdmin(claims);
+    if (forbidden != null) return forbidden;
+    final firmaId = claims!['firmaId'] as String;
 
     try {
       // Prüfen ob Benutzer zur Firma gehört
@@ -126,8 +128,9 @@ class FirmaEndpoint {
   // Body: { "istAdmin": true|false }
   Future<Response> updateBenutzerRolle(Request request, String id) async {
     final claims = verifyJwt(request);
-    if (claims == null) return _unauthorized();
-    final firmaId = claims['firmaId'] as String;
+    final forbidden = requireAdmin(claims);
+    if (forbidden != null) return forbidden;
+    final firmaId = claims!['firmaId'] as String;
     final eigeneId = claims['sub'] as String;
 
     if (id == eigeneId) {
@@ -198,8 +201,9 @@ class FirmaEndpoint {
   // Body: { "email", "passwort", "name" }
   Future<Response> createBenutzer(Request request) async {
     final claims = verifyJwt(request);
-    if (claims == null) return _unauthorized();
-    final firmaId = claims['firmaId'] as String;
+    final forbidden = requireAdmin(claims);
+    if (forbidden != null) return forbidden;
+    final firmaId = claims!['firmaId'] as String;
 
     try {
       final body =
@@ -276,8 +280,9 @@ class FirmaEndpoint {
   // Body: { "status": "aktiv" | "gesperrt" }
   Future<Response> updateBenutzerStatus(Request request, String id) async {
     final claims = verifyJwt(request);
-    if (claims == null) return _unauthorized();
-    final firmaId = claims['firmaId'] as String;
+    final forbidden = requireAdmin(claims);
+    if (forbidden != null) return forbidden;
+    final firmaId = claims!['firmaId'] as String;
     final eigeneId = claims['sub'] as String;
 
     if (id == eigeneId) {
@@ -334,8 +339,9 @@ class FirmaEndpoint {
   // DELETE /api/firma/benutzer/:id — Mitarbeiter entfernen
   Future<Response> deleteBenutzer(Request request, String id) async {
     final claims = verifyJwt(request);
-    if (claims == null) return _unauthorized();
-    final firmaId = claims['firmaId'] as String;
+    final forbidden = requireAdmin(claims);
+    if (forbidden != null) return forbidden;
+    final firmaId = claims!['firmaId'] as String;
     final eigeneId = claims['sub'] as String;
 
     if (id == eigeneId) {
