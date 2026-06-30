@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/api/api_service.dart';
 import '../../core/models/verteiler.dart';
 import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/kunden_provider.dart';
@@ -77,7 +78,7 @@ class StandortDetailScreen extends ConsumerWidget {
                   standortBezeichnung: standort?.bezeichnung),
             ),
           ),
-          if (standort != null && standortBearbeitbar)
+          if (standort != null && standortBearbeitbar) ...[
             IconButton(
               icon: const Icon(Icons.edit_outlined),
               onPressed: () => showModalBottomSheet(
@@ -95,6 +96,11 @@ class StandortDetailScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            IconButton(
+              icon: const Icon(Icons.delete_outlined, color: AppColors.error),
+              onPressed: () => _deleteStandort(context, ref, standortUuid),
+            ),
+          ],
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -274,6 +280,39 @@ class StandortDetailScreen extends ConsumerWidget {
     );
     if (confirmed == true) {
       await ref.read(verteilerRepositoryProvider).delete(v.uuid);
+      // Server informieren — fire-and-forget; 401 im Offline-Modus ist erwartet
+      ApiService.deleteVerteiler(v.uuid).catchError((_) {});
+    }
+  }
+
+  Future<void> _deleteStandort(
+      BuildContext context, WidgetRef ref, String standortUuid) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Standort löschen'),
+        content: const Text('Möchtest du diesen Standort wirklich löschen?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: AppColors.onError,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(standorteRepositoryProvider).delete(standortUuid);
+      // Server informieren — fire-and-forget; 401 im Offline-Modus ist erwartet
+      ApiService.deleteStandort(standortUuid).catchError((_) {});
+      if (context.mounted) context.go('/kunden/$kundeUuid');
     }
   }
 

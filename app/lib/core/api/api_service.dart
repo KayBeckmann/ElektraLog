@@ -324,6 +324,27 @@ class ApiService {
     );
   }
 
+  static Future<void> deleteKunde(String uuid) async {
+    await http.delete(
+      Uri.parse('$baseUrl/kunden/$uuid'),
+      headers: await _headers(auth: true),
+    );
+  }
+
+  static Future<void> deleteStandort(String uuid) async {
+    await http.delete(
+      Uri.parse('$baseUrl/standorte/$uuid'),
+      headers: await _headers(auth: true),
+    );
+  }
+
+  static Future<void> deleteVerteiler(String uuid) async {
+    await http.delete(
+      Uri.parse('$baseUrl/verteiler/$uuid'),
+      headers: await _headers(auth: true),
+    );
+  }
+
   /// Ändert das eigene Passwort (kein Admin nötig).
   /// Wirft Exception wenn das alte Passwort falsch ist oder Server-Fehler.
   static Future<void> changeOwnPassword({

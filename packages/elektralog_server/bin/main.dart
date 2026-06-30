@@ -84,6 +84,11 @@ void main() async {
         (req, uuid) => KundenEndpoint(conn).update(req, uuid))
     ..delete('/api/kunden/<uuid>',
         (req, uuid) => KundenEndpoint(conn).delete(req, uuid))
+    // Standorte / Verteiler (Löschung)
+    ..delete('/api/standorte/<uuid>',
+        (req, uuid) => KundenEndpoint(conn).deleteStandort(req, uuid))
+    ..delete('/api/verteiler/<uuid>',
+        (req, uuid) => KundenEndpoint(conn).deleteVerteiler(req, uuid))
     // Komponenten
     ..delete('/api/komponenten/<uuid>',
         (req, uuid) => KundenEndpoint(conn).deleteKomponente(req, uuid))

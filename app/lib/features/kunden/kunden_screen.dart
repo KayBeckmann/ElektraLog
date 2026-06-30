@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../core/api/api_service.dart';
 import '../../core/models/kunde.dart';
 import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/kunden_provider.dart';
@@ -264,6 +265,8 @@ class _KundenScreenState extends ConsumerState<KundenScreen> {
     );
     if (confirmed == true && mounted) {
       await ref.read(kundenRepositoryProvider).delete(kunde.uuid);
+      // Server informieren — fire-and-forget; 401 im Offline-Modus ist erwartet
+      ApiService.deleteKunde(kunde.uuid).catchError((_) {});
     }
   }
 }

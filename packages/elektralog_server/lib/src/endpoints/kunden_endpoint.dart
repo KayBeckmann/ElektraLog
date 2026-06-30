@@ -169,6 +169,56 @@ class KundenEndpoint {
     }
   }
 
+  // DELETE /api/standorte/:uuid
+  Future<Response> deleteStandort(Request request, String uuid) async {
+    final claims = verifyJwt(request);
+    if (claims == null) {
+      return Response(401,
+          body: jsonEncode({'error': 'Nicht authentifiziert'}),
+          headers: {'Content-Type': 'application/json'});
+    }
+    try {
+      final firmaId = claims['firmaId'] as String;
+      await db.execute(
+        Sql.named(
+            'DELETE FROM standorte WHERE uuid = @uuid AND firma_id = @fid'),
+        parameters: {'uuid': uuid, 'fid': firmaId},
+      );
+      return Response.ok(jsonEncode({'success': true}),
+          headers: {'Content-Type': 'application/json'});
+    } catch (e, st) {
+      print('standorte.delete error: $e\n$st');
+      return Response.internalServerError(
+          body: jsonEncode({'error': e.toString()}),
+          headers: {'Content-Type': 'application/json'});
+    }
+  }
+
+  // DELETE /api/verteiler/:uuid
+  Future<Response> deleteVerteiler(Request request, String uuid) async {
+    final claims = verifyJwt(request);
+    if (claims == null) {
+      return Response(401,
+          body: jsonEncode({'error': 'Nicht authentifiziert'}),
+          headers: {'Content-Type': 'application/json'});
+    }
+    try {
+      final firmaId = claims['firmaId'] as String;
+      await db.execute(
+        Sql.named(
+            'DELETE FROM verteiler WHERE uuid = @uuid AND firma_id = @fid'),
+        parameters: {'uuid': uuid, 'fid': firmaId},
+      );
+      return Response.ok(jsonEncode({'success': true}),
+          headers: {'Content-Type': 'application/json'});
+    } catch (e, st) {
+      print('verteiler.delete error: $e\n$st');
+      return Response.internalServerError(
+          body: jsonEncode({'error': e.toString()}),
+          headers: {'Content-Type': 'application/json'});
+    }
+  }
+
   // DELETE /api/komponenten/:uuid
   Future<Response> deleteKomponente(Request request, String uuid) async {
     final claims = verifyJwt(request);
