@@ -59,6 +59,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               result['name'] as String,
               firmaName: result['firmaName'] as String?,
               istAdmin: result['istAdmin'] as bool? ?? false,
+              rolle: result['rolle'] as String?,
             );
         _showSuccess('Willkommen, ${result['name']}!');
         if (mounted) context.go('/');

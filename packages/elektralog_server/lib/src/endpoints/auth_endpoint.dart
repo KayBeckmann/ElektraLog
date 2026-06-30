@@ -40,7 +40,12 @@ class AuthEndpoint {
           '         SELECT 1 FROM benutzer_rollen br '
           '         JOIN rollen r ON r.id = br.rollen_id '
           '         WHERE br.benutzer_id = b.id AND r.ist_vorlage = true '
-          '       ) AS ist_admin '
+          '       ) AS ist_admin, '
+          '       ( '
+          '         SELECT r.name FROM benutzer_rollen br '
+          '         JOIN rollen r ON r.id = br.rollen_id '
+          '         WHERE br.benutzer_id = b.id LIMIT 1 '
+          '       ) AS rolle_name '
           'FROM benutzer b '
           'JOIN firmen f ON f.id = b.firma_id '
           "WHERE b.email = @email AND b.status = 'aktiv'",
@@ -84,7 +89,9 @@ class AuthEndpoint {
       final name = row[3] as String;
       final firmaName = row[6] as String;
       final istAdmin = row[7] as bool? ?? false;
-      final token = _issueToken(benutzerId, firmaId, email, name, istSuperadmin, istAdmin);
+      final rolle = row[8] as String? ?? (istAdmin ? kRolleFirmenadmin : kRolleMonteur);
+      final token = _issueToken(
+          benutzerId, firmaId, email, name, istSuperadmin, istAdmin, rolle);
 
       return Response.ok(
         jsonEncode({
@@ -95,6 +102,7 @@ class AuthEndpoint {
           'firmaName': firmaName,
           'istSuperadmin': istSuperadmin,
           'istAdmin': istAdmin,
+          'rolle': rolle,
         }),
         headers: {'Content-Type': 'application/json'},
       );
@@ -173,7 +181,7 @@ class AuthEndpoint {
 
   String _issueToken(
       String id, String firmaId, String email, String name,
-      bool istSuperadmin, bool istAdmin) {
+      bool istSuperadmin, bool istAdmin, String rolle) {
     final secret =
         Platform.environment['JWT_SECRET'] ?? 'changeme_jwt_secret';
     return JWT({
@@ -183,6 +191,7 @@ class AuthEndpoint {
       'name': name,
       'istSuperadmin': istSuperadmin,
       'istAdmin': istAdmin,
+      'rolle': rolle,
       'iat': DateTime.now().millisecondsSinceEpoch ~/ 1000,
     }).sign(SecretKey(secret), expiresIn: const Duration(days: 30));
   }

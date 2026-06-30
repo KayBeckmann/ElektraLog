@@ -253,11 +253,17 @@ class ApiService {
     required String email,
     required String passwort,
     required String name,
+    String? rolle,
   }) async {
     final resp = await http.post(
       Uri.parse('$baseUrl/firma/benutzer'),
       headers: await _headers(auth: true),
-      body: jsonEncode({'email': email, 'passwort': passwort, 'name': name}),
+      body: jsonEncode({
+        'email': email,
+        'passwort': passwort,
+        'name': name,
+        if (rolle != null) 'rolle': rolle,
+      }),
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
@@ -294,12 +300,12 @@ class ApiService {
 
   static Future<Map<String, dynamic>> updateTeamBenutzerRolle(
     String id,
-    bool istAdmin,
+    String rolle,
   ) async {
     final resp = await http.patch(
       Uri.parse('$baseUrl/firma/benutzer/$id/rolle'),
       headers: await _headers(auth: true),
-      body: jsonEncode({'istAdmin': istAdmin}),
+      body: jsonEncode({'rolle': rolle}),
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }

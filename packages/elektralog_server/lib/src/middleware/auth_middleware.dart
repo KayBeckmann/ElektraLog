@@ -82,6 +82,25 @@ Middleware firmaSperreMiddleware(Connection db) =>
           return handler(request);
         };
 
+/// Die drei vergebbaren Rollennamen pro Firma (siehe Migration 006).
+const kRolleFirmenadmin = 'Firmenadmin';
+const kRolleProjektleiter = 'Projektleiter';
+const kRolleMonteur = 'Monteur';
+const kBekannteRollen = [kRolleFirmenadmin, kRolleProjektleiter, kRolleMonteur];
+
+/// Liest die Rolle aus den JWT-Claims. Ältere Tokens ohne 'rolle'-Claim
+/// fallen auf Firmenadmin/Monteur zurück, je nach 'istAdmin'-Claim.
+String rolleVon(Map<String, dynamic> claims) =>
+    claims['rolle'] as String? ??
+    (claims['istAdmin'] == true ? kRolleFirmenadmin : kRolleMonteur);
+
+/// Firmenadmin und Projektleiter dürfen Stammdaten uneingeschränkt anlegen,
+/// bearbeiten und löschen (siehe Obsidian-Inbox "Rollen"-Notiz).
+bool hatVollzugriff(Map<String, dynamic> claims) {
+  final rolle = rolleVon(claims);
+  return rolle == kRolleFirmenadmin || rolle == kRolleProjektleiter;
+}
+
 /// Prüft ob die Claims einen Firmenadmin ausweisen.
 /// Gibt 403 zurück wenn nicht; null bei Erfolg (Response nur bei Fehler).
 Response? requireAdmin(Map<String, dynamic>? claims) {

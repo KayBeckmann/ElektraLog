@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/api_service.dart';
+import '../../core/providers/app_mode_provider.dart';
 import '../../shared/theme/app_colors.dart';
+
+const _rollen = [rolleFirmenadmin, rolleProjektleiter, rolleMonteur];
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
@@ -40,7 +43,7 @@ class TeamScreen extends ConsumerWidget {
           onRefresh: () => ref.invalidate(_teamProvider),
           onEdit: (user) => _showEditDialog(context, ref, user),
           onToggleStatus: (user) => _toggleStatus(context, ref, user),
-          onToggleAdmin: (user) => _toggleAdmin(context, ref, user),
+          onChangeRolle: (user) => _showRolleDialog(context, ref, user),
           onDelete: (user) => _confirmDelete(context, ref, user),
         ),
       ),
@@ -70,39 +73,51 @@ class TeamScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _toggleAdmin(
+  Future<void> _showRolleDialog(
     BuildContext context,
     WidgetRef ref,
     Map<String, dynamic> user,
   ) async {
-    final istAdmin = user['istAdmin'] as bool? ?? false;
+    final aktuelleRolle = user['rolle'] as String? ?? rolleMonteur;
     final name = user['name'] as String;
-    final confirmed = await showDialog<bool>(
+    String ausgewaehlt = aktuelleRolle;
+
+    final neueRolle = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(istAdmin ? 'Admin-Rechte entziehen' : 'Admin-Rechte vergeben'),
-        content: Text(
-          istAdmin
-              ? '$name verliert die Admin-Rechte und kann die Teamverwaltung nicht mehr nutzen.'
-              : '$name erhält Admin-Rechte und kann das Team verwalten.',
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: Text('Rolle von $name ändern'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: _rollen
+                .map((r) => RadioListTile<String>(
+                      value: r,
+                      groupValue: ausgewaehlt,
+                      title: Text(r),
+                      onChanged: (v) => setState(() => ausgewaehlt = v!),
+                    ))
+                .toList(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Abbrechen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, ausgewaehlt),
+              child: const Text('Übernehmen'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Abbrechen'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(istAdmin ? 'Entziehen' : 'Vergeben'),
-          ),
-        ],
       ),
     );
-    if (confirmed != true || !context.mounted) return;
+    if (neueRolle == null || neueRolle == aktuelleRolle || !context.mounted) {
+      return;
+    }
     try {
       final result = await ApiService.updateTeamBenutzerRolle(
         user['id'] as String,
-        !istAdmin,
+        neueRolle,
       );
       if (result.containsKey('error') && context.mounted) {
         _showError(context, result['error'] as String);
@@ -158,6 +173,7 @@ class TeamScreen extends ConsumerWidget {
     final formKey = GlobalKey<FormState>();
     bool obscure = true;
     bool loading = false;
+    String rolle = rolleMonteur;
 
     await showDialog(
       context: context,
@@ -182,6 +198,18 @@ class TeamScreen extends ConsumerWidget {
                     onToggle: () => setState(() => obscure = !obscure),
                     validator: (v) => (v == null || v.length < 6) ? 'Mindestens 6 Zeichen' : null,
                   ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: rolle,
+                    decoration: const InputDecoration(
+                      labelText: 'Rolle',
+                      prefixIcon: Icon(Icons.badge_outlined, size: 18),
+                    ),
+                    items: _rollen
+                        .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                        .toList(),
+                    onChanged: (v) => setState(() => rolle = v ?? rolleMonteur),
+                  ),
                 ],
               ),
             ),
@@ -197,6 +225,7 @@ class TeamScreen extends ConsumerWidget {
                     email: emailCtrl.text.trim(),
                     passwort: passCtrl.text,
                     name: nameCtrl.text.trim(),
+                    rolle: rolle,
                   );
                   if (result.containsKey('error')) {
                     if (ctx.mounted) _showError(ctx, result['error'] as String);
@@ -319,7 +348,7 @@ class _TeamList extends StatelessWidget {
     required this.onRefresh,
     required this.onEdit,
     required this.onToggleStatus,
-    required this.onToggleAdmin,
+    required this.onChangeRolle,
     required this.onDelete,
   });
 
@@ -327,7 +356,7 @@ class _TeamList extends StatelessWidget {
   final VoidCallback onRefresh;
   final void Function(Map<String, dynamic>) onEdit;
   final void Function(Map<String, dynamic>) onToggleStatus;
-  final void Function(Map<String, dynamic>) onToggleAdmin;
+  final void Function(Map<String, dynamic>) onChangeRolle;
   final void Function(Map<String, dynamic>) onDelete;
 
   @override
@@ -381,7 +410,7 @@ class _TeamList extends StatelessWidget {
                       user: user,
                       onEdit: () => onEdit(user),
                       onToggleStatus: () => onToggleStatus(user),
-                      onToggleAdmin: () => onToggleAdmin(user),
+                      onChangeRolle: () => onChangeRolle(user),
                       onDelete: () => onDelete(user),
                     );
                   },
@@ -402,20 +431,21 @@ class _UserTile extends StatelessWidget {
     required this.user,
     required this.onEdit,
     required this.onToggleStatus,
-    required this.onToggleAdmin,
+    required this.onChangeRolle,
     required this.onDelete,
   });
 
   final Map<String, dynamic> user;
   final VoidCallback onEdit;
   final VoidCallback onToggleStatus;
-  final VoidCallback onToggleAdmin;
+  final VoidCallback onChangeRolle;
   final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final istAktiv = user['status'] == 'aktiv';
-    final istAdmin = user['istAdmin'] as bool? ?? false;
+    final rolle = user['rolle'] as String? ?? rolleMonteur;
+    final istAdmin = rolle == rolleFirmenadmin;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -454,23 +484,25 @@ class _UserTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (istAdmin) ...[
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryContainer,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'Admin',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.onPrimaryContainer,
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: istAdmin
+                    ? AppColors.primaryContainer
+                    : AppColors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(4),
               ),
-            ],
+              child: Text(
+                rolle,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: istAdmin
+                          ? AppColors.onPrimaryContainer
+                          : AppColors.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
           ],
         ),
         subtitle: Text(
@@ -508,7 +540,7 @@ class _UserTile extends StatelessWidget {
               onSelected: (v) {
                 if (v == 'edit') onEdit();
                 if (v == 'toggle') onToggleStatus();
-                if (v == 'admin') onToggleAdmin();
+                if (v == 'rolle') onChangeRolle();
                 if (v == 'delete') onDelete();
               },
               itemBuilder: (_) => [
@@ -520,21 +552,13 @@ class _UserTile extends StatelessWidget {
                     Text('Bearbeiten'),
                   ]),
                 ),
-                PopupMenuItem(
-                  value: 'admin',
+                const PopupMenuItem(
+                  value: 'rolle',
                   child: Row(children: [
-                    Icon(
-                      istAdmin ? Icons.manage_accounts : Icons.admin_panel_settings_outlined,
-                      size: 18,
-                      color: istAdmin ? AppColors.error : AppColors.secondary,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      istAdmin ? 'Admin-Rechte entziehen' : 'Admin-Rechte vergeben',
-                      style: TextStyle(
-                        color: istAdmin ? AppColors.error : null,
-                      ),
-                    ),
+                    Icon(Icons.admin_panel_settings_outlined,
+                        size: 18, color: AppColors.secondary),
+                    SizedBox(width: 8),
+                    Text('Rolle ändern'),
                   ]),
                 ),
                 PopupMenuItem(

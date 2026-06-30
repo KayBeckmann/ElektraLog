@@ -24,7 +24,12 @@ class FirmaEndpoint {
           '         SELECT 1 FROM benutzer_rollen br '
           '         JOIN rollen r ON r.id = br.rollen_id '
           '         WHERE br.benutzer_id = b.id AND r.ist_vorlage = true '
-          '       ) AS ist_admin '
+          '       ) AS ist_admin, '
+          '       ( '
+          '         SELECT r.name FROM benutzer_rollen br '
+          '         JOIN rollen r ON r.id = br.rollen_id '
+          '         WHERE br.benutzer_id = b.id LIMIT 1 '
+          '       ) AS rolle_name '
           'FROM benutzer b '
           'WHERE b.firma_id = @firmaId AND b.ist_superadmin = false '
           'ORDER BY b.name',
@@ -39,6 +44,7 @@ class FirmaEndpoint {
                 'status': r[3],
                 'erstelltAm': r[4].toString(),
                 'istAdmin': r[5] as bool? ?? false,
+                'rolle': r[6] as String? ?? kRolleMonteur,
               })
           .toList();
       return Response.ok(
@@ -124,8 +130,8 @@ class FirmaEndpoint {
     }
   }
 
-  // PATCH /api/firma/benutzer/:id/rolle — Admin-Rolle vergeben / entziehen
-  // Body: { "istAdmin": true|false }
+  // PATCH /api/firma/benutzer/:id/rolle — Rolle des Mitarbeiters setzen
+  // Body: { "rolle": "Firmenadmin" | "Projektleiter" | "Monteur" }
   Future<Response> updateBenutzerRolle(Request request, String id) async {
     final claims = verifyJwt(request);
     final forbidden = requireAdmin(claims);
@@ -142,50 +148,44 @@ class FirmaEndpoint {
     try {
       final body =
           jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final istAdmin = body['istAdmin'] as bool?;
-      if (istAdmin == null) {
+      final rolle = body['rolle'] as String?;
+      if (rolle == null || !kBekannteRollen.contains(rolle)) {
         return Response(400,
-            body: jsonEncode({'error': 'istAdmin fehlt'}),
+            body: jsonEncode({'error': 'Ungültige oder fehlende Rolle'}),
             headers: {'Content-Type': 'application/json'});
       }
 
-      // Vorlagen-Rolle der Firma ermitteln
       final rolleRows = await db.execute(
         Sql.named(
-          'SELECT id FROM rollen WHERE firma_id = @firmaId AND ist_vorlage = true LIMIT 1',
+          'SELECT id FROM rollen WHERE firma_id = @firmaId AND name = @name LIMIT 1',
         ),
-        parameters: {'firmaId': firmaId},
+        parameters: {'firmaId': firmaId, 'name': rolle},
       );
       if (rolleRows.isEmpty) {
         return Response(404,
-            body: jsonEncode({'error': 'Keine Standardrolle gefunden'}),
+            body: jsonEncode({'error': 'Rolle "$rolle" nicht gefunden'}),
             headers: {'Content-Type': 'application/json'});
       }
       final rolleId = rolleRows.first[0].toString();
 
-      if (istAdmin) {
-        // Admin-Rolle zuweisen (falls nicht vorhanden)
-        await db.execute(
+      await db.runTx((ctx) async {
+        await ctx.execute(
+          Sql.named(
+            'DELETE FROM benutzer_rollen WHERE benutzer_id = @bid AND firma_id = @fid',
+          ),
+          parameters: {'bid': id, 'fid': firmaId},
+        );
+        await ctx.execute(
           Sql.named(
             'INSERT INTO benutzer_rollen (benutzer_id, rollen_id, firma_id) '
-            'VALUES (@bid, @rid, @fid) '
-            'ON CONFLICT DO NOTHING',
+            'VALUES (@bid, @rid, @fid)',
           ),
           parameters: {'bid': id, 'rid': rolleId, 'fid': firmaId},
         );
-      } else {
-        // Admin-Rolle entziehen
-        await db.execute(
-          Sql.named(
-            'DELETE FROM benutzer_rollen '
-            'WHERE benutzer_id = @bid AND rollen_id = @rid AND firma_id = @fid',
-          ),
-          parameters: {'bid': id, 'rid': rolleId, 'fid': firmaId},
-        );
-      }
+      });
 
       return Response.ok(
-        jsonEncode({'id': id, 'istAdmin': istAdmin}),
+        jsonEncode({'id': id, 'rolle': rolle}),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, st) {
@@ -211,6 +211,12 @@ class FirmaEndpoint {
       final email = body['email'] as String;
       final passwort = body['passwort'] as String;
       final name = body['name'] as String;
+      final angefragteRolle = body['rolle'] as String?;
+      // Neue Mitarbeiter erhalten standardmäßig die Monteur-Rolle (siehe
+      // Obsidian-Inbox: "Vorzugsweise als Monteur"), nicht die Admin-Vorlage.
+      final rolle = kBekannteRollen.contains(angefragteRolle)
+          ? angefragteRolle!
+          : kRolleMonteur;
 
       final existing = await db.execute(
         Sql.named('SELECT id FROM benutzer WHERE email = @email'),
@@ -239,15 +245,14 @@ class FirmaEndpoint {
             'name': name,
           },
         );
-        // Standard-Rolle der Firma zuweisen
-        final rolle = await ctx.execute(
+        final rolleRows = await ctx.execute(
           Sql.named(
-            'SELECT id FROM rollen WHERE firma_id = @fid AND ist_vorlage = true LIMIT 1',
+            'SELECT id FROM rollen WHERE firma_id = @fid AND name = @name LIMIT 1',
           ),
-          parameters: {'fid': firmaId},
+          parameters: {'fid': firmaId, 'name': rolle},
         );
-        if (rolle.isNotEmpty) {
-          final rolleId = rolle.first[0].toString();
+        if (rolleRows.isNotEmpty) {
+          final rolleId = rolleRows.first[0].toString();
           await ctx.execute(
             Sql.named(
               'INSERT INTO benutzer_rollen (benutzer_id, rollen_id, firma_id) '
@@ -264,6 +269,7 @@ class FirmaEndpoint {
           'email': email,
           'name': name,
           'status': 'aktiv',
+          'rolle': rolle,
         }),
         headers: {'Content-Type': 'application/json'},
       );
