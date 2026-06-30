@@ -34,7 +34,6 @@ class SyncService {
         items: (data['kunden'] as List? ?? [])
             .map((e) => Kunde.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),
-        timestampKey: 'aktualisiertAm',
       );
 
       await _mergeList<Standort>(
@@ -43,7 +42,6 @@ class SyncService {
         items: (data['standorte'] as List? ?? [])
             .map((e) => Standort.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),
-        timestampKey: 'aktualisiertAm',
       );
 
       await _mergeList<Verteiler>(
@@ -52,7 +50,6 @@ class SyncService {
         items: (data['verteiler'] as List? ?? [])
             .map((e) => Verteiler.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),
-        timestampKey: 'aktualisiertAm',
       );
 
       await _mergeList<VerteilerKomponente>(
@@ -62,7 +59,6 @@ class SyncService {
             .map((e) => VerteilerKomponente.fromJson(
                 (e as Map).cast<String, dynamic>()))
             .toList(),
-        timestampKey: 'aktualisiertAm',
       );
 
       await _mergeList<Messung>(
@@ -71,7 +67,6 @@ class SyncService {
         items: (data['messungen'] as List? ?? [])
             .map((e) => Messung.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),
-        timestampKey: 'aktualisiertAm',
       );
 
       await _mergeList<Sichtpruefung>(
@@ -81,39 +76,25 @@ class SyncService {
             .map((e) =>
                 Sichtpruefung.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),
-        timestampKey: 'aktualisiertAm',
       );
     } catch (e) {
       debugPrint('pullAll fehlgeschlagen: $e');
     }
   }
 
-  /// Speichert Server-Datensätze lokal — Last-Write-Wins per aktualisiertAm.
-  /// Lokale Version bleibt erhalten wenn ihr Timestamp neuer ist (ungesyncte Änderungen).
+  /// Speichert Server-Datensätze lokal — Serverdaten haben IMMER Vorrang
+  /// (siehe Obsidian-Inbox "Synchronisation"-Notiz), unabhängig von
+  /// irgendwelchen Zeitstempeln. Lokale, noch nicht gepushte Änderungen
+  /// werden dadurch beim nächsten Pull überschrieben.
   static Future<void> _mergeList<T>({
     required Database db,
     required StoreRef store,
     required List<T> items,
-    required String timestampKey,
   }) async {
     for (final item in items) {
       final json = (item as dynamic).toJson() as Map<String, dynamic>;
       final uuid = json['uuid'] as String?;
       if (uuid == null) continue;
-
-      final rawExisting = await store.record(uuid).get(db);
-      if (rawExisting != null) {
-        final existing = rawExisting as Map<String, dynamic>;
-        final localTs = existing[timestampKey] as String?;
-        final serverTs = json[timestampKey] as String?;
-        if (localTs != null && serverTs != null) {
-          try {
-            if (DateTime.parse(localTs).isAfter(DateTime.parse(serverTs))) {
-              continue; // Lokale Version ist neuer → behalten
-            }
-          } catch (_) {}
-        }
-      }
 
       await store.record(uuid).put(db, json.cast<String, Object?>());
     }
@@ -121,8 +102,10 @@ class SyncService {
 
   // ── Push ──────────────────────────────────────────────────────────────────
 
-  /// Schiebt alle lokalen Rohdaten zum Backend. Backend akzeptiert nur
-  /// wenn der Client-Zeitstempel neuer ist als der Server-Zeitstempel.
+  /// Schiebt alle lokalen Rohdaten zum Backend. Das Backend übernimmt sie
+  /// unconditional (kein Last-Write-Wins per Zeitstempel mehr) — der
+  /// anschließende [pullAll] stellt sicher, dass am Ende immer der
+  /// Serverstand lokal gilt.
   static Future<int> pushAll(Database db) async {
     final kunden = (await StorageService.kundenStore.find(db))
         .map((s) => Kunde.fromJson(s.value.cast<String, dynamic>()).toJson())

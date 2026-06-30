@@ -330,8 +330,9 @@ class KundenEndpoint {
     }
   }
 
-  // POST /api/sync — Bulk-Upsert, last-write-wins per aktualisiert_am
-  // Format: { "batches": [{ "type": "kunden", "items": [...] }, ...] }
+  // POST /api/sync — Bulk-Upsert, unconditional (Server übernimmt immer
+  // den zuletzt gepushten Stand, Mandantengrenze bleibt über firma_id
+  // geschützt). Format: { "batches": [{ "type": "kunden", "items": [...] }, ...] }
   // Backward compat: { "type": "kunden", "items": [...] } still works.
   Future<Response> sync(Request request) async {
     final claims = verifyJwt(request);
@@ -414,8 +415,7 @@ class KundenEndpoint {
         'kontakt_email = EXCLUDED.kontakt_email, '
         'kontakt_telefon = EXCLUDED.kontakt_telefon, '
         'aktualisiert_am = EXCLUDED.aktualisiert_am '
-        'WHERE kunden.firma_id = EXCLUDED.firma_id '
-        'AND kunden.aktualisiert_am < EXCLUDED.aktualisiert_am',
+        'WHERE kunden.firma_id = EXCLUDED.firma_id',
       ),
       parameters: {
         'uuid': k['uuid'] as String,
@@ -442,8 +442,7 @@ class KundenEndpoint {
         'bezeichnung = EXCLUDED.bezeichnung, strasse = EXCLUDED.strasse, '
         'plz = EXCLUDED.plz, ort = EXCLUDED.ort, '
         'aktualisiert_am = EXCLUDED.aktualisiert_am '
-        'WHERE standorte.firma_id = EXCLUDED.firma_id '
-        'AND standorte.aktualisiert_am < EXCLUDED.aktualisiert_am',
+        'WHERE standorte.firma_id = EXCLUDED.firma_id',
       ),
       parameters: {
         'uuid': s['uuid'] as String,
@@ -471,8 +470,7 @@ class KundenEndpoint {
         'anlagendaten_json = EXCLUDED.anlagendaten_json, '
         'pruefintervall_jahre = EXCLUDED.pruefintervall_jahre, '
         'aktualisiert_am = EXCLUDED.aktualisiert_am '
-        'WHERE verteiler.firma_id = EXCLUDED.firma_id '
-        'AND verteiler.aktualisiert_am < EXCLUDED.aktualisiert_am',
+        'WHERE verteiler.firma_id = EXCLUDED.firma_id',
       ),
       parameters: {
         'uuid': v['uuid'] as String,
@@ -508,8 +506,7 @@ class KundenEndpoint {
         'position = EXCLUDED.position, '
         'eigenschaften_json = EXCLUDED.eigenschaften_json, '
         'aktualisiert_am = EXCLUDED.aktualisiert_am '
-        'WHERE verteiler_komponenten.firma_id = EXCLUDED.firma_id '
-        'AND verteiler_komponenten.aktualisiert_am < EXCLUDED.aktualisiert_am',
+        'WHERE verteiler_komponenten.firma_id = EXCLUDED.firma_id',
       ),
       parameters: {
         'uuid': k['uuid'] as String,
@@ -544,8 +541,7 @@ class KundenEndpoint {
         'messwert_json = EXCLUDED.messwert_json, '
         'ergebnis = EXCLUDED.ergebnis, bemerkung = EXCLUDED.bemerkung, '
         'aktualisiert_am = EXCLUDED.aktualisiert_am '
-        'WHERE messungen.firma_id = EXCLUDED.firma_id '
-        'AND messungen.aktualisiert_am < EXCLUDED.aktualisiert_am',
+        'WHERE messungen.firma_id = EXCLUDED.firma_id',
       ),
       parameters: {
         'uuid': m['uuid'] as String,
@@ -580,8 +576,7 @@ class KundenEndpoint {
         'maengel = EXCLUDED.maengel, ergebnis = EXCLUDED.ergebnis, '
         'naechste_pruefung_datum = EXCLUDED.naechste_pruefung_datum, '
         'aktualisiert_am = EXCLUDED.aktualisiert_am '
-        'WHERE sichtpruefungen.firma_id = EXCLUDED.firma_id '
-        'AND sichtpruefungen.aktualisiert_am < EXCLUDED.aktualisiert_am',
+        'WHERE sichtpruefungen.firma_id = EXCLUDED.firma_id',
       ),
       parameters: {
         'uuid': s['uuid'] as String,
