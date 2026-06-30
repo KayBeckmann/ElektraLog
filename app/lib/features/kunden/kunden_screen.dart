@@ -66,12 +66,14 @@ class _KundenScreenState extends ConsumerState<KundenScreen> {
                     ],
                   ),
                 ),
-                if (isAdmin)
-                  ElevatedButton.icon(
-                    onPressed: () => _showKundeFormular(context, null),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Neuer Kunde'),
-                  ),
+                // Kunden anlegen dürfen alle Rollen (Firmenadmin,
+                // Projektleiter, Monteur) — nur Bearbeiten/Löschen ist
+                // eingeschränkt, siehe _KundeCard.
+                ElevatedButton.icon(
+                  onPressed: () => _showKundeFormular(context, null),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Neuer Kunde'),
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -166,15 +168,13 @@ class _KundenScreenState extends ConsumerState<KundenScreen> {
                                   color: AppColors.onSurfaceVariant,
                                 ),
                           ),
-                          if (isAdmin) ...[
-                            const SizedBox(height: 8),
-                            ElevatedButton.icon(
-                              onPressed: () =>
-                                  _showKundeFormular(context, null),
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('Ersten Kunden anlegen'),
-                            ),
-                          ],
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            onPressed: () =>
+                                _showKundeFormular(context, null),
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Ersten Kunden anlegen'),
+                          ),
                         ],
                       ),
                     );
