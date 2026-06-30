@@ -68,6 +68,14 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
   }
 
   Future<void> _onSave() async {
+    final modusAsync = ref.read(appModusProvider);
+    final isCompany = modusAsync.valueOrNull == AppModus.company;
+    final isAdmin = ref.read(isAdminProvider).valueOrNull ?? false;
+
+    if (isCompany && isAdmin && !await _firmenadresseKonfliktBestaetigt()) {
+      return;
+    }
+
     await ref.read(einstellungenProvider.notifier).save(
       prueferName:   _prueferCtrl.text.trim(),
       firma:         _firmaCtrl.text.trim(),
@@ -82,6 +90,54 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
         const SnackBar(content: Text('Einstellungen gespeichert')),
       );
     }
+  }
+
+  /// Prüft, ob sich die eingegebene Firmenadresse von der aktuellen
+  /// Server-Adresse unterscheidet. Grundsätzlich hat die Server-Adresse
+  /// Vorrang — bei einer Änderung durch den Admin soll eine Rückfrage
+  /// erscheinen (siehe Obsidian-Inbox "Synchronisation"-Notiz).
+  /// Gibt true zurück wenn gespeichert werden darf (kein Konflikt, oder
+  /// vom Admin bestätigt), false wenn abgebrochen wurde.
+  Future<bool> _firmenadresseKonfliktBestaetigt() async {
+    Map<String, dynamic> serverFirma;
+    try {
+      serverFirma = await ApiService.getFirma();
+    } catch (_) {
+      return true; // Server nicht erreichbar → normal speichern (Offline)
+    }
+
+    final serverStrasse = (serverFirma['strasse'] as String?)?.trim() ?? '';
+    final serverPlz = (serverFirma['plz'] as String?)?.trim() ?? '';
+    final serverOrt = (serverFirma['ort'] as String?)?.trim() ?? '';
+
+    final unveraendert = serverStrasse == _strasseCtrl.text.trim() &&
+        serverPlz == _plzCtrl.text.trim() &&
+        serverOrt == _ortCtrl.text.trim();
+    if (unveraendert) return true;
+
+    if (!mounted) return false;
+    final bestaetigt = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Firmenadresse abweichend'),
+        content: Text(
+          'Auf dem Server ist aktuell folgende Adresse hinterlegt:\n\n'
+          '$serverStrasse\n$serverPlz $serverOrt\n\n'
+          'Möchtest du sie wirklich mit deiner Eingabe überschreiben?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Überschreiben'),
+          ),
+        ],
+      ),
+    );
+    return bestaetigt ?? false;
   }
 
   Future<void> _onChangePassword() async {
