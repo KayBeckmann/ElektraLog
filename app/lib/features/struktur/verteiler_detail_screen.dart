@@ -244,12 +244,8 @@ class _VerteilerDetailScreenState
           .read(messungenRepositoryProvider)
           .getByKomponenteUuids(kompUuids);
 
-      final protokolle = await ref
-          .read(pruefprotokollRepositoryProvider)
-          .getByVerteiler(widget.verteilerUuid);
-
       final gefilterteMessungen =
-          PdfService.filterMessungenForProtokoll(messungen, protokolle);
+          PdfService.filterMessungenForProtokoll(messungen);
 
       final einstellungen =
           ref.read(einstellungenProvider).valueOrNull;

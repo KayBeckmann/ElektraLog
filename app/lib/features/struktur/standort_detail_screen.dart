@@ -14,7 +14,6 @@ import 'package:printing/printing.dart';
 import '../../core/providers/komponenten_provider.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../core/providers/sichtpruefung_provider.dart';
-import '../../core/providers/pruefprotokoll_provider.dart';
 import '../../features/pdf/pdf_options_sheet.dart';
 import '../../features/pdf/pdf_service.dart';
 import 'verteiler_formular.dart';
@@ -386,12 +385,8 @@ class StandortDetailScreen extends ConsumerWidget {
       final sichtpruefungen =
           await ref.read(sichtpruefungenByVerteilerProvider(v.uuid).future);
 
-      final protokolle = await ref
-          .read(pruefprotokollRepositoryProvider)
-          .getByVerteiler(v.uuid);
-
       final gefilterteMessungen =
-          PdfService.filterMessungenForProtokoll(messungen, protokolle);
+          PdfService.filterMessungenForProtokoll(messungen);
 
       final bytes = await PdfService.generateProtokoll(
         prueferName: opts.prueferName,
