@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:shelf/shelf.dart';
 import 'package:postgres/postgres.dart';
 import '../middleware/auth_middleware.dart';
@@ -71,7 +72,7 @@ class ProtokollEndpoint {
           'fn': body['firmaName'],
           'pd': protokollDatum.toUtc(),
           'mj': body['messdatenJson'],
-          'pdf': pdfBytes,
+          'pdf': TypedValue(Type.byteArray, pdfBytes),
           'hash': pdfHash,
         },
       );
@@ -219,12 +220,25 @@ class ProtokollEndpoint {
       }
 
       final r = rows.first;
-      final pdfBytes = r[0] as List<int>;
+      final raw = r[0];
+      final Uint8List pdfBytes;
+      if (raw is Uint8List) {
+        pdfBytes = raw;
+      } else if (raw is List<int>) {
+        pdfBytes = Uint8List.fromList(raw);
+      } else {
+        print('getPdf: unexpected pdf_data type: ${raw?.runtimeType}');
+        return Response.internalServerError(
+          body: jsonEncode({'error': 'PDF-Daten fehlerhaft (interner Fehler)'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
       final bezeichnung = (r[1] as String?)?.replaceAll(' ', '_') ?? 'Protokoll';
       final datum = r[2].toString().substring(0, 10);
 
-      return Response.ok(
-        pdfBytes,
+      return Response(
+        200,
+        body: Stream<List<int>>.value(pdfBytes),
         headers: {
           'Content-Type': 'application/pdf',
           'Content-Disposition':
