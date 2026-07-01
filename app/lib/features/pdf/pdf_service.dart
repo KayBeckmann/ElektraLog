@@ -513,9 +513,13 @@ class PdfService {
               ...geordnet.expand((entry) {
                 final kMessungen =
                     messungenByKomponente[entry.komponente.uuid] ?? [];
+                final messungDatum = kMessungen.isNotEmpty
+                    ? kMessungen.first.pruefungDatum
+                    : null;
                 final header = _komponenteHeader(
                   entry.komponente, entry.depth,
-                  primary, surface, fontR, fontB,
+                  primary, surface, fontR, fontB, fontM,
+                  messungDatum: messungDatum,
                 );
 
                 if (kMessungen.isEmpty) {
@@ -799,7 +803,9 @@ class PdfService {
     PdfColor surface,
     pw.Font fontR,
     pw.Font fontB,
-  ) {
+    pw.Font fontM, {
+    DateTime? messungDatum,
+  }) {
     Map<String, dynamic> props = {};
     if (k.eigenschaftenJson != null) {
       try {
@@ -873,6 +879,14 @@ class PdfService {
                   style: pw.TextStyle(
                       font: fontB, fontSize: 11, color: PdfColors.white),
                 ),
+                pw.Spacer(),
+                if (messungDatum != null)
+                  pw.Text(
+                    _formatDatum(messungDatum),
+                    style: pw.TextStyle(
+                        font: fontM, fontSize: 8,
+                        color: PdfColor.fromHex('#8590A6')),
+                  ),
               ],
             ),
           ),

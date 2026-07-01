@@ -406,8 +406,8 @@ class StandortDetailScreen extends ConsumerWidget {
         messungen: gefilterteMessungen,
         signaturPng: opts.signaturPng,
       );
-      await Printing.layoutPdf(
-          onLayout: (_) async => bytes, name: 'Protokoll_${v.bezeichnung}');
+      await Printing.sharePdf(
+          bytes: bytes, filename: 'Protokoll_${v.bezeichnung}.pdf');
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
