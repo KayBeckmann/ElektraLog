@@ -69,6 +69,7 @@ services:
     build:
       context: ./packages/elektralog_server
       dockerfile: Dockerfile
+    image: elektralog-serverpod:latest
     restart: unless-stopped
     environment:
       POSTGRES_HOST: ${POSTGRES_HOST}

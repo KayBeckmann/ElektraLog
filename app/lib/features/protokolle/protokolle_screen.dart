@@ -111,9 +111,9 @@ class _ProtokollTile extends StatelessWidget {
     try {
       final bytes = await ApiService.getProtokollPdf(id);
       final verteiler = data['verteilerBezeichnung'] as String? ?? 'Protokoll';
-      await Printing.layoutPdf(
-        onLayout: (_) async => bytes,
-        name: 'Protokoll_$verteiler',
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: 'Protokoll_$verteiler.pdf',
       );
     } catch (e) {
       if (context.mounted) {
