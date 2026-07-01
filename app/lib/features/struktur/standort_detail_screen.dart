@@ -14,6 +14,8 @@ import 'package:printing/printing.dart';
 import '../../core/providers/komponenten_provider.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../core/providers/sichtpruefung_provider.dart';
+import '../../core/providers/isar_provider.dart';
+import '../../core/sync/sync_service.dart';
 import '../../features/pdf/pdf_options_sheet.dart';
 import '../../features/pdf/pdf_service.dart';
 import 'verteiler_formular.dart';
@@ -403,6 +405,19 @@ class StandortDetailScreen extends ConsumerWidget {
       );
       await Printing.sharePdf(
           bytes: bytes, filename: 'Protokoll_${v.bezeichnung}.pdf');
+
+      // Daten nach PDF-Erstellung synchronisieren (für kleine Displays ohne Sync-Button)
+      if (context.mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        final db = await ref.read(dbProvider.future);
+        final result = await SyncService.autoSync(db);
+        if (context.mounted && result == SyncResult.success) {
+          messenger.showSnackBar(const SnackBar(
+            content: Text('Daten synchronisiert'),
+            duration: Duration(seconds: 2),
+          ));
+        }
+      }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

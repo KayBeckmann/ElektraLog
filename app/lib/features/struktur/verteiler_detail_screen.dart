@@ -15,8 +15,10 @@ import '../../core/models/pruefprotokoll.dart';
 import '../../core/models/sichtpruefung.dart';
 import '../../core/models/verteiler_komponente.dart';
 import '../../core/providers/einstellungen_provider.dart';
+import '../../core/providers/isar_provider.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../core/providers/pruefprotokoll_provider.dart';
+import '../../core/sync/sync_service.dart';
 import '../../features/pdf/pdf_options_sheet.dart';
 import '../../features/pdf/pdf_service.dart';
 import '../../shared/theme/app_colors.dart';
@@ -311,6 +313,19 @@ class _VerteilerDetailScreenState
         onLayout: (_) async => bytes,
         name: 'Protokoll_${verteiler.bezeichnung}',
       );
+
+      // Daten nach PDF-Erstellung synchronisieren (für kleine Displays ohne Sync-Button)
+      if (mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        final db = await ref.read(dbProvider.future);
+        final result = await SyncService.autoSync(db);
+        if (mounted && result == SyncResult.success) {
+          messenger.showSnackBar(const SnackBar(
+            content: Text('Daten synchronisiert'),
+            duration: Duration(seconds: 2),
+          ));
+        }
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -17,6 +17,8 @@ import '../providers/isar_provider.dart';
 
 enum SyncStatus { idle, syncing, error, success }
 
+enum SyncResult { success, offline, error }
+
 class SyncService {
   static Timer? _pushTimer;
 
@@ -168,6 +170,25 @@ class SyncService {
         debugPrint('scheduleSync push fehlgeschlagen: $e');
       }
     });
+  }
+
+  // ── Auto-Sync (connectivity-aware) ───────────────────────────────────────
+
+  /// Push + Pull — bricht ab wenn kein JWT vorhanden oder Server nicht
+  /// erreichbar. Gibt das Ergebnis zurück, damit Aufrufer Feedback zeigen können.
+  /// Alle Netzwerkfehler (offline, Timeout, server error) werden als [SyncResult.offline]
+  /// behandelt — kein Fehler-Popup für den Nutzer.
+  static Future<SyncResult> autoSync(Database db) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getString('jwt_token') == null) return SyncResult.offline;
+      await pushAll(db);
+      await pullAll(db);
+      return SyncResult.success;
+    } catch (e) {
+      debugPrint('autoSync: keine Verbindung oder Fehler: $e');
+      return SyncResult.offline;
+    }
   }
 
   // ── Backward compat (weiterhin exportiert) ────────────────────────────────
