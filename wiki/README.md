@@ -27,6 +27,7 @@ Nach dem Start ist das Wiki unter **http://localhost:3000** erreichbar.
 
 | Datei | Inhalt |
 |---|---|
+| `varianten-und-preise.md` | Solo / Cloud / Self-Hosting im Vergleich |
 | `erste-schritte.md` | Schnelleinstieg für Endanwender (Solo-Modus) |
 | `benutzerhandbuch/monteur.md` | Bedienhandbuch für Monteure |
 | `installation/self-hosting.md` | Self-Hosting mit Docker |

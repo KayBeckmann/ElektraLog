@@ -4,7 +4,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20Windows%20%7C%20Linux%20%7C%20Web-informational)](https://flutter.dev)
-[![Status](https://img.shields.io/badge/Status-In%20Development-yellow)]()
+[![Status](https://img.shields.io/badge/Status-Beta-orange)]()
 [![Built with Flutter](https://img.shields.io/badge/Built%20with-Flutter-02569B?logo=flutter)](https://flutter.dev)
 [![Backend: Serverpod](https://img.shields.io/badge/Backend-Serverpod-blueviolet)](https://serverpod.dev)
 
@@ -14,7 +14,7 @@
 
 ElektraLog ist eine Cross-Platform-App für Elektrotechniker und Prüfbetriebe zur digitalen Erfassung elektrischer Messungen nach **DIN VDE 0701-0702**, **DGUV V3** und **DIN VDE 0100**. Die App generiert **ZVEH-angelehnte Prüfprotokolle** als PDF und funktioniert vollständig offline — ohne Account und ohne Backend.
 
-Sobald Sync, Mehrbenutzer und Firmenstruktur benötigt werden, schaltet die App in den kostenpflichtigen **Company-Modus** mit Backend-Anbindung.
+Sobald Sync, Mehrbenutzer und Firmenstruktur benötigt werden, schaltet die App in den **Company-Modus** mit Backend-Anbindung. Diesen gibt es als gehostete **Cloud-Variante** (20 €/Monat pauschal pro Firma) oder dank **MIT-Lizenz** vollständig **selbst gehostet** (kostenlos).
 
 ---
 
@@ -33,12 +33,12 @@ Sobald Sync, Mehrbenutzer und Firmenstruktur benötigt werden, schaltet die App 
 | Grenzwert-Bewertung | Automatische Auswertung Bestanden / Nicht bestanden |
 | PDF-Export | ZVEH-angelehnte Prüfprotokolle direkt auf dem Gerät |
 
-### Company-Modus — gestaffelte Tiers
+### Company-Modus — Cloud oder Self-Hosting
 
 | Feature | Beschreibung |
 |---------|-------------|
 | Backend-Sync | Automatische Synchronisation über Serverpod-Backend |
-| Multi-User | Monteure, Prüftechniker, Disponenten, Admins in einer Firma |
+| Multi-User | Monteure, Prüftechniker, Disponenten, Admins in einer Firma — unbegrenzt |
 | RBAC | Vorgefertigte Rollen, editierbar — eigene Rollen möglich |
 | Multi-Tenant | Firma-getrennte Datenhaltung via PostgreSQL Row-Level-Security |
 | Multi-Device | Daten auf allen Geräten verfügbar |
@@ -46,12 +46,15 @@ Sobald Sync, Mehrbenutzer und Firmenstruktur benötigt werden, schaltet die App 
 
 ### Preisstruktur
 
-| Tier | Nutzer | Preis |
-|------|--------|-------|
-| Solo | 1, kein Account | kostenlos |
-| Team | bis 5 | auf Anfrage |
-| Business | bis 20 | auf Anfrage |
-| Enterprise | unbegrenzt | auf Anfrage |
+| Variante | Nutzer | Preis | Betrieb |
+|----------|--------|-------|---------|
+| Solo | 1, kein Account | **kostenlos** | lokal auf dem Gerät |
+| Cloud | unbegrenzt | **20 €/Monat** pauschal pro Firma | von uns gehostet & gewartet |
+| Self-Hosting | unbegrenzt | **kostenlos** (MIT-Lizenz) | auf eigener Infrastruktur |
+
+Die Cloud- und die Self-Hosting-Variante bieten denselben Funktionsumfang. Der
+Cloud-Preis deckt Hosting, Wartung, Updates und Backups ab — Self-Hosting ist dank
+MIT-Lizenz kostenlos, erfordert aber eigenen Betrieb (siehe [Self-Hosting-Guide](https://wiki.elektralog.de/installation/self-hosting)).
 
 ---
 
@@ -75,7 +78,7 @@ Rollen sind vorgefertigte Vorlagen — Berechtigungen können pro Firma angepass
 | App | Flutter — Android, Windows, Linux, Web |
 | Backend | Serverpod (Dart, Code-Gen, WebSockets, ORM) |
 | Datenbank | PostgreSQL 16 + Row-Level-Security |
-| Lokale DB | Isar — primär im Solo-Modus, Offline-Cache im Company-Modus |
+| Lokale DB | Sembast (NoSQL, `sembast` / `sembast_web`) — primär im Solo-Modus, Offline-Cache im Company-Modus |
 | Sync | Operation-Queue-Pattern, idempotent via UUID |
 | Auth | Serverpod Auth, JWT |
 | PDF-Export | dart_pdf / printing |
@@ -172,7 +175,7 @@ Vollständige technische Dokumentation und Benutzerhandbuch: **[Wiki](https://wi
 
 Eine detaillierte, phasenbasierte Roadmap: **[ROADMAP.md](ROADMAP.md)**
 
-Aktuelle Phase: **Phase 0 — Konzept & Setup**
+Aktueller Stand: **Phasen 0–3 abgeschlossen** (Solo-Modus, Company-Modus mit Auth/RBAC/Sync, Infrastruktur, Homepage & Wiki). In Arbeit: **Phase 4 — Erweiterte Features** (Foto-Anhänge, Fälligkeitsverwaltung, digitale Unterschrift, individuelle Templates).
 
 ---
 

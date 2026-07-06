@@ -69,7 +69,7 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 ### M1.1 — Flutter-Grundgerüst
 
 - ✅ App-Architektur: Riverpod (State) + GoRouter (Navigation)
-- ✅ Isar-Datenbankschema: lokale Modelle für alle Entitäten
+- ✅ Sembast-Datenbankschema: lokale Modelle für alle Entitäten
 - ✅ App-Modus-Erkennung: Solo vs. Company via `SharedPreferences`
 - ✅ Navigation-Shell: Bottom Navigation Bar (Mobile) / Navigation Rail (Tablet) / Drawer (Desktop)
 - ✅ Theme-System: Industrial Precision System (Inter + JetBrains Mono, Slate-Palette)
@@ -210,7 +210,7 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 
 ---
 
-## Phase 2 — Company-Modus (Paid Tiers)
+## Phase 2 — Company-Modus (Cloud & Self-Hosting)
 
 > Ziel: Backend, Authentifizierung, RBAC und Offline-Sync. Solo-Nutzer können auf Company upgraden.
 
@@ -232,7 +232,7 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 - ✅ Mandant anlegen: `POST /api/admin/firmen`
 - ✅ Mandant sperren / entsperren: `PATCH /api/admin/firmen/:id/status`
 - ✅ Firma-Sperrung sofort wirksam via `firmaSperreMiddleware` (DB-Check pro Request)
-- 📋 Mandant-Details: Benutzeranzahl, Tier (noch offen)
+- 📋 Mandant-Details: Benutzeranzahl, Abo-Status (Cloud aktiv / Self-Hosting) (noch offen)
 
 ### M2.3 — Serverpod API-Endpoints
 
@@ -262,7 +262,7 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 
 ### M2.5 — Offline-Sync
 
-- ✅ Operation-Queue in Isar (lokales Log aller Änderungen: Create/Delete + Typ + Payload)
+- ✅ Operation-Queue in Sembast (lokales Log aller Änderungen: Create/Delete + Typ + Payload)
 - ✅ Sync-Trigger: automatisch bei Netzwerkverfügbarkeit (connectivity_plus)
 - ✅ Idempotente Verarbeitung auf dem Server (`sync_uuid` als Idempotenz-Key)
 - ✅ Sync-Status je Datensatz: ausstehend / synchronisiert / Fehler
@@ -275,7 +275,7 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 - ✅ „Mit Konto verbinden"-Button im Solo-Modus
 - ✅ Login / Registrierungs-Bildschirm erreichbar ohne Datenverlust
 - ✅ Migrations-Dialog: „Möchtest du deine lokalen Daten ins Backend übertragen?" (Ja / Nein / Später)
-- ✅ Migrations-Routine: lokale Isar-Datensätze per API ins Backend schreiben (UUID erhalten)
+- ✅ Migrations-Routine: lokale Sembast-Datensätze per API ins Backend schreiben (UUID erhalten)
 - ✅ Migrations-Fortschrittsanzeige (Batch-Upload)
 - ✅ Rollback bei Fehler (lokale Daten bleiben erhalten)
 
@@ -300,7 +300,7 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 - ✅ Seitenstruktur: Hero / Features / Preise / FAQ / Footer
 - ✅ Inhalt: Hero (Tagline, Screenshot-Mockup, Download-CTA)
 - ✅ Inhalt: Feature-Kacheln (Solo vs. Company)
-- ✅ Inhalt: Preis-Tabelle (Tiers)
+- ✅ Inhalt: Preis-Tabelle (Solo / Cloud / Self-Hosting)
 - ✅ Inhalt: FAQ (häufige Fragen)
 - ✅ Inhalt: Footer (Impressum-Link, Datenschutz-Link, GitHub-Link)
 - ✅ Responsiv: Mobile-First, Breakpoints für Tablet und Desktop
@@ -353,7 +353,7 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 - ✅ Bildgalerie in der Detailansicht
 - ✅ Fotos optional im PDF einbetten (verkleinert)
 - ✅ Company-Modus: Fotos in Backend-Speicher hochladen (Sync)
-- ✅ Speicher-Limit je Tier definieren
+- ✅ Speicher-Limit für Cloud-Backend definieren
 
 ### M4.2 — Fälligkeitsverwaltung
 
@@ -420,11 +420,15 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 
 ### M5.4 — Monetarisierung aktivieren
 
-- ⏳ Stripe-Integration: Subscription je Tier
-- ⏳ Tier-Limits im Backend erzwingen (max. Benutzer-Prüfung)
-- ⏳ Billing-Portal für Firmenadmins
-- ⏳ Self-Hosting-Lizenzschlüssel-Mechanismus (Enterprise)
-- ⏳ Genaue Tier-Preise festlegen und in Homepage/Wiki einpflegen
+> Preismodell (Stand Juli 2026): **Solo** kostenlos · **Cloud** 20 €/Monat pauschal
+> pro Firma (unbegrenzte Nutzer) · **Self-Hosting** kostenlos via MIT-Lizenz.
+> Keine gestaffelten Tiers, keine Nutzerlimits.
+
+- ⏳ Stripe-Integration: eine Subscription (Cloud, 20 €/Monat pro Firma)
+- ⏳ Billing-Portal für Firmenadmins (Abo starten / kündigen / Rechnungen)
+- ⏳ Cloud-Abo-Status im Backend prüfen (aktiv / gekündigt → Zugriff steuern)
+- ✅ Self-Hosting ohne Lizenzschlüssel (MIT-Lizenz, frei nutzbar)
+- ✅ Preise in Homepage & Wiki eingepflegt (2026-07-06)
 
 ---
 

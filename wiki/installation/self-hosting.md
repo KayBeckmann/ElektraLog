@@ -1,5 +1,10 @@
 # Self-Hosting mit Docker
 
+ElektraLog steht unter der **MIT-Lizenz** und darf kostenlos und unbegrenzt selbst
+gehostet werden — mit vollem Company-Funktionsumfang und ohne Nutzerlimit. Wer den
+Betrieb nicht selbst übernehmen möchte, findet in der [Cloud-Variante](../varianten-und-preise.md)
+(20 €/Monat pauschal pro Firma) eine gehostete Alternative.
+
 ## Voraussetzungen
 
 - **Docker** (aktuelle stabile Version)
@@ -12,8 +17,8 @@
 ### 1. Repository klonen
 
 ```bash
-git clone https://github.com/your-org/elektralog.git
-cd elektralog
+git clone https://github.com/KayBeckmann/ElektraLog.git
+cd ElektraLog
 ```
 
 ### 2. Umgebungsvariablen konfigurieren
