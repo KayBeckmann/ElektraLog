@@ -88,14 +88,70 @@ class AppScaffold extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Auto-Pull alle 60s im Company-Modus — startet nach Login, stoppt nach Logout
     ref.watch(autoSyncProvider);
+    final sessionExpired = ref.watch(sessionExpiredProvider);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth >= _kDesktopBreakpoint) {
-          return _DesktopShell(child: child);
-        }
-        return _MobileShell(child: child);
-      },
+    return Column(
+      children: [
+        if (sessionExpired) const _SessionExpiredBanner(),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth >= _kDesktopBreakpoint) {
+                return _DesktopShell(child: child);
+              }
+              return _MobileShell(child: child);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Persistente, nicht wegtippbare Hinweisleiste — erscheint automatisch,
+/// wenn ein API-Call mit 401 (abgelaufener/ungültiger Token) fehlschlägt
+/// und daraufhin [ApiService.onSessionExpired] den Auto-Logout ausgelöst
+/// hat (siehe main.dart). Bleibt sichtbar, bis sich der Nutzer neu anmeldet
+/// — so bemerkt niemand einen abgelaufenen Token erst durch stumm
+/// fehlgeschlagene Uploads (z.B. nach mehrwöchiger Abwesenheit).
+class _SessionExpiredBanner extends ConsumerWidget {
+  const _SessionExpiredBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Material(
+      color: AppColors.error,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              const Icon(Icons.lock_clock, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Deine Sitzung ist abgelaufen. Bitte melde dich erneut an '
+                  '— erst danach werden ausstehende Daten wieder synchronisiert.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () {
+                  ref.read(sessionExpiredProvider.notifier).state = false;
+                  context.go(AppRoutes.auth);
+                },
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
+                child: const Text('Jetzt anmelden'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

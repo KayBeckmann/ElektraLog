@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:printing/printing.dart';
 
 import '../../core/api/api_service.dart';
+import '../../core/providers/isar_provider.dart';
+import '../../core/providers/pruefprotokoll_provider.dart';
+import '../../core/sync/sync_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
 
@@ -42,57 +45,145 @@ class ProtokollUebersichtScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.cloud_off, size: 48, color: AppColors.outline),
-              const SizedBox(height: 12),
-              Text(
-                'Protokolle konnten nicht geladen werden',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.onSurfaceVariant,
+      body: Column(
+        children: [
+          const _PendingUploadsBanner(),
+          Expanded(
+            child: async.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.cloud_off,
+                        size: 48, color: AppColors.outline),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Protokolle konnten nicht geladen werden',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.onSurfaceVariant,
+                          ),
                     ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                e.toString(),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.outline,
+                    const SizedBox(height: 4),
+                    Text(
+                      e.toString(),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.outline,
+                          ),
+                      textAlign: TextAlign.center,
                     ),
-                textAlign: TextAlign.center,
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
-        data: (list) {
-          if (list.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.description_outlined,
-                      size: 48, color: AppColors.outline),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Noch keine Protokolle hochgeladen',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.onSurfaceVariant,
+              data: (list) {
+                if (list.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.description_outlined,
+                            size: 48, color: AppColors.outline),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Noch keine Protokolle hochgeladen',
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
                         ),
+                      ],
+                    ),
+                  );
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: list.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, i) => _ProtokollTile(data: list[i]),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Ausstehende Uploads ──────────────────────────────────────────────────────
+
+/// Zeigt lokal noch nicht hochgeladene Prüfprotokolle an (z.B. weil der
+/// Monteur beim Erstellen keinen Empfang hatte oder der Token abgelaufen
+/// war) und bietet einen manuellen Retry an — ergänzt den automatischen
+/// Retry in [SyncService.autoSync], der erst beim nächsten Sync greift.
+class _PendingUploadsBanner extends ConsumerStatefulWidget {
+  const _PendingUploadsBanner();
+
+  @override
+  ConsumerState<_PendingUploadsBanner> createState() =>
+      _PendingUploadsBannerState();
+}
+
+class _PendingUploadsBannerState extends ConsumerState<_PendingUploadsBanner> {
+  bool _uploading = false;
+
+  Future<void> _jetztHochladen() async {
+    setState(() => _uploading = true);
+    try {
+      final db = await ref.read(dbProvider.future);
+      await SyncService.retryAusstehendeProtokolle(db);
+      ref.invalidate(protokolleProvider);
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ausstehendAsync = ref.watch(allePruefprotokolleProvider);
+    final ausstehend = ausstehendAsync.valueOrNull
+            ?.where((p) => p.backendUuid == null && p.pdfBase64 != null)
+            .toList() ??
+        const [];
+
+    if (ausstehend.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      color: AppColors.warningContainer,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Icon(Icons.cloud_upload_outlined,
+              size: 20, color: AppColors.warning),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              ausstehend.length == 1
+                  ? '1 Protokoll wurde noch nicht hochgeladen'
+                  : '${ausstehend.length} Protokolle wurden noch nicht hochgeladen',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.w600,
                   ),
-                ],
-              ),
-            );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: list.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, i) => _ProtokollTile(data: list[i]),
-          );
-        },
+            ),
+          ),
+          const SizedBox(width: 8),
+          _uploading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.warning,
+                  ),
+                )
+              : TextButton(
+                  onPressed: _jetztHochladen,
+                  style: TextButton.styleFrom(foregroundColor: AppColors.warning),
+                  child: const Text('Jetzt hochladen'),
+                ),
+        ],
       ),
     );
   }

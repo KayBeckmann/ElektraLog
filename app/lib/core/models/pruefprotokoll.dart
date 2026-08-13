@@ -24,6 +24,14 @@ class Pruefprotokoll {
   /// UUID des Protokolls im Backend (null = noch nicht synchronisiert)
   final String? backendUuid;
 
+  /// Base64-kodiertes Original-PDF, solange [backendUuid] noch null ist.
+  /// Ermöglicht einen späteren Retry mit exakt demselben PDF, ohne es aus
+  /// [messdatenSnapshot] neu erzeugen zu müssen (Monteure haben nicht immer
+  /// direkt Empfang, siehe [SyncService.retryAusstehendeProtokolle]). Wird
+  /// nach erfolgreichem Upload via [ohnePdf] wieder verworfen — die
+  /// Dokumentenablage im Backend ist dann die alleinige Quelle für das PDF.
+  final String? pdfBase64;
+
   final DateTime erstelltAm;
 
   Pruefprotokoll({
@@ -37,6 +45,7 @@ class Pruefprotokoll {
     this.kundenBezeichnung,
     this.messdatenSnapshot,
     this.backendUuid,
+    this.pdfBase64,
     DateTime? erstelltAm,
   })  : uuid = uuid ?? const Uuid().v4(),
         erstelltAm = erstelltAm ?? DateTime.now().toUtc();
@@ -52,6 +61,7 @@ class Pruefprotokoll {
         'kundenBezeichnung': kundenBezeichnung,
         'messdatenSnapshot': messdatenSnapshot,
         'backendUuid': backendUuid,
+        'pdfBase64': pdfBase64,
         'erstelltAm': erstelltAm.toUtc().toIso8601String(),
       };
 
@@ -66,6 +76,7 @@ class Pruefprotokoll {
         kundenBezeichnung: json['kundenBezeichnung'] as String?,
         messdatenSnapshot: json['messdatenSnapshot'] as String?,
         backendUuid: json['backendUuid'] as String?,
+        pdfBase64: json['pdfBase64'] as String?,
         erstelltAm: DateTime.parse(json['erstelltAm'] as String),
       );
 
@@ -80,6 +91,25 @@ class Pruefprotokoll {
         kundenBezeichnung: kundenBezeichnung,
         messdatenSnapshot: messdatenSnapshot,
         backendUuid: id,
+        pdfBase64: pdfBase64,
+        erstelltAm: erstelltAm,
+      );
+
+  /// Kopie ohne lokal gespeicherte PDF-Bytes — nach erfolgreichem Upload
+  /// aufgerufen, damit nicht dauerhaft PDFs doppelt (lokal + Backend)
+  /// vorgehalten werden.
+  Pruefprotokoll ohnePdf() => Pruefprotokoll(
+        uuid: uuid,
+        verteilerUuid: verteilerUuid,
+        protokollDatum: protokollDatum,
+        prueferName: prueferName,
+        firma: firma,
+        verteilerBezeichnung: verteilerBezeichnung,
+        standortBezeichnung: standortBezeichnung,
+        kundenBezeichnung: kundenBezeichnung,
+        messdatenSnapshot: messdatenSnapshot,
+        backendUuid: backendUuid,
+        pdfBase64: null,
         erstelltAm: erstelltAm,
       );
 }

@@ -279,7 +279,10 @@ class _VerteilerDetailScreenState
         sichtpruefungen: sichtpruefungen.cast(),
       );
 
-      // Protokoll-Eintrag im Verlauf speichern
+      // Protokoll-Eintrag im Verlauf speichern — inkl. PDF-Bytes, damit ein
+      // fehlgeschlagener oder unterbliebener Upload (z.B. ohne Empfang)
+      // später mit exakt demselben PDF nachgeholt werden kann (siehe
+      // SyncService.retryAusstehendeProtokolle).
       final protokoll = Pruefprotokoll(
         verteilerUuid: widget.verteilerUuid,
         protokollDatum: DateTime.now(),
@@ -289,11 +292,14 @@ class _VerteilerDetailScreenState
         standortBezeichnung: standortBezeichnung,
         kundenBezeichnung: kundenName,
         messdatenSnapshot: snapshot,
+        pdfBase64: base64Encode(bytes),
       );
       final repo = ref.read(pruefprotokollRepositoryProvider);
       await repo.save(protokoll);
 
-      // Im Hintergrund ins Backend hochladen (non-blocking, offline-tolerant)
+      // Im Hintergrund ins Backend hochladen (non-blocking, offline-tolerant).
+      // Gelingt der Upload nicht (offline, abgelaufener Token, …), bleibt
+      // das PDF lokal gespeichert und wird per Retry nachgeholt.
       ApiService.uploadProtokoll(
         pdfBytes: bytes,
         verteilerBezeichnung: verteiler.bezeichnung,
@@ -305,7 +311,7 @@ class _VerteilerDetailScreenState
         messdatenJson: snapshot,
       ).then((backendUuid) async {
         if (backendUuid != null) {
-          await repo.save(protokoll.mitBackendUuid(backendUuid));
+          await repo.save(protokoll.mitBackendUuid(backendUuid).ohnePdf());
         }
       });
 
