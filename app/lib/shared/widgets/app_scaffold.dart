@@ -135,12 +135,26 @@ class _DesktopDrawer extends ConsumerStatefulWidget {
 class _DesktopDrawerState extends ConsumerState<_DesktopDrawer> {
   bool _isSyncing = false;
 
+  /// Nutzt [SyncService.autoSync] statt einzelner pull/push-Aufrufe: Die
+  /// dortige Push-vor-Pull-Reihenfolge ist für die Server-Rollback-Erkennung
+  /// wichtig (Roadmap M9.1) — lokale Daten werden erst hochgeladen, bevor
+  /// die Revision geprüft wird, statt ein evtl. veraltetes Serverergebnis
+  /// blind zu übernehmen.
   Future<void> _sync() async {
     setState(() => _isSyncing = true);
     try {
       final db = await ref.read(dbProvider.future);
-      await SyncService.pullAll(db);
-      await SyncService.pushAll(db);
+      final result = await SyncService.autoSync(db);
+      if (mounted && result == SyncResult.rollbackDetected) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+            'Server-Rücksetzung erkannt — lokale Daten wurden zum Schutz '
+            'erneut hochgeladen, aber nicht überschrieben.',
+          ),
+          backgroundColor: AppColors.warning,
+          duration: Duration(seconds: 6),
+        ));
+      }
     } finally {
       if (mounted) setState(() => _isSyncing = false);
     }

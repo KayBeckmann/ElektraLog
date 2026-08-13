@@ -14,21 +14,71 @@ import '../models/messung.dart';
 import '../models/sichtpruefung.dart';
 import '../providers/app_mode_provider.dart';
 import '../providers/isar_provider.dart';
+import 'sync_revision.dart';
 
 enum SyncStatus { idle, syncing, error, success }
 
-enum SyncResult { success, offline, error }
+enum SyncResult {
+  success,
+  offline,
+  error,
+
+  /// Roadmap M9.1: Server-Revision ist gegenüber dem zuletzt bekannten
+  /// Stand zurückgesprungen (vermutlich Restore auf ein älteres Backup).
+  /// Der Pull wurde zum Schutz lokaler Daten übersprungen; lokale Daten
+  /// wurden stattdessen erneut hochgeladen.
+  rollbackDetected,
+}
 
 class SyncService {
   static Timer? _pushTimer;
 
+  static const _lastRevisionPrefsKey = 'sync_last_known_revision';
+
+  static Future<int?> _getLastKnownRevision() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_lastRevisionPrefsKey);
+  }
+
+  static Future<void> _storeLastKnownRevision(int revision) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_lastRevisionPrefsKey, revision);
+  }
+
   // ── Pull ──────────────────────────────────────────────────────────────────
 
   /// Zieht alle Rohdaten vom Backend und speichert sie lokal.
-  /// Server hat immer Vorrang: Server-Datensatz überschreibt immer den lokalen.
-  static Future<void> pullAll(Database db) async {
+  /// Server hat Vorrang: Server-Datensatz überschreibt den lokalen —
+  /// AUSSER die Server-Revision ist gegenüber dem zuletzt bekannten Stand
+  /// zurückgesprungen (Roadmap M9.1: Server-Restore-Schutz). In dem Fall
+  /// wird der Merge übersprungen, um lokale, dem restaurierten Server noch
+  /// unbekannte Daten nicht zu überschreiben.
+  ///
+  /// Gibt `true` zurück, wenn ein Rollback erkannt und der Merge deshalb
+  /// übersprungen wurde, sonst `false`.
+  static Future<bool> pullAll(Database db) async {
     try {
       final data = await ApiService.pullAll();
+
+      final serverRevision = data['syncRevision'] as int?;
+      if (serverRevision != null) {
+        final lastKnown = await _getLastKnownRevision();
+        final check = evaluateSyncRevision(
+          lastKnown: lastKnown,
+          serverRevision: serverRevision,
+        );
+        if (check == RevisionCheck.rollbackDetected) {
+          debugPrint(
+            'Sync-Rollback erkannt: Server-Revision $serverRevision < '
+            'zuletzt bekannt $lastKnown — Pull-Merge übersprungen.',
+          );
+          return true;
+        }
+        // Baseline nur bei nicht-erkanntem Rollback fortschreiben, damit
+        // ein erkannter Rollback bei jedem weiteren Sync erneut geprüft
+        // wird, bis der Server den alten Stand wieder erreicht/überholt hat.
+        await _storeLastKnownRevision(serverRevision);
+      }
 
       await _mergeList<Kunde>(
         db: db,
@@ -79,8 +129,10 @@ class SyncService {
                 Sichtpruefung.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),
       );
+      return false;
     } catch (e) {
       debugPrint('pullAll fehlgeschlagen: $e');
+      return false;
     }
   }
 
@@ -178,13 +230,19 @@ class SyncService {
   /// erreichbar. Gibt das Ergebnis zurück, damit Aufrufer Feedback zeigen können.
   /// Alle Netzwerkfehler (offline, Timeout, server error) werden als [SyncResult.offline]
   /// behandelt — kein Fehler-Popup für den Nutzer.
+  ///
+  /// Push läuft bewusst VOR dem Pull (Roadmap M9.1): Wurde der Server auf
+  /// ein älteres Backup zurückgesetzt, lädt der Push lokale Daten dorthin
+  /// idempotent wieder hoch, bevor der anschließende Pull die Revision
+  /// prüft und einen ggf. weiterhin veralteten Serverstand erkennt, statt
+  /// ihn blind zu übernehmen.
   static Future<SyncResult> autoSync(Database db) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (prefs.getString('jwt_token') == null) return SyncResult.offline;
       await pushAll(db);
-      await pullAll(db);
-      return SyncResult.success;
+      final rollbackDetected = await pullAll(db);
+      return rollbackDetected ? SyncResult.rollbackDetected : SyncResult.success;
     } catch (e) {
       debugPrint('autoSync: keine Verbindung oder Fehler: $e');
       return SyncResult.offline;
