@@ -53,6 +53,24 @@ class PruefprotokollRepository {
         .record(p.uuid)
         .put(_db, p.toJson().cast<String, Object?>());
   }
+
+  /// Protokolle, die noch nicht im Backend angekommen sind, aber noch ihr
+  /// Original-PDF lokal vorhalten — also erneut hochgeladen werden können.
+  /// Basis für [SyncService.retryAusstehendeProtokolle].
+  Future<List<Pruefprotokoll>> getAusstehende() async {
+    final finder = Finder(
+      filter: Filter.and([
+        Filter.equals('backendUuid', null),
+        Filter.notEquals('pdfBase64', null),
+      ]),
+    );
+    final snaps =
+        await StorageService.pruefprotokollStore.find(_db, finder: finder);
+    return snaps
+        .map((snap) =>
+            Pruefprotokoll.fromJson(snap.value.cast<String, dynamic>()))
+        .toList();
+  }
 }
 
 final pruefprotokollRepositoryProvider =

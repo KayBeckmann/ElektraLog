@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sembast/sembast.dart';
@@ -14,6 +15,7 @@ import '../models/messung.dart';
 import '../models/sichtpruefung.dart';
 import '../providers/app_mode_provider.dart';
 import '../providers/isar_provider.dart';
+import '../providers/pruefprotokoll_provider.dart';
 import 'sync_revision.dart';
 
 enum SyncStatus { idle, syncing, error, success }
@@ -207,6 +209,44 @@ class SyncService {
         sichtpruefungen.length;
   }
 
+  // ── Ausstehende Protokoll-Uploads (Retry) ───────────────────────────────────
+
+  /// Lädt alle lokal noch nicht im Backend angekommenen Prüfprotokolle
+  /// erneut hoch — deckt sowohl "beim Erstellen offline gewesen" als auch
+  /// "Upload ist wegen abgelaufenem Token mit 401 fehlgeschlagen" ab, da
+  /// beide Fälle das PDF unverändert lokal zurücklassen (Task: Monteure
+  /// haben nicht immer und überall Empfang). Einzelne fehlgeschlagene
+  /// Retries brechen den Lauf nicht ab — sie bleiben einfach bis zum
+  /// nächsten Sync ausstehend. Gibt die Anzahl erfolgreicher Uploads zurück.
+  static Future<int> retryAusstehendeProtokolle(Database db) async {
+    final repo = PruefprotokollRepository(db);
+    final ausstehende = await repo.getAusstehende();
+    var erfolgreich = 0;
+    for (final p in ausstehende) {
+      final pdfBase64 = p.pdfBase64;
+      if (pdfBase64 == null) continue;
+      try {
+        final backendUuid = await ApiService.uploadProtokoll(
+          pdfBytes: base64Decode(pdfBase64),
+          verteilerBezeichnung: p.verteilerBezeichnung ?? '',
+          standortBezeichnung: p.standortBezeichnung,
+          kundenBezeichnung: p.kundenBezeichnung,
+          prueferName: p.prueferName,
+          firmaName: p.firma,
+          protokollDatum: p.protokollDatum,
+          messdatenJson: p.messdatenSnapshot,
+        );
+        if (backendUuid != null) {
+          await repo.save(p.mitBackendUuid(backendUuid).ohnePdf());
+          erfolgreich++;
+        }
+      } catch (e) {
+        debugPrint('Retry-Upload für Protokoll ${p.uuid} fehlgeschlagen: $e');
+      }
+    }
+    return erfolgreich;
+  }
+
   // ── Triggered Push (debounced) ────────────────────────────────────────────
 
   /// Löst einen Push aus, 2 Sekunden nach dem letzten Aufruf.
@@ -235,12 +275,15 @@ class SyncService {
   /// ein älteres Backup zurückgesetzt, lädt der Push lokale Daten dorthin
   /// idempotent wieder hoch, bevor der anschließende Pull die Revision
   /// prüft und einen ggf. weiterhin veralteten Serverstand erkennt, statt
-  /// ihn blind zu übernehmen.
+  /// ihn blind zu übernehmen. Ausstehende Protokoll-Uploads laufen aus
+  /// demselben Grund direkt nach dem Push — auch das ist letztlich nur
+  /// eine weitere Art, lokale Daten zum Server zu bringen.
   static Future<SyncResult> autoSync(Database db) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       if (prefs.getString('jwt_token') == null) return SyncResult.offline;
       await pushAll(db);
+      await retryAusstehendeProtokolle(db);
       final rollbackDetected = await pullAll(db);
       return rollbackDetected ? SyncResult.rollbackDetected : SyncResult.success;
     } catch (e) {
