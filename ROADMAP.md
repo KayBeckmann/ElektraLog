@@ -478,6 +478,125 @@ Phasenbasierte Entwicklungsplanung. Jede Phase baut auf der vorherigen auf.
 
 ---
 
+## Phase 8 — Inbox-Anforderungen Juli 2026
+
+> Ziel: Verbesserungen aus der Obsidian-Inbox umsetzen.
+
+### M8.1 — PDF-Verbesserungen & Download-Fix
+
+- ✅ **Messdatum in Kopfzeile pro BMK**: Messdatum erscheint jetzt rechtsbündig im dunklen Komponenten-Header-Balken (Kopfzeile) jeder BMK-Sektion im Protokoll — auf einen Blick sichtbar, ohne Messwertdetail lesen zu müssen
+- ✅ **Neueste Messung pro BMK immer abdrucken**: `filterMessungenForProtokoll()` filtert bereits korrekt (neueste pro Komponente, archivierte raus) — gilt jetzt konsequent auch im Standort-Screen; gleichzeitig `Printing.layoutPdf`-Bug im Standort-Screen behoben (war noch nicht auf `sharePdf` umgestellt)
+- ✅ **PDF-Download Web + Android**: `Printing.layoutPdf` → `Printing.sharePdf` in Protokoll-Übersicht **und** Standort-Screen — kein leerer Print-Screen auf Android mehr, echter Datei-Download auf Web
+
+### M8.2 — PDF-Archiv: Korruption durch ungetypten postgres-Parameter
+
+- ✅ **Root Cause**: postgres 3.x `_defaultTextEncoder` kodiert `Uint8List` als PostgreSQL-Array-Literal `{37,80,...}` weil `Uint8List is List<int>` — ohne explizite Typangabe landet ASCII-Text statt Binärdaten in der BYTEA-Spalte
+- ✅ **Backend-Fix**: `'pdf': TypedValue(Type.byteArray, pdfBytes)` im INSERT-Parameter des `create`-Endpoints — postgres-Bibliothek nutzt jetzt `PostgresBinaryEncoder` für korrekte Binär-Kodierung
+- ✅ **Download-Endpoint**: `getPdf` expliziter `Uint8List`-Cast + `Stream<List<int>>.value(pdfBytes)` als Shelf-Body — keine Shelf-Ambiguität mehr bei `List<int>` vs. `Uint8List`
+- ✅ **Deployment-Fix**: `image: elektralog-serverpod:latest` in `docker-compose.yml` explizit gesetzt — verhindert, dass `--force-recreate` das falsche (lokal gebaute) Image nimmt statt das extern importierte
+- ⚠️ **Altdaten**: Alle vor dem Fix gespeicherten Protokolle in der DB enthalten korrumpierte PDFs (`{37,80,...}` als Text statt Binärdaten) — müssen neu generiert und hochgeladen werden
+
+---
+
+## Phase 9 — Synchronisations-Robustheit & PDF-Ablage
+
+> Quelle: Inbox-Datei `ElektraLog.md`, übernommen am 2026-08-06 als Besprechungsnotiz. Ziel: ElektraLog muss klar definieren, wie sich Sync nach Server-Backup/Rücksetzung verhält, partielle Synchronisation erlauben und PDFs nicht direkt in der Datenbank speichern.
+
+### M9.1 — Sync-Verhalten nach Server-Backup/Rücksetzung
+
+**Status: erledigt 2026-08-13.** Migration 008 führt `firmen.sync_revision` ein (monoton, erhöht bei jedem Sync-Push/Delete/Protokoll-Upload). `GET /api/sync` liefert `syncRevision` mit; der Client (`SyncService`/`evaluateSyncRevision`) merkt sich den zuletzt bekannten Wert und überspringt den destruktiven Pull-Merge, sobald die Server-Revision zurückspringt — stattdessen wird erneut idempotent gepusht (Push läuft bewusst vor dem Pull) und eine deutsche Warnung angezeigt. Bleibt aktiv, bis der Server den alten Stand wieder erreicht/überholt. End-to-End gegen einen echten Docker-Compose-Stack verifiziert (Push/Pull/Delete-Revisionsverhalten + simulierter Server-Restore).
+
+- ✅ Szenario explizit behandeln: Server wurde auf ein älteres Backup zurückgesetzt, lokale Geräte haben aber bereits neuere Daten von heute.
+- ✅ Lokale neuere Daten dürfen nicht durch den älteren Serverstand gelöscht oder überschrieben werden.
+- ✅ Sync muss Server-Rollback erkennen oder zumindest sicher darauf reagieren:
+  - Server-Sync-Revision / Backup-Generation / Sync-Epoch einführen;
+  - Client speichert zuletzt bekannte Server-Revision;
+  - bei Rücksprung Warnung und Schutzmodus statt blindem Abgleich.
+- ✅ Append-only-Operationen erneut idempotent hochladen, wenn sie lokal vorhanden, auf dem Server aber nach Restore fehlen.
+- ⚠️ Konfliktfälle dokumentiert (siehe oben), aber nicht als granulare Einzelfall-UI ausdifferenziert — die Lösung ist bewusst grob (ganze Firma in Schutzmodus statt Konflikt je Datensatz), reicht aber für das beschriebene Szenario.
+- ✅ Benutzerfeedback in Deutsch: klar anzeigen, dass ein Server-Restore erkannt wurde und lokale Daten geschützt/erneut synchronisiert werden.
+- ✅ Testfälle mit simuliertem Server-Restore ergänzt (`app/test/core/sync/sync_revision_test.dart` + manuelle Docker-Compose-Verifikation).
+
+### M9.2 — Asymmetrische Synchronisation: Upload immer vollständig, Download nach Nutzer-Auswahl
+
+- ✅ Präzisierung 2026-08-06: Die partielle Synchronisation betrifft **nur den Download-/Synchalten-Umfang vom Server zum Endgerät**.
+- 📋 Upload-Regel: Das Endgerät gleicht **immer alles lokal Vorhandene** gegen den Server ab und lädt **alles hoch, was dem Server noch nicht bekannt ist**.
+  - Keine lokale Messung/Strukturänderung darf nur deshalb ungepusht bleiben, weil der Nutzer aktuell nur einen Teilbereich synchron hält.
+  - Der Server muss Uploads idempotent per UUID/Revision annehmen bzw. als bereits bekannt erkennen.
+  - Upload ist damit Schutz gegen Server-Backup/Rollback: lokal vorhandene, serverseitig fehlende Daten werden erneut hochgeladen.
+- 📋 Download-/Synchalten-Regel: Vom Server wird nur das auf das Endgerät geladen bzw. aktuell gehalten, was der Nutzer aktiviert hat.
+- 📋 Auswahl-/Filterebenen für den Download:
+  - Kunde;
+  - Standort;
+  - Verteiler.
+- 📋 Die UI muss eine klare hierarchische Auswahl anbieten:
+  - zuerst Kunde wählen;
+  - danach optional Standort einschränken;
+  - danach optional einzelnen Verteiler einschränken.
+- 📋 Leere Struktur auf dem Endgerät immer anlegen:
+  - Kunde;
+  - Standort;
+  - Verteiler.
+- 📋 Aufbau im Verteiler, also Komponentenbaum/Betriebsmittel/Prüfpunkte, wird nur heruntergeladen, wenn die Synchronisation für diesen Verteiler aktiviert ist.
+- 📋 Alte Messdaten werden nur heruntergeladen, wenn dies ebenfalls aktiviert ist.
+- 📋 Auswahlzustand muss sichtbar bleiben: Nutzer sieht jederzeit, ob gerade „alles", ein Kunde, ein Standort oder ein Verteiler synchron gehalten wird und ob alte Messdaten mitgeladen werden.
+- 📋 Für Monteure/Prüftechniker darf die Auswahl nur Daten zeigen, auf die sie rollen-/mandantenbedingt Zugriff haben.
+- 📋 Backend/API muss Filterparameter für `kundeId`, `standortId`, `verteilerId`, `includeVerteilerAufbau` und `includeAlteMessdaten` unterstützen und nur berechtigte Mandantendaten liefern.
+- 📋 Offline-First-Regel bewahren: lokal vorhandene Daten bleiben nutzbar, auch wenn sie nicht im aktuellen Download-Teil-Sync enthalten sind.
+- 📋 Lösch-/Archivlogik sauber trennen: „nicht im Download-Filter enthalten" bedeutet nicht „löschen".
+
+### M9.3 — Alte Messdaten / Sync-Zeitraum als separate Download-Option
+
+- 📋 Synchronisationsumfang für alte Messdaten auswählbar machen; diese Option betrifft den **Download vom Server**, nicht den vollständigen Upload lokaler Daten.
+- 📋 Vorgesehene Optionen aus der Inbox:
+  - alte Messdaten nicht laden;
+  - alle Messungen;
+  - die letzten 2 Messungen;
+  - die letzten 4 Messungen.
+- 📋 Präzisieren, ob „letzte 2/4 Messungen" pro Komponente, Verteiler oder Standort gilt; bevorzugt pro Komponente/BMK, weil das zur Protokolllogik passt.
+- 📋 Zusätzlich prüfen, ob ein Datumsfenster sinnvoller ist:
+  - heute;
+  - letzte 7 Tage;
+  - letzter Prüfzyklus;
+  - benutzerdefinierter Zeitraum.
+- 📋 Sync-Optionen müssen PDF-/Protokoll-Erzeugung berücksichtigen: Wenn nur wenige Messungen heruntergeladen/synchron gehalten sind, darf das Protokoll nicht so tun, als seien ältere Messungen geprüft/verfügbar.
+
+### M9.4 — PDF-Ablage nicht direkt in der Datenbank
+
+- 📋 Strategiewechsel für Prüfprotokoll-PDFs: PDF-Dateien nicht mehr direkt als BYTEA in PostgreSQL speichern.
+- 📋 Datenbank speichert nur Metadaten und Pfad/Objekt-Key:
+  - Protokoll-ID / UUID;
+  - Firma/Kunde/Standort/Verteiler;
+  - Erstellungsdatum;
+  - Prüfer;
+  - Dateipfad / Storage-Key;
+  - Hash/Größe/MIME-Type;
+  - optional Signatur-/Freigabestatus.
+- 📋 Dateisystem-/Object-Storage-Struktur nach Inbox-Vorgabe:
+  - Kunde;
+  - Standort;
+  - Verteiler.
+- 📋 Konkretes Pfadschema definieren, z. B. `pdf_archive/<firma>/<kunde>/<standort>/<verteiler>/<yyyy>/<protokoll_uuid>.pdf`.
+- 📋 Download-Endpoint liest PDF aus Storage und streamt sie authentifiziert aus.
+- 📋 Zugriffsschutz muss weiterhin mandanten- und rollenbasiert über Backend laufen; keine direkten ungeschützten Dateilinks.
+- 📋 Migration für vorhandene DB-PDFs planen:
+  - gültige PDFs aus DB exportieren;
+  - Dateien ins neue Storage schreiben;
+  - DB auf Pfad/Metadaten aktualisieren;
+  - beschädigte Alt-PDFs neu generieren.
+
+### M9.5 — Tests und Abnahme für Sync/PDF-Slice
+
+- ✅ Test: Server-Restore simulieren, lokale heutige Daten bleiben erhalten und werden erneut hochgeladen. *(nur M9.1-Teil; PDF-Storage-Tests folgen mit M9.4)*
+- 📋 Test: Partielle Synchronisation Kunde/Standort lädt nur gewünschten Bereich.
+- 📋 Test: Auswahl „alle / letzte 2 / letzte 4 Messungen" wirkt deterministisch.
+- 📋 Test: Teil-Sync löscht keine lokalen Daten außerhalb des Filters.
+- 📋 Test: PDF-Erzeugung schreibt Datei ins Storage und Metadaten in DB.
+- 📋 Test: PDF-Download funktioniert über Backend mit Auth/RBAC.
+- 📋 Test: DB enthält keine neuen PDF-BLOBs mehr.
+
+---
+
 ## Nicht geplant (bewusst ausgeschlossen)
 
 - Native iOS-App (kein Apple-Entwicklerkonto im Scope)
