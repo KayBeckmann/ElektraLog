@@ -29,6 +29,7 @@ services:
       - ./packages/elektralog_server/migrations/005_aktualisiert_am.sql:/docker-entrypoint-initdb.d/005_aktualisiert_am.sql:ro
       - ./packages/elektralog_server/migrations/006_default_rollen.sql:/docker-entrypoint-initdb.d/006_default_rollen.sql:ro
       - ./packages/elektralog_server/migrations/007_firma_adresse.sql:/docker-entrypoint-initdb.d/007_firma_adresse.sql:ro
+      - ./packages/elektralog_server/migrations/008_sync_revision.sql:/docker-entrypoint-initdb.d/008_sync_revision.sql:ro
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT}:5432"
     healthcheck:

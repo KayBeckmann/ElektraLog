@@ -14,6 +14,20 @@ class ProtokollEndpoint {
   final Connection db;
   ProtokollEndpoint(this.db);
 
+  /// Siehe KundenEndpoint._bumpRevision — dieselbe Roadmap-M9.1-Logik.
+  /// Auch Protokoll-Uploads zählen als mutierende Operation: ein Server-
+  /// Restore, der bereits archivierte Prüfprotokolle verliert, ist
+  /// mindestens genauso meldenswert wie ein Verlust von Stammdaten.
+  Future<void> _bumpRevision(String firmaId) async {
+    await db.execute(
+      Sql.named(
+        'UPDATE firmen SET sync_revision = sync_revision + 1 '
+        'WHERE id = @fid',
+      ),
+      parameters: {'fid': firmaId},
+    );
+  }
+
   // POST /api/protokolle
   // Body: {
   //   "verteilerBezeichnung", "standortBezeichnung", "kundenBezeichnung",
@@ -78,6 +92,7 @@ class ProtokollEndpoint {
       );
 
       final row = rows.first;
+      await _bumpRevision(firmaId);
       return Response.ok(
         jsonEncode({
           'id': row[0].toString(),

@@ -153,12 +153,19 @@ class ApiService {
 
   /// Schiebt alle Entity-Typen in einem Request zum Backend.
   /// Format: [{ "type": "kunden", "items": [...] }, ...]
-  static Future<void> syncAll(List<Map<String, dynamic>> batches) async {
-    await http.post(
+  /// Gibt die Server-Antwort zurück (u.a. `syncRevision`, Roadmap M9.1),
+  /// statt sie zu verwerfen.
+  static Future<Map<String, dynamic>> syncAll(
+      List<Map<String, dynamic>> batches) async {
+    final resp = await http.post(
       Uri.parse('$baseUrl/sync'),
       headers: await _headers(auth: true),
       body: jsonEncode({'batches': batches}),
     );
+    if (resp.statusCode == 200) {
+      return jsonDecode(resp.body) as Map<String, dynamic>;
+    }
+    throw Exception('syncAll HTTP ${resp.statusCode}');
   }
 
   /// Gibt die direkte PDF-Download-URL für ein Protokoll zurück.

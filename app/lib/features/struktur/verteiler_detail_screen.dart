@@ -324,6 +324,15 @@ class _VerteilerDetailScreenState
             content: Text('Daten synchronisiert'),
             duration: Duration(seconds: 2),
           ));
+        } else if (mounted && result == SyncResult.rollbackDetected) {
+          messenger.showSnackBar(const SnackBar(
+            content: Text(
+              'Server-Rücksetzung erkannt — lokale Daten wurden zum Schutz '
+              'erneut hochgeladen, aber nicht überschrieben.',
+            ),
+            backgroundColor: AppColors.warning,
+            duration: Duration(seconds: 6),
+          ));
         }
       }
     } catch (e) {
