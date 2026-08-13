@@ -18,6 +18,62 @@ class ApiException implements Exception {
 }
 
 class ApiService {
+  /// Wird aufgerufen, sobald ein authentifizierter Request mit 401
+  /// abgelehnt wird (abgelaufener oder ungültiger Token) — z.B. nach
+  /// Rückkehr aus dem Urlaub mit einem >30 Tage alten Token. Von
+  /// main.dart einmalig gesetzt: räumt den Token auf (Logout) und macht
+  /// dem Nutzer sichtbar, dass eine erneute Anmeldung nötig ist, statt
+  /// authentifizierte Requests weiterhin still scheitern zu lassen (siehe
+  /// z.B. den früheren stillen Fehlschlag von [uploadProtokoll]).
+  static void Function()? onSessionExpired;
+
+  static void _checkSession(http.Response resp, bool auth) {
+    if (auth && resp.statusCode == 401) {
+      onSessionExpired?.call();
+    }
+  }
+
+  static Future<http.Response> _authGet(Uri uri,
+      {required Map<String, String> headers, bool auth = false}) async {
+    final resp = await http.get(uri, headers: headers);
+    _checkSession(resp, auth);
+    return resp;
+  }
+
+  static Future<http.Response> _authPost(Uri uri,
+      {required Map<String, String> headers,
+      Object? body,
+      bool auth = false}) async {
+    final resp = await http.post(uri, headers: headers, body: body);
+    _checkSession(resp, auth);
+    return resp;
+  }
+
+  static Future<http.Response> _authPut(Uri uri,
+      {required Map<String, String> headers,
+      Object? body,
+      bool auth = false}) async {
+    final resp = await http.put(uri, headers: headers, body: body);
+    _checkSession(resp, auth);
+    return resp;
+  }
+
+  static Future<http.Response> _authPatch(Uri uri,
+      {required Map<String, String> headers,
+      Object? body,
+      bool auth = false}) async {
+    final resp = await http.patch(uri, headers: headers, body: body);
+    _checkSession(resp, auth);
+    return resp;
+  }
+
+  static Future<http.Response> _authDelete(Uri uri,
+      {required Map<String, String> headers, bool auth = false}) async {
+    final resp = await http.delete(uri, headers: headers);
+    _checkSession(resp, auth);
+    return resp;
+  }
+
   // Web: same host (Nginx proxy), Native: aus Einstellungen oder Fallback
   static String get baseUrl {
     if (kIsWeb) return '/api';
@@ -125,9 +181,10 @@ class ApiService {
 
   // Kunden
   static Future<List<dynamic>> getKunden() async {
-    final resp = await http.get(
+    final resp = await _authGet(
       Uri.parse('$baseUrl/kunden'),
       headers: await _headers(auth: true),
+      auth: true,
     );
     return jsonDecode(resp.body) as List<dynamic>;
   }
@@ -141,9 +198,10 @@ class ApiService {
 
   /// Zieht alle Rohdaten vom Backend (GET /api/sync).
   static Future<Map<String, dynamic>> pullAll() async {
-    final resp = await http.get(
+    final resp = await _authGet(
       Uri.parse('$baseUrl/sync'),
       headers: await _headers(auth: true),
+      auth: true,
     );
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
@@ -157,10 +215,11 @@ class ApiService {
   /// statt sie zu verwerfen.
   static Future<Map<String, dynamic>> syncAll(
       List<Map<String, dynamic>> batches) async {
-    final resp = await http.post(
+    final resp = await _authPost(
       Uri.parse('$baseUrl/sync'),
       headers: await _headers(auth: true),
       body: jsonEncode({'batches': batches}),
+      auth: true,
     );
     if (resp.statusCode == 200) {
       return jsonDecode(resp.body) as Map<String, dynamic>;
@@ -175,9 +234,10 @@ class ApiService {
   /// Wirft eine [ApiException] mit Klartext-Meldung bei Fehler
   /// (z.B. 401 ohne gültiges Token, 404 wenn nicht gefunden).
   static Future<Uint8List> getProtokollPdf(String id) async {
-    final resp = await http.get(
+    final resp = await _authGet(
       Uri.parse(protokollPdfUrl(id)),
       headers: await _headers(auth: true),
+      auth: true,
     );
     if (resp.statusCode == 200) return resp.bodyBytes;
 
@@ -194,7 +254,11 @@ class ApiService {
 
   /// Lädt ein Prüfprotokoll (PDF + Metadaten) in das Backend hoch.
   /// Gibt die Backend-UUID zurück oder null bei Fehler.
-  /// Nicht-blockierend — Fehler werden geloggt, nicht geworfen.
+  /// Nicht-blockierend — Fehler werden geloggt, nicht geworfen; bei 401
+  /// (abgelaufener Token) löst [onSessionExpired] zusätzlich den globalen
+  /// Logout+Banner aus. Ruft der Aufrufer diese Methode NICHT auf (z.B.
+  /// weil komplett offline), bleibt das Protokoll nur lokal gespeichert —
+  /// dafür gibt es den Retry in [SyncService.retryAusstehendeProtokolle].
   static Future<String?> uploadProtokoll({
     required Uint8List pdfBytes,
     required String verteilerBezeichnung,
@@ -212,23 +276,22 @@ class ApiService {
       final pdfHash = sha256.convert(pdfBytes).toString();
       final pdfBase64 = base64Encode(pdfBytes);
 
-      final resp = await http
-          .post(
-            Uri.parse('$baseUrl/protokolle'),
-            headers: await _headers(auth: true),
-            body: jsonEncode({
-              'verteilerBezeichnung': verteilerBezeichnung,
-              'standortBezeichnung': standortBezeichnung,
-              'kundenBezeichnung': kundenBezeichnung,
-              'prueferName': prueferName,
-              'firmaName': firmaName,
-              'protokollDatum': protokollDatum.toIso8601String(),
-              'messdatenJson': messdatenJson,
-              'pdfBase64': pdfBase64,
-              'pdfHash': pdfHash,
-            }),
-          )
-          .timeout(const Duration(seconds: 30));
+      final resp = await _authPost(
+        Uri.parse('$baseUrl/protokolle'),
+        headers: await _headers(auth: true),
+        body: jsonEncode({
+          'verteilerBezeichnung': verteilerBezeichnung,
+          'standortBezeichnung': standortBezeichnung,
+          'kundenBezeichnung': kundenBezeichnung,
+          'prueferName': prueferName,
+          'firmaName': firmaName,
+          'protokollDatum': protokollDatum.toIso8601String(),
+          'messdatenJson': messdatenJson,
+          'pdfBase64': pdfBase64,
+          'pdfHash': pdfHash,
+        }),
+        auth: true,
+      ).timeout(const Duration(seconds: 30));
 
       if (resp.statusCode == 200) {
         final body = jsonDecode(resp.body) as Map<String, dynamic>;
@@ -244,9 +307,10 @@ class ApiService {
 
   // Team / Firmeneigene Benutzerverwaltung
   static Future<List<Map<String, dynamic>>> getTeamBenutzer() async {
-    final resp = await http.get(
+    final resp = await _authGet(
       Uri.parse('$baseUrl/firma/benutzer'),
       headers: await _headers(auth: true),
+      auth: true,
     );
     if (resp.statusCode == 200) {
       return (jsonDecode(resp.body) as List<dynamic>)
@@ -262,7 +326,7 @@ class ApiService {
     required String name,
     String? rolle,
   }) async {
-    final resp = await http.post(
+    final resp = await _authPost(
       Uri.parse('$baseUrl/firma/benutzer'),
       headers: await _headers(auth: true),
       body: jsonEncode({
@@ -271,6 +335,7 @@ class ApiService {
         'name': name,
         if (rolle != null) 'rolle': rolle,
       }),
+      auth: true,
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
@@ -285,10 +350,11 @@ class ApiService {
     if (name != null) body['name'] = name;
     if (email != null) body['email'] = email;
     if (passwort != null && passwort.isNotEmpty) body['passwort'] = passwort;
-    final resp = await http.patch(
+    final resp = await _authPatch(
       Uri.parse('$baseUrl/firma/benutzer/$id'),
       headers: await _headers(auth: true),
       body: jsonEncode(body),
+      auth: true,
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
@@ -297,10 +363,11 @@ class ApiService {
     String id,
     String status,
   ) async {
-    final resp = await http.patch(
+    final resp = await _authPatch(
       Uri.parse('$baseUrl/firma/benutzer/$id/status'),
       headers: await _headers(auth: true),
       body: jsonEncode({'status': status}),
+      auth: true,
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
@@ -309,46 +376,52 @@ class ApiService {
     String id,
     String rolle,
   ) async {
-    final resp = await http.patch(
+    final resp = await _authPatch(
       Uri.parse('$baseUrl/firma/benutzer/$id/rolle'),
       headers: await _headers(auth: true),
       body: jsonEncode({'rolle': rolle}),
+      auth: true,
     );
     return jsonDecode(resp.body) as Map<String, dynamic>;
   }
 
   static Future<void> deleteTeamBenutzer(String id) async {
-    await http.delete(
+    await _authDelete(
       Uri.parse('$baseUrl/firma/benutzer/$id'),
       headers: await _headers(auth: true),
+      auth: true,
     );
   }
 
   static Future<void> deleteKomponente(String uuid) async {
-    await http.delete(
+    await _authDelete(
       Uri.parse('$baseUrl/komponenten/$uuid'),
       headers: await _headers(auth: true),
+      auth: true,
     );
   }
 
   static Future<void> deleteKunde(String uuid) async {
-    await http.delete(
+    await _authDelete(
       Uri.parse('$baseUrl/kunden/$uuid'),
       headers: await _headers(auth: true),
+      auth: true,
     );
   }
 
   static Future<void> deleteStandort(String uuid) async {
-    await http.delete(
+    await _authDelete(
       Uri.parse('$baseUrl/standorte/$uuid'),
       headers: await _headers(auth: true),
+      auth: true,
     );
   }
 
   static Future<void> deleteVerteiler(String uuid) async {
-    await http.delete(
+    await _authDelete(
       Uri.parse('$baseUrl/verteiler/$uuid'),
       headers: await _headers(auth: true),
+      auth: true,
     );
   }
 
@@ -358,13 +431,19 @@ class ApiService {
     required String altesPasswort,
     required String neuesPasswort,
   }) async {
-    final resp = await http.patch(
+    // auth: false für die Session-Erkennung (bewusst!) — dieser Endpoint
+    // liefert 401 auch bei falschem AKTUELLEM Passwort (siehe
+    // auth_endpoint.dart changePassword), nicht nur bei abgelaufenem
+    // Token. Ein globaler Auto-Logout bei jedem Tippfehler wäre falsch;
+    // der Fehlertext unten kommt trotzdem beim Nutzer an.
+    final resp = await _authPatch(
       Uri.parse('$baseUrl/auth/me/passwort'),
       headers: await _headers(auth: true),
       body: jsonEncode({
         'altesPasswort': altesPasswort,
         'neuesPasswort': neuesPasswort,
       }),
+      auth: false,
     );
     if (resp.statusCode != 200) {
       final msg = (jsonDecode(resp.body) as Map<String, dynamic>)['error']
@@ -377,9 +456,10 @@ class ApiService {
   /// Gibt die Protokoll-Liste der eigenen Firma zurück.
   static Future<List<Map<String, dynamic>>> getProtokolle() async {
     try {
-      final resp = await http.get(
+      final resp = await _authGet(
         Uri.parse('$baseUrl/protokolle'),
         headers: await _headers(auth: true),
+        auth: true,
       );
       if (resp.statusCode == 200) {
         return (jsonDecode(resp.body) as List<dynamic>)
@@ -392,9 +472,10 @@ class ApiService {
 
   /// Holt die Details der eigenen Firma vom Server.
   static Future<Map<String, dynamic>> getFirma() async {
-    final resp = await http.get(
+    final resp = await _authGet(
       Uri.parse('$baseUrl/firma'),
       headers: await _headers(auth: true),
+      auth: true,
     );
     return _decodeJsonObject(resp);
   }
@@ -406,7 +487,7 @@ class ApiService {
     String? plz,
     String? ort,
   }) async {
-    final resp = await http.put(
+    final resp = await _authPut(
       Uri.parse('$baseUrl/firma'),
       headers: await _headers(auth: true),
       body: jsonEncode({
@@ -415,6 +496,7 @@ class ApiService {
         'plz': plz,
         'ort': ort,
       }),
+      auth: true,
     );
     if (resp.statusCode != 200) {
       final msg = (jsonDecode(resp.body) as Map<String, dynamic>)['error']

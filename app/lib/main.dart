@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/api/api_service.dart';
 import 'core/router.dart';
 import 'core/providers/einstellungen_provider.dart';
 import 'core/providers/app_mode_provider.dart';
@@ -16,6 +17,15 @@ void main() async {
   // bevor der erste API-Call (z.B. Login) passiert.
   final container = ProviderContainer();
   await container.read(einstellungenProvider.future);
+
+  // Zentraler Hook: Jeder authentifizierte API-Call, der mit 401 antwortet
+  // (z.B. abgelaufener Token nach längerer Abwesenheit), löst hier den
+  // automatischen Logout aus und macht das für den Nutzer sichtbar — statt
+  // dass Requests still fehlschlagen (siehe ApiService._checkSession).
+  ApiService.onSessionExpired = () {
+    container.read(appModusProvider.notifier).logout();
+    container.read(sessionExpiredProvider.notifier).state = true;
+  };
 
   // Im Company-Modus beim Start synchronisieren (Push + Pull).
   // Wenn keine Verbindung besteht, wird die Synchronisation still abgebrochen.

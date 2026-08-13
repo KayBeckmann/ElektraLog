@@ -89,3 +89,9 @@ final rolleProvider = FutureProvider<String>((ref) async {
   final user = await ref.watch(currentUserProvider.future);
   return user['rolle'] as String? ?? rolleMonteur;
 });
+
+/// True, wenn die Session gerade wegen eines abgelaufenen/ungültigen Tokens
+/// automatisch beendet wurde (siehe [ApiService.onSessionExpired] in
+/// main.dart). Steuert die persistente Hinweisleiste in [AppScaffold] —
+/// wird zurückgesetzt, sobald der Nutzer sich erneut einloggt.
+final sessionExpiredProvider = StateProvider<bool>((ref) => false);
