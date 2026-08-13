@@ -7,6 +7,22 @@ class KundenEndpoint {
   final Connection db;
   KundenEndpoint(this.db);
 
+  /// Erhöht den Sync-Revision-Zähler der Firma um 1 (Roadmap M9.1:
+  /// Server-Rollback-Erkennung) und gibt den neuen Wert zurück. Wird bei
+  /// jeder mutierenden Operation aufgerufen, die synchronisierte Daten
+  /// verändert — nicht pro Einzeldatensatz, sondern pro abgeschlossener
+  /// Operation, das reicht für die reine Monotonie-Prüfung des Clients.
+  Future<int> _bumpRevision(String firmaId) async {
+    final rows = await db.execute(
+      Sql.named(
+        'UPDATE firmen SET sync_revision = sync_revision + 1 '
+        'WHERE id = @fid RETURNING sync_revision',
+      ),
+      parameters: {'fid': firmaId},
+    );
+    return (rows.first[0] as num).toInt();
+  }
+
   // GET /api/kunden
   Future<Response> list(Request request) async {
     final claims = verifyJwt(request);
@@ -159,6 +175,7 @@ class KundenEndpoint {
             'DELETE FROM kunden WHERE uuid = @uuid AND firma_id = @fid'),
         parameters: {'uuid': uuid, 'fid': firmaId},
       );
+      await _bumpRevision(firmaId);
       return Response.ok(jsonEncode({'success': true}),
           headers: {'Content-Type': 'application/json'});
     } catch (e, st) {
@@ -184,6 +201,7 @@ class KundenEndpoint {
             'DELETE FROM standorte WHERE uuid = @uuid AND firma_id = @fid'),
         parameters: {'uuid': uuid, 'fid': firmaId},
       );
+      await _bumpRevision(firmaId);
       return Response.ok(jsonEncode({'success': true}),
           headers: {'Content-Type': 'application/json'});
     } catch (e, st) {
@@ -209,6 +227,7 @@ class KundenEndpoint {
             'DELETE FROM verteiler WHERE uuid = @uuid AND firma_id = @fid'),
         parameters: {'uuid': uuid, 'fid': firmaId},
       );
+      await _bumpRevision(firmaId);
       return Response.ok(jsonEncode({'success': true}),
           headers: {'Content-Type': 'application/json'});
     } catch (e, st) {
@@ -234,6 +253,7 @@ class KundenEndpoint {
             'DELETE FROM verteiler_komponenten WHERE uuid = @uuid AND firma_id = @fid'),
         parameters: {'uuid': uuid, 'fid': firmaId},
       );
+      await _bumpRevision(firmaId);
       return Response.ok(jsonEncode({'success': true}),
           headers: {'Content-Type': 'application/json'});
     } catch (e, st) {
@@ -254,6 +274,14 @@ class KundenEndpoint {
     }
     try {
       final fid = claims['firmaId'] as String;
+
+      final revisionRows = await db.execute(
+        Sql.named('SELECT sync_revision FROM firmen WHERE id = @fid'),
+        parameters: {'fid': fid},
+      );
+      final syncRevision = revisionRows.isEmpty
+          ? 0
+          : (revisionRows.first[0] as num).toInt();
 
       final kunden = await db.execute(
         Sql.named('SELECT uuid, name, strasse, plz, ort, '
@@ -302,6 +330,10 @@ class KundenEndpoint {
 
       return Response.ok(
         jsonEncode({
+          // Roadmap M9.1: Client vergleicht diesen Wert mit dem zuletzt
+          // gesehenen, um einen Server-Restore auf ein älteres Backup zu
+          // erkennen (siehe Migration 008 + SyncService._evaluateRevision).
+          'syncRevision': syncRevision,
           'kunden': kunden.map((r) => {
             'uuid': r[0].toString(),
             'name': r[1],
@@ -413,7 +445,15 @@ class KundenEndpoint {
         synced += await _syncBatch(firmaId, type, items);
       }
 
-      return Response.ok(jsonEncode({'synced': synced}),
+      // Revision auch bei leerem Batch/0 synced Items erhöhen: der Client
+      // hat einen Sync-Versuch gemacht, das allein reicht als "diese Firma
+      // ist noch aktiv/erreichbar"-Signal und hält die Monotonie-Prüfung
+      // robust gegenüber Batches, die nur aus bereits bekannten Items
+      // bestehen (kein Fehlerfall, aber synced kann 0 sein).
+      final revision = await _bumpRevision(firmaId);
+
+      return Response.ok(
+          jsonEncode({'synced': synced, 'syncRevision': revision}),
           headers: {'Content-Type': 'application/json'});
     } catch (e, st) {
       print('sync error: $e\n$st');
