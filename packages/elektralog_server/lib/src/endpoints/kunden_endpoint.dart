@@ -23,6 +23,17 @@ class KundenEndpoint {
     return (rows.first[0] as num).toInt();
   }
 
+  /// Zerlegt einen komma-getrennten Query-Parameter (`?standorte=a,b,c`) in
+  /// eine UUID-Liste. `null`/leer/nur Whitespace → leere Liste.
+  List<String> _splitUuidListe(String? param) {
+    if (param == null || param.trim().isEmpty) return const [];
+    return param
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
   // GET /api/kunden
   Future<Response> list(Request request) async {
     final claims = verifyJwt(request);
@@ -264,7 +275,20 @@ class KundenEndpoint {
     }
   }
 
-  // GET /api/sync — Alle Rohdaten der Firma für Client-Pull
+  // GET /api/sync — Alle Rohdaten der Firma für Client-Pull.
+  //
+  // Roadmap M9.7 — selektive Synchronisation: Kunden sowie die Basisdaten
+  // von Standorten/Verteilern (Bezeichnung, Adresse) werden IMMER
+  // vollständig geliefert, damit der Nutzer überhaupt browsen und etwas
+  // auswählen kann. Der "Aufbau" eines Verteilers (Komponentenbaum,
+  // Messungen, Sichtprüfungen) wird dagegen nur für Verteiler geliefert,
+  // die der Client über die Query-Parameter `standorte`/`verteiler`
+  // (komma-getrennte UUID-Listen) explizit angefordert hat — entweder
+  // direkt per Verteiler-UUID oder indirekt über den gesamten Standort.
+  //
+  // Fehlen BEIDE Parameter komplett (nicht nur leer), gilt das alte
+  // Verhalten (alles liefern) — Abwärtskompatibilität für ältere Clients,
+  // die noch nichts von der Auswahl wissen.
   Future<Response> pullAll(Request request) async {
     final claims = verifyJwt(request);
     if (claims == null) {
@@ -274,6 +298,34 @@ class KundenEndpoint {
     }
     try {
       final fid = claims['firmaId'] as String;
+
+      final standorteParam = request.url.queryParameters['standorte'];
+      final verteilerParam = request.url.queryParameters['verteiler'];
+      final filterAktiv = standorteParam != null || verteilerParam != null;
+      final angeforderteStandorte = _splitUuidListe(standorteParam);
+      final angeforderteVerteiler = _splitUuidListe(verteilerParam);
+
+      // Menge der Verteiler-UUIDs, deren Aufbau geliefert werden darf —
+      // Mandantengrenze (firma_id) gilt hier zusätzlich zur Auswahl, damit
+      // eine falsch/böswillig übergebene fremde UUID nie zu einem Leak
+      // über Firmengrenzen hinweg führen kann.
+      List<String> erlaubteVerteilerUuids = const [];
+      if (filterAktiv &&
+          (angeforderteStandorte.isNotEmpty ||
+              angeforderteVerteiler.isNotEmpty)) {
+        final rows = await db.execute(
+          Sql.named(
+            'SELECT uuid FROM verteiler WHERE firma_id = @fid '
+            'AND (uuid = ANY(@vuuids) OR standort_uuid = ANY(@suuids))',
+          ),
+          parameters: {
+            'fid': fid,
+            'vuuids': TypedValue(Type.uuidArray, angeforderteVerteiler),
+            'suuids': TypedValue(Type.uuidArray, angeforderteStandorte),
+          },
+        );
+        erlaubteVerteilerUuids = rows.map((r) => r[0].toString()).toList();
+      }
 
       final revisionRows = await db.execute(
         Sql.named('SELECT sync_revision FROM firmen WHERE id = @fid'),
@@ -304,29 +356,69 @@ class KundenEndpoint {
         parameters: {'fid': fid},
       );
 
-      final komponenten = await db.execute(
-        Sql.named('SELECT uuid, verteiler_uuid, parent_uuid, typ, '
-            'betriebsmittelkennzeichen, zielbezeichnung, position, '
-            'eigenschaften_json, erstellt_am, aktualisiert_am '
-            'FROM verteiler_komponenten WHERE firma_id = @fid'),
-        parameters: {'fid': fid},
-      );
+      final komponenten = filterAktiv
+          ? await db.execute(
+              Sql.named('SELECT uuid, verteiler_uuid, parent_uuid, typ, '
+                  'betriebsmittelkennzeichen, zielbezeichnung, position, '
+                  'eigenschaften_json, erstellt_am, aktualisiert_am '
+                  'FROM verteiler_komponenten '
+                  'WHERE firma_id = @fid AND verteiler_uuid = ANY(@vuuids)'),
+              parameters: {
+                'fid': fid,
+                'vuuids': TypedValue(Type.uuidArray, erlaubteVerteilerUuids),
+              },
+            )
+          : await db.execute(
+              Sql.named('SELECT uuid, verteiler_uuid, parent_uuid, typ, '
+                  'betriebsmittelkennzeichen, zielbezeichnung, position, '
+                  'eigenschaften_json, erstellt_am, aktualisiert_am '
+                  'FROM verteiler_komponenten WHERE firma_id = @fid'),
+              parameters: {'fid': fid},
+            );
 
-      final messungen = await db.execute(
-        Sql.named('SELECT uuid, komponente_uuid, norm, pruefung_datum, '
-            'pruefer_name, messwert_json, ergebnis, bemerkung, '
-            'erstellt_am, aktualisiert_am '
-            'FROM messungen WHERE firma_id = @fid'),
-        parameters: {'fid': fid},
-      );
+      final messungen = filterAktiv
+          ? await db.execute(
+              Sql.named(
+                  'SELECT m.uuid, m.komponente_uuid, m.norm, m.pruefung_datum, '
+                  'm.pruefer_name, m.messwert_json, m.ergebnis, m.bemerkung, '
+                  'm.erstellt_am, m.aktualisiert_am '
+                  'FROM messungen m '
+                  'JOIN verteiler_komponenten vk ON vk.uuid = m.komponente_uuid '
+                  'WHERE m.firma_id = @fid AND vk.verteiler_uuid = ANY(@vuuids)'),
+              parameters: {
+                'fid': fid,
+                'vuuids': TypedValue(Type.uuidArray, erlaubteVerteilerUuids),
+              },
+            )
+          : await db.execute(
+              Sql.named('SELECT uuid, komponente_uuid, norm, pruefung_datum, '
+                  'pruefer_name, messwert_json, ergebnis, bemerkung, '
+                  'erstellt_am, aktualisiert_am '
+                  'FROM messungen WHERE firma_id = @fid'),
+              parameters: {'fid': fid},
+            );
 
-      final sichtpruefungen = await db.execute(
-        Sql.named('SELECT uuid, verteiler_uuid, pruefung_datum, pruefer_name, '
-            'checkliste_json, maengel, ergebnis, naechste_pruefung_datum, '
-            'erstellt_am, aktualisiert_am '
-            'FROM sichtpruefungen WHERE firma_id = @fid'),
-        parameters: {'fid': fid},
-      );
+      final sichtpruefungen = filterAktiv
+          ? await db.execute(
+              Sql.named(
+                  'SELECT uuid, verteiler_uuid, pruefung_datum, pruefer_name, '
+                  'checkliste_json, maengel, ergebnis, naechste_pruefung_datum, '
+                  'erstellt_am, aktualisiert_am '
+                  'FROM sichtpruefungen '
+                  'WHERE firma_id = @fid AND verteiler_uuid = ANY(@vuuids)'),
+              parameters: {
+                'fid': fid,
+                'vuuids': TypedValue(Type.uuidArray, erlaubteVerteilerUuids),
+              },
+            )
+          : await db.execute(
+              Sql.named(
+                  'SELECT uuid, verteiler_uuid, pruefung_datum, pruefer_name, '
+                  'checkliste_json, maengel, ergebnis, naechste_pruefung_datum, '
+                  'erstellt_am, aktualisiert_am '
+                  'FROM sichtpruefungen WHERE firma_id = @fid'),
+              parameters: {'fid': fid},
+            );
 
       return Response.ok(
         jsonEncode({
