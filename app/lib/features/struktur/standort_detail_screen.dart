@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,6 +17,7 @@ import '../../core/providers/komponenten_provider.dart';
 import '../../core/providers/messungen_provider.dart';
 import '../../core/providers/sichtpruefung_provider.dart';
 import '../../core/providers/isar_provider.dart';
+import '../../core/providers/sync_auswahl_provider.dart';
 import '../../core/sync/sync_service.dart';
 import '../../features/pdf/pdf_options_sheet.dart';
 import '../../features/pdf/pdf_service.dart';
@@ -125,41 +128,48 @@ class StandortDetailScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppColors.outlineVariant),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.location_on_outlined,
-                        size: 20, color: AppColors.secondary),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            standort.bezeichnung,
-                            style:
-                                Theme.of(context).textTheme.titleMedium,
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_outlined,
+                            size: 20, color: AppColors.secondary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                standort.bezeichnung,
+                                style:
+                                    Theme.of(context).textTheme.titleMedium,
+                              ),
+                              if (standort.ort != null ||
+                                  standort.strasse != null)
+                                Text(
+                                  [
+                                    if (standort.strasse != null)
+                                      standort.strasse!,
+                                    if (standort.plz != null &&
+                                        standort.ort != null)
+                                      '${standort.plz} ${standort.ort}'
+                                    else if (standort.ort != null)
+                                      standort.ort!,
+                                  ].join(', '),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                          color: AppColors.onSurfaceVariant),
+                                ),
+                            ],
                           ),
-                          if (standort.ort != null ||
-                              standort.strasse != null)
-                            Text(
-                              [
-                                if (standort.strasse != null)
-                                  standort.strasse!,
-                                if (standort.plz != null &&
-                                    standort.ort != null)
-                                  '${standort.plz} ${standort.ort}'
-                                else if (standort.ort != null)
-                                  standort.ort!,
-                              ].join(', '),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
-                                  ?.copyWith(
-                                      color: AppColors.onSurfaceVariant),
-                            ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
+                    const Divider(height: 24, color: AppColors.outlineVariant),
+                    _StandortSyncCheckbox(standortUuid: standortUuid),
                   ],
                 ),
               ),
@@ -475,68 +485,190 @@ class _VerteilerTile extends ConsumerWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppColors.outlineVariant),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.electrical_services_outlined,
-                size: 20, color: AppColors.secondary),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    verteiler.bezeichnung,
-                    style: Theme.of(context).textTheme.titleSmall,
+            Row(
+              children: [
+                const Icon(Icons.electrical_services_outlined,
+                    size: 20, color: AppColors.secondary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        verteiler.bezeichnung,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      if (verteiler.bemerkung != null)
+                        Text(
+                          verteiler.bemerkung!,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                  color: AppColors.onSurfaceVariant),
+                        ),
+                    ],
                   ),
-                  if (verteiler.bemerkung != null)
-                    Text(
-                      verteiler.bemerkung!,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(
-                              color: AppColors.onSurfaceVariant),
-                    ),
-                ],
-              ),
+                ),
+                if (bearbeitbar)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert,
+                        size: 18, color: AppColors.onSurfaceVariant),
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Row(
+                          children: [
+                            Icon(Icons.edit_outlined, size: 16),
+                            SizedBox(width: 8),
+                            Text('Bearbeiten'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            const Icon(Icons.delete_outlined,
+                                size: 16, color: AppColors.error),
+                            const SizedBox(width: 8),
+                            Text('Löschen',
+                                style: TextStyle(color: AppColors.error)),
+                          ],
+                        ),
+                      ),
+                    ],
+                    onSelected: (v) {
+                      if (v == 'edit') onEdit();
+                      if (v == 'delete') onDelete();
+                    },
+                  ),
+                const Icon(Icons.arrow_forward,
+                    size: 16, color: AppColors.onSurfaceVariant),
+              ],
             ),
-            if (bearbeitbar)
-              PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert,
-                    size: 18, color: AppColors.onSurfaceVariant),
-                itemBuilder: (_) => [
-                  const PopupMenuItem(
-                    value: 'edit',
-                    child: Row(
-                      children: [
-                        Icon(Icons.edit_outlined, size: 16),
-                        SizedBox(width: 8),
-                        Text('Bearbeiten'),
-                      ],
-                    ),
-                  ),
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.delete_outlined,
-                            size: 16, color: AppColors.error),
-                        const SizedBox(width: 8),
-                        Text('Löschen',
-                            style: TextStyle(color: AppColors.error)),
-                      ],
-                    ),
-                  ),
-                ],
-                onSelected: (v) {
-                  if (v == 'edit') onEdit();
-                  if (v == 'delete') onDelete();
-                },
-              ),
-            const Icon(Icons.arrow_forward,
-                size: 16, color: AppColors.onSurfaceVariant),
+            const Divider(height: 20, color: AppColors.outlineVariant),
+            _VerteilerSyncCheckbox(
+              standortUuid: standortUuid,
+              verteilerUuid: verteiler.uuid,
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sync-Auswahl (Roadmap M9.7 — selektive Standort-/Verteiler-Synchronisation)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Checkbox "Diesen Standort synchronisieren" — deckt aktiviert automatisch
+/// den Aufbau (Komponentenbaum/Messungen/Sichtprüfungen) ALLER Verteiler
+/// dieses Standorts ab, unabhängig von deren eigenem Flag. Default: aus,
+/// damit ein frisch eingerichtetes Gerät nicht sofort die komplette
+/// Firmendatenbank lädt.
+class _StandortSyncCheckbox extends ConsumerWidget {
+  const _StandortSyncCheckbox({required this.standortUuid});
+
+  final String standortUuid;
+
+  Future<void> _toggle(WidgetRef ref, bool aktiviert) async {
+    final repo = ref.read(syncAuswahlRepositoryProvider);
+    await repo.setStandortAktiviert(standortUuid, aktiviert);
+    if (aktiviert) {
+      final db = await ref.read(dbProvider.future);
+      // Sofort laden statt bis zum nächsten automatischen Sync zu warten —
+      // Fehler hier sind unkritisch, der nächste reguläre Sync holt es nach.
+      unawaited(SyncService.pullAll(db));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final aktiviert =
+        ref.watch(standortSyncAktiviertProvider(standortUuid)).valueOrNull ??
+            false;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _toggle(ref, !aktiviert),
+      child: Row(
+        children: [
+          Checkbox(
+            value: aktiviert,
+            onChanged: (v) => _toggle(ref, v ?? false),
+          ),
+          Expanded(
+            child: Text(
+              'Standort synchronisieren (alle Verteiler inkl. Messdaten)',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Checkbox "Diesen Verteiler synchronisieren" — zeigt den EFFEKTIVEN
+/// Zustand (Standort-Flag ODER eigenes Flag). Ist der übergeordnete
+/// Standort bereits aktiviert, ist die Checkbox ausgegraut/fest angehakt,
+/// da eine individuelle Abwahl in dem Fall nichts bewirken würde.
+class _VerteilerSyncCheckbox extends ConsumerWidget {
+  const _VerteilerSyncCheckbox({
+    required this.standortUuid,
+    required this.verteilerUuid,
+  });
+
+  final String standortUuid;
+  final String verteilerUuid;
+
+  Future<void> _toggle(WidgetRef ref, bool aktiviert) async {
+    final repo = ref.read(syncAuswahlRepositoryProvider);
+    await repo.setVerteilerAktiviert(verteilerUuid, aktiviert);
+    if (aktiviert) {
+      final db = await ref.read(dbProvider.future);
+      unawaited(SyncService.pullAll(db));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final standortAktiviert =
+        ref.watch(standortSyncAktiviertProvider(standortUuid)).valueOrNull ??
+            false;
+    final verteilerAktiviert =
+        ref.watch(verteilerSyncAktiviertProvider(verteilerUuid)).valueOrNull ??
+            false;
+    final effektivAktiviert = standortAktiviert || verteilerAktiviert;
+    final gesperrt = standortAktiviert; // via Standort-Flag bereits erzwungen
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: gesperrt ? null : () => _toggle(ref, !verteilerAktiviert),
+      child: Row(
+        children: [
+          Checkbox(
+            value: effektivAktiviert,
+            onChanged: gesperrt ? null : (v) => _toggle(ref, v ?? false),
+          ),
+          Expanded(
+            child: Text(
+              gesperrt
+                  ? 'Verteiler synchronisieren (durch Standort aktiviert)'
+                  : 'Diesen Verteiler synchronisieren (inkl. Messdaten)',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }
