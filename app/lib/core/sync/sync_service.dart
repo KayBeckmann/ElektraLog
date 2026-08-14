@@ -16,6 +16,7 @@ import '../models/sichtpruefung.dart';
 import '../providers/app_mode_provider.dart';
 import '../providers/isar_provider.dart';
 import '../providers/pruefprotokoll_provider.dart';
+import '../providers/sync_auswahl_provider.dart';
 import 'sync_revision.dart';
 
 enum SyncStatus { idle, syncing, error, success }
@@ -58,9 +59,21 @@ class SyncService {
   ///
   /// Gibt `true` zurück, wenn ein Rollback erkannt und der Merge deshalb
   /// übersprungen wurde, sonst `false`.
+  ///
+  /// Roadmap M9.7 — selektive Synchronisation: Es wird immer die aktuelle,
+  /// geräteeigene Auswahl (SyncAuswahlRepository) mitgeschickt. Kunden
+  /// sowie Basisdaten von Standorten/Verteilern kommen serverseitig
+  /// trotzdem immer vollständig zurück — nur der "Aufbau" (Komponenten,
+  /// Messungen, Sichtprüfungen) wird dadurch eingeschränkt. Frisch
+  /// eingerichtete Geräte haben eine leere Auswahl (Default false) und
+  /// laden deshalb zunächst keinen Aufbau — spart Datenvolumen/Speicher.
   static Future<bool> pullAll(Database db) async {
     try {
-      final data = await ApiService.pullAll();
+      final auswahl = SyncAuswahlRepository(db);
+      final data = await ApiService.pullAll(
+        standortUuids: await auswahl.getAktivierteStandortUuids(),
+        verteilerUuids: await auswahl.getAktivierteVerteilerUuids(),
+      );
 
       final serverRevision = data['syncRevision'] as int?;
       if (serverRevision != null) {
