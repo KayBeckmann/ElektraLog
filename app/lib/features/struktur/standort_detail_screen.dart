@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_service.dart';
 import '../../core/models/verteiler.dart';
+import '../../core/models/verteiler_pruefstatus.dart';
 import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/kunden_provider.dart';
+import '../../core/providers/pruefprotokoll_provider.dart';
 import '../../core/providers/permission_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../core/providers/verteiler_provider.dart';
@@ -34,20 +36,17 @@ class StandortDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final standorteAsync = ref.watch(standorteByKundeProvider(kundeUuid));
-    final verteilerAsync =
-        ref.watch(verteilerByStandortProvider(standortUuid));
+    final verteilerAsync = ref.watch(verteilerByStandortProvider(standortUuid));
     final kundenAsync = ref.watch(kundenProvider);
 
     final standort = standorteAsync.when(
-      data: (list) =>
-          list.where((s) => s.uuid == standortUuid).firstOrNull,
+      data: (list) => list.where((s) => s.uuid == standortUuid).firstOrNull,
       loading: () => null,
       error: (_, __) => null,
     );
 
     final kundenName = kundenAsync.when(
-      data: (list) =>
-          list.where((k) => k.uuid == kundeUuid).firstOrNull?.name,
+      data: (list) => list.where((k) => k.uuid == kundeUuid).firstOrNull?.name,
       loading: () => null,
       error: (_, __) => null,
     );
@@ -88,8 +87,7 @@ class StandortDetailScreen extends ConsumerWidget {
                 useSafeArea: true,
                 backgroundColor: AppColors.surface,
                 shape: const RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(16)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
                 ),
                 builder: (_) => StandortFormular(
                   kundeUuid: kundeUuid,
@@ -136,15 +134,12 @@ class StandortDetailScreen extends ConsumerWidget {
                         children: [
                           Text(
                             standort.bezeichnung,
-                            style:
-                                Theme.of(context).textTheme.titleMedium,
+                            style: Theme.of(context).textTheme.titleMedium,
                           ),
-                          if (standort.ort != null ||
-                              standort.strasse != null)
+                          if (standort.ort != null || standort.strasse != null)
                             Text(
                               [
-                                if (standort.strasse != null)
-                                  standort.strasse!,
+                                if (standort.strasse != null) standort.strasse!,
                                 if (standort.plz != null &&
                                     standort.ort != null)
                                   '${standort.plz} ${standort.ort}'
@@ -154,8 +149,7 @@ class StandortDetailScreen extends ConsumerWidget {
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall
-                                  ?.copyWith(
-                                      color: AppColors.onSurfaceVariant),
+                                  ?.copyWith(color: AppColors.onSurfaceVariant),
                             ),
                         ],
                       ),
@@ -174,8 +168,7 @@ class StandortDetailScreen extends ConsumerWidget {
                 ),
                 const Spacer(),
                 OutlinedButton.icon(
-                  onPressed: () =>
-                      _showVerteilerFormular(context, ref, null),
+                  onPressed: () => _showVerteilerFormular(context, ref, null),
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Neu'),
                 ),
@@ -184,8 +177,7 @@ class StandortDetailScreen extends ConsumerWidget {
             const SizedBox(height: 12),
 
             verteilerAsync.when(
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
+              loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Text('Fehler: $e'),
               data: (verteilerList) {
                 if (verteilerList.isEmpty) {
@@ -199,16 +191,14 @@ class StandortDetailScreen extends ConsumerWidget {
                     child: Column(
                       children: [
                         const Icon(Icons.electrical_services_outlined,
-                            size: 48,
-                            color: AppColors.outlineVariant),
+                            size: 48, color: AppColors.outlineVariant),
                         const SizedBox(height: 8),
                         Text(
                           'Noch keine Verteiler',
                           style: Theme.of(context)
                               .textTheme
                               .bodyMedium
-                              ?.copyWith(
-                                  color: AppColors.onSurfaceVariant),
+                              ?.copyWith(color: AppColors.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -219,16 +209,15 @@ class StandortDetailScreen extends ConsumerWidget {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: verteilerList.length,
-                  separatorBuilder: (_, __) =>
-                      const SizedBox(height: 8),
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (_, i) => _VerteilerTile(
                     verteiler: verteilerList[i],
                     kundeUuid: kundeUuid,
                     standortUuid: standortUuid,
-                    onEdit: () => _showVerteilerFormular(
-                        context, ref, verteilerList[i]),
-                    onDelete: () => _deleteVerteiler(
-                        context, ref, verteilerList[i]),
+                    onEdit: () =>
+                        _showVerteilerFormular(context, ref, verteilerList[i]),
+                    onDelete: () =>
+                        _deleteVerteiler(context, ref, verteilerList[i]),
                   ),
                 );
               },
@@ -346,8 +335,10 @@ class StandortDetailScreen extends ConsumerWidget {
                 style: Theme.of(ctx).textTheme.titleLarge),
             const SizedBox(height: 4),
             Text('Verteiler auswählen:',
-                style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                    color: AppColors.onSurfaceVariant)),
+                style: Theme.of(ctx)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: AppColors.onSurfaceVariant)),
             const SizedBox(height: 12),
             ...verteiler.map((v) => ListTile(
                   leading: const Icon(Icons.picture_as_pdf_outlined,
@@ -459,6 +450,12 @@ class _VerteilerTile extends ConsumerWidget {
         const Berechtigungen(rolleMonteur);
     final komponentenAsync =
         ref.watch(komponentenByVerteilerProvider(verteiler.uuid));
+    final protokolle =
+        ref.watch(pruefprotokolleByVerteilerProvider(verteiler.uuid));
+    final pruefstatus = VerteilerPruefstatusInfo.ausLetztemProtokoll(
+      protokolle.valueOrNull?.firstOrNull,
+      pruefintervallJahre: verteiler.pruefintervallJahre,
+    );
     final hatKomponenten = komponentenAsync.value?.isNotEmpty ?? false;
     final bearbeitbar = berechtigungen.kannBearbeitenOderLoeschen(
       hatAbhaengigeDaten: hatKomponenten,
@@ -494,9 +491,10 @@ class _VerteilerTile extends ConsumerWidget {
                       style: Theme.of(context)
                           .textTheme
                           .bodySmall
-                          ?.copyWith(
-                              color: AppColors.onSurfaceVariant),
+                          ?.copyWith(color: AppColors.onSurfaceVariant),
                     ),
+                  const SizedBox(height: 4),
+                  _PruefstatusZeile(status: pruefstatus),
                 ],
               ),
             ),
@@ -542,3 +540,65 @@ class _VerteilerTile extends ConsumerWidget {
   }
 }
 
+class _PruefstatusZeile extends StatelessWidget {
+  const _PruefstatusZeile({required this.status});
+
+  final VerteilerPruefstatusInfo status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (farbe, icon, label) = switch (status.status) {
+      VerteilerPruefstatus.bestanden => (
+          AppColors.success,
+          Icons.check_circle,
+          'Prüfung bestanden'
+        ),
+      VerteilerPruefstatus.nichtBestanden => (
+          AppColors.error,
+          Icons.cancel,
+          'Prüfung nicht bestanden'
+        ),
+      VerteilerPruefstatus.faellig => (
+          AppColors.outline,
+          Icons.schedule,
+          'Prüfung innerhalb 90 Tagen fällig'
+        ),
+      VerteilerPruefstatus.unbekannt => (
+          AppColors.outline,
+          Icons.help_outline,
+          'Status nicht verfügbar'
+        ),
+    };
+    final datum = status.letztePruefung;
+    final datumText = datum == null
+        ? 'Letzte Prüfung: –'
+        : 'Letzte Prüfung: ${datum.day.toString().padLeft(2, '0')}.${datum.month.toString().padLeft(2, '0')}.${datum.year}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: farbe),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: farbe,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
+          ],
+        ),
+        Text(
+          datumText,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+        ),
+      ],
+    );
+  }
+}
