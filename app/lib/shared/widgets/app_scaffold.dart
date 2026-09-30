@@ -64,7 +64,8 @@ const _teamNavItem = _NavItem(
   label: 'Benutzerverwaltung',
 );
 
-List<_NavItem> _buildNavItems({required bool isCompany, required bool isAdmin}) {
+List<_NavItem> _buildNavItems(
+    {required bool isCompany, required bool isAdmin}) {
   if (!isCompany || !isAdmin) return _baseNavItems;
   // Im Company-Modus als Admin: Team vor Einstellungen einfügen
   return [
@@ -397,9 +398,7 @@ class _DrawerNavItem extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Material(
-        color: isSelected
-            ? AppColors.secondaryContainer
-            : Colors.transparent,
+        color: isSelected ? AppColors.secondaryContainer : Colors.transparent,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           onTap: onTap,
@@ -422,9 +421,8 @@ class _DrawerNavItem extends StatelessWidget {
                         color: isSelected
                             ? AppColors.onSecondaryContainer
                             : AppColors.onSurfaceVariant,
-                        fontWeight: isSelected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w400,
                       ),
                 ),
               ],
@@ -500,25 +498,55 @@ class _MobileShell extends ConsumerWidget {
     final isCompany =
         ref.watch(appModusProvider).valueOrNull == AppModus.company;
     final isAdmin = ref.watch(isAdminProvider).valueOrNull ?? false;
-    final navItems = _buildNavItems(isCompany: isCompany, isAdmin: isAdmin);
-    final selectedIndex = _selectedIndex(location, navItems);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: selectedIndex,
-        onDestinationSelected: (index) => context.go(navItems[index].route),
-        destinations: navItems
-            .map(
-              (item) => NavigationDestination(
-                icon: Icon(item.icon),
-                selectedIcon: Icon(item.selectedIcon),
-                label: item.label,
-              ),
-            )
-            .toList(),
+      bottomNavigationBar: MobileAppNavigation(
+        location: location,
+        isCompany: isCompany,
+        isAdmin: isAdmin,
+        onNavigate: (route) => context.go(route),
       ),
+    );
+  }
+}
+
+class MobileAppNavigation extends StatelessWidget {
+  const MobileAppNavigation({
+    super.key,
+    required this.location,
+    required this.isCompany,
+    required this.isAdmin,
+    required this.onNavigate,
+  });
+
+  final String location;
+  final bool isCompany;
+  final bool isAdmin;
+  final ValueChanged<String> onNavigate;
+
+  @override
+  Widget build(BuildContext context) {
+    final navItems = _buildNavItems(isCompany: isCompany, isAdmin: isAdmin);
+    return NavigationBar(
+      selectedIndex: _selectedIndex(location, navItems),
+      labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
+      onDestinationSelected: (index) => onNavigate(navItems[index].route),
+      destinations: navItems.map((item) {
+        final shortLabel = switch (item.route) {
+          AppRoutes.dashboard => 'Start',
+          AppRoutes.team => 'Team',
+          AppRoutes.einstellungen => 'Optionen',
+          _ => item.label,
+        };
+        return NavigationDestination(
+          icon: Icon(item.icon),
+          selectedIcon: Icon(item.selectedIcon),
+          label: shortLabel,
+          tooltip: item.label,
+        );
+      }).toList(),
     );
   }
 

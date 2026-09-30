@@ -42,8 +42,7 @@ class VerteilerDetailScreen extends ConsumerStatefulWidget {
       _VerteilerDetailScreenState();
 }
 
-class _VerteilerDetailScreenState
-    extends ConsumerState<VerteilerDetailScreen> {
+class _VerteilerDetailScreenState extends ConsumerState<VerteilerDetailScreen> {
   bool _pdfLoading = false;
 
   @override
@@ -69,14 +68,13 @@ class _VerteilerDetailScreenState
       error: (_, __) => null,
     );
     final kunde = kundenAsync.when(
-      data: (list) =>
-          list.where((k) => k.uuid == widget.kundeUuid).firstOrNull,
+      data: (list) => list.where((k) => k.uuid == widget.kundeUuid).firstOrNull,
       loading: () => null,
       error: (_, __) => null,
     );
     final hatGueltigeSichtpruefung = sichtpruefungenAsync.when(
-      data: (list) => list.any((s) =>
-          s.ergebnis == 'bestanden' || s.ergebnis == 'mit_maengeln'),
+      data: (list) => list.any(
+          (s) => s.ergebnis == 'bestanden' || s.ergebnis == 'mit_maengeln'),
       loading: () => true,
       error: (_, __) => true,
     );
@@ -143,39 +141,16 @@ class _VerteilerDetailScreenState
               kundeUuid: widget.kundeUuid,
               standortUuid: widget.standortUuid,
             ),
-          Container(
-            color: AppColors.surfaceContainerLow,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                _BreadcrumbItem(
-                  label: kunde?.name ?? '…',
-                  onTap: () =>
-                      context.go('/kunden/${widget.kundeUuid}'),
-                ),
-                const Icon(Icons.chevron_right,
-                    size: 16, color: AppColors.onSurfaceVariant),
-                _BreadcrumbItem(
-                  label: standort?.bezeichnung ?? '…',
-                  onTap: () => context.go(
-                      '/kunden/${widget.kundeUuid}/standort/${widget.standortUuid}'),
-                ),
-                const Icon(Icons.chevron_right,
-                    size: 16, color: AppColors.onSurfaceVariant),
-                Text(
-                  verteiler?.bezeichnung ?? '…',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ],
-            ),
+          VerteilerBreadcrumb(
+            kunde: kunde?.name ?? '…',
+            standort: standort?.bezeichnung ?? '…',
+            verteiler: verteiler?.bezeichnung ?? '…',
+            onKunde: () => context.go('/kunden/${widget.kundeUuid}'),
+            onStandort: () => context.go(
+                '/kunden/${widget.kundeUuid}/standort/${widget.standortUuid}'),
           ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+            child: VerteilerContentScroll(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -188,15 +163,14 @@ class _VerteilerDetailScreenState
                   // ── Bemerkung ─────────────────────────────────────────
                   _BemerkungsKarte(
                     text: verteiler?.bemerkung,
-                    onEdit: () => _showBemerkungEditSheet(
-                        context, verteiler?.bemerkung),
+                    onEdit: () =>
+                        _showBemerkungEditSheet(context, verteiler?.bemerkung),
                   ),
                   const SizedBox(height: 16),
                   // ── Sichtprüfung-Karte ────────────────────────────────
                   _SichtpruefungKarte(
                     verteilerUuid: widget.verteilerUuid,
-                    verteilerBezeichnung:
-                        verteiler?.bezeichnung ?? 'Verteiler',
+                    verteilerBezeichnung: verteiler?.bezeichnung ?? 'Verteiler',
                     kundeUuid: widget.kundeUuid,
                     standortUuid: widget.standortUuid,
                     sichtpruefungenAsync: sichtpruefungenAsync,
@@ -249,8 +223,7 @@ class _VerteilerDetailScreenState
       final gefilterteMessungen =
           PdfService.filterMessungenForProtokoll(messungen);
 
-      final einstellungen =
-          ref.read(einstellungenProvider).valueOrNull;
+      final einstellungen = ref.read(einstellungenProvider).valueOrNull;
 
       final bytes = await PdfService.generateProtokoll(
         prueferName: opts.prueferName,
@@ -364,9 +337,7 @@ class _VerteilerDetailScreenState
     final messungenByKomponente = <String, List<Map<String, dynamic>>>{};
     for (final m in messungen) {
       if (m.komponenteUuid != null) {
-        messungenByKomponente
-            .putIfAbsent(m.komponenteUuid!, () => [])
-            .add({
+        messungenByKomponente.putIfAbsent(m.komponenteUuid!, () => []).add({
           'uuid': m.uuid,
           'norm': m.norm,
           'pruefungDatum': m.pruefungDatum.toIso8601String(),
@@ -432,8 +403,7 @@ class _VerteilerDetailScreenState
           children: [
             Row(
               children: [
-                Text('Bemerkung',
-                    style: Theme.of(ctx).textTheme.titleLarge),
+                Text('Bemerkung', style: Theme.of(ctx).textTheme.titleLarge),
                 const Spacer(),
                 IconButton(
                   onPressed: () => Navigator.pop(ctx),
@@ -466,9 +436,7 @@ class _VerteilerDetailScreenState
                       .where((x) => x.uuid == widget.verteilerUuid)
                       .firstOrNull;
                   if (v == null) return;
-                  await ref
-                      .read(verteilerRepositoryProvider)
-                      .save(v.copyWith(
+                  await ref.read(verteilerRepositoryProvider).save(v.copyWith(
                         bemerkung: trimmed.isEmpty ? null : trimmed,
                       ));
                   if (ctx.mounted) Navigator.pop(ctx);
@@ -520,21 +488,82 @@ class _VerteilerDetailScreenState
 
 // ── Hilfs-Widgets ─────────────────────────────────────────────────────────────
 
-class _BreadcrumbItem extends StatelessWidget {
-  const _BreadcrumbItem({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
+class VerteilerContentScroll extends StatelessWidget {
+  const VerteilerContentScroll({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+        // Die letzte Baumaktion muss oberhalb des schwebenden Buttons
+        // erreichbar bleiben (auch auf kurzen Telefondisplays).
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
+        child: child,
+      );
+}
+
+class VerteilerBreadcrumb extends StatelessWidget {
+  const VerteilerBreadcrumb({
+    super.key,
+    required this.kunde,
+    required this.standort,
+    required this.verteiler,
+    required this.onKunde,
+    required this.onStandort,
+  });
+
+  final String kunde;
+  final String standort;
+  final String verteiler;
+  final VoidCallback onKunde;
+  final VoidCallback onStandort;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.onSurfaceVariant,
+    final style = Theme.of(context).textTheme.bodySmall;
+    return Container(
+      color: AppColors.surfaceContainerLow,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(children: [
+        Flexible(
+          flex: 3,
+          child: Tooltip(
+            message: kunde,
+            child: InkWell(
+              onTap: onKunde,
+              child: Text(kunde,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: style?.copyWith(color: AppColors.onSurfaceVariant)),
             ),
-      ),
+          ),
+        ),
+        const Icon(Icons.chevron_right,
+            size: 16, color: AppColors.onSurfaceVariant),
+        Flexible(
+          flex: 2,
+          child: Tooltip(
+            message: standort,
+            child: InkWell(
+              onTap: onStandort,
+              child: Text(standort,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: style?.copyWith(color: AppColors.onSurfaceVariant)),
+            ),
+          ),
+        ),
+        const Icon(Icons.chevron_right,
+            size: 16, color: AppColors.onSurfaceVariant),
+        Flexible(
+          flex: 2,
+          child: Text(verteiler,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: style?.copyWith(
+                  color: AppColors.primary, fontWeight: FontWeight.w600)),
+        ),
+      ]),
     );
   }
 }
@@ -561,8 +590,7 @@ class _SichtpruefungLockBanner extends StatelessWidget {
       ),
       child: Container(
         width: double.infinity,
-        padding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         color: AppColors.errorContainer,
         child: Row(
           children: [
@@ -921,9 +949,7 @@ class _ProtokollVerlaufTileState extends State<_ProtokollVerlaufTile> {
                   if (hasSnapshot) ...[
                     const SizedBox(width: 4),
                     Icon(
-                      _expanded
-                          ? Icons.expand_less
-                          : Icons.expand_more,
+                      _expanded ? Icons.expand_less : Icons.expand_more,
                       size: 16,
                       color: AppColors.onSurfaceVariant,
                     ),
@@ -1062,12 +1088,10 @@ class _SnapshotKomponenteRow extends StatelessWidget {
             final ok = ergebnis == 'bestanden';
             return Container(
               margin: const EdgeInsets.only(left: 4),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
-                color: ok
-                    ? AppColors.successContainer
-                    : AppColors.errorContainer,
+                color:
+                    ok ? AppColors.successContainer : AppColors.errorContainer,
                 borderRadius: BorderRadius.circular(3),
               ),
               child: Text(

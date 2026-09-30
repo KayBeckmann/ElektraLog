@@ -27,14 +27,12 @@ class KomponentenBaumWidget extends ConsumerStatefulWidget {
   final void Function(String? parentUuid) onAddKomponente;
   final void Function(VerteilerKomponente k) onEditKomponente;
 
-
   @override
   ConsumerState<KomponentenBaumWidget> createState() =>
       _KomponentenBaumWidgetState();
 }
 
-class _KomponentenBaumWidgetState
-    extends ConsumerState<KomponentenBaumWidget> {
+class _KomponentenBaumWidgetState extends ConsumerState<KomponentenBaumWidget> {
   // Global expand/collapse state — null = each node decides independently
   bool _allExpanded = true;
   // Incrementing key forces node rebuild when global expand/collapse changes
@@ -79,8 +77,7 @@ class _KomponentenBaumWidgetState
           );
         }
 
-        final roots =
-            komponenten.where((k) => k.parentUuid == null).toList();
+        final roots = komponenten.where((k) => k.parentUuid == null).toList();
         roots.sort((a, b) => a.position.compareTo(b.position));
 
         final hasChildren = komponenten.any((k) => k.parentUuid != null);
@@ -92,7 +89,9 @@ class _KomponentenBaumWidgetState
             if (hasChildren)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     // Alle einklappen / ausklappen
                     OutlinedButton.icon(
@@ -101,9 +100,7 @@ class _KomponentenBaumWidgetState
                         _expandKey++;
                       }),
                       icon: Icon(
-                        _allExpanded
-                            ? Icons.unfold_less
-                            : Icons.unfold_more,
+                        _allExpanded ? Icons.unfold_less : Icons.unfold_more,
                         size: 14,
                       ),
                       label: Text(
@@ -114,11 +111,9 @@ class _KomponentenBaumWidgetState
                         textStyle: const TextStyle(fontSize: 12),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     // Nach BMK sortieren
                     OutlinedButton.icon(
-                      onPressed: () =>
-                          _sortierNachBmk(ref, komponenten),
+                      onPressed: () => _sortierNachBmk(ref, komponenten),
                       icon: const Icon(Icons.sort_by_alpha, size: 14),
                       label: const Text('Nach BMK sortieren'),
                       style: OutlinedButton.styleFrom(
@@ -165,9 +160,7 @@ class _KomponentenBaumWidgetState
       parentUuids.add(k.parentUuid);
     }
     for (final parentUuid in parentUuids) {
-      final siblings = alle
-          .where((k) => k.parentUuid == parentUuid)
-          .toList()
+      final siblings = alle.where((k) => k.parentUuid == parentUuid).toList()
         ..sort((a, b) {
           final bmkA = a.betriebsmittelkennzeichen;
           final bmkB = b.betriebsmittelkennzeichen;
@@ -311,9 +304,8 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
       BuildContext context, VerteilerKomponente k) async {
     final descs = _descendants(k);
     // Potenzielle neue Parents: alle anderen Komponenten, die kein Nachkomme sind
-    final potenzielleParents = widget.allKomponenten
-        .where((c) => !descs.contains(c.uuid))
-        .toList();
+    final potenzielleParents =
+        widget.allKomponenten.where((c) => !descs.contains(c.uuid)).toList();
 
     String? neuerParentUuid = k.parentUuid;
     final result = await showDialog<String?>(
@@ -339,8 +331,7 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                       subtitle: Text(
                         p.typ.replaceAll('_', ' '),
                         style: AppTheme.dataMono(
-                            fontSize: 11,
-                            color: AppColors.onSurfaceVariant),
+                            fontSize: 11, color: AppColors.onSurfaceVariant),
                       ),
                       value: p.uuid,
                       groupValue: neuerParentUuid,
@@ -356,7 +347,8 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
               child: const Text('Abbrechen'),
             ),
             ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, neuerParentUuid ?? '__root__'),
+              onPressed: () =>
+                  Navigator.pop(ctx, neuerParentUuid ?? '__root__'),
               child: const Text('Verschieben'),
             ),
           ],
@@ -465,14 +457,12 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
   @override
   Widget build(BuildContext context) {
     final k = widget.komponente;
-    final children = widget.allKomponenten
-        .where((c) => c.parentUuid == k.uuid)
-        .toList();
+    final children =
+        widget.allKomponenten.where((c) => c.parentUuid == k.uuid).toList();
     children.sort((a, b) => a.position.compareTo(b.position));
     final hasChildren = children.isNotEmpty;
 
-    final messungenAsync =
-        ref.watch(messungenByKomponenteProvider(k.uuid));
+    final messungenAsync = ref.watch(messungenByKomponenteProvider(k.uuid));
     final status = messungenAsync.when(
       data: (list) {
         if (list.isEmpty) return PillStatus.offen;
@@ -486,7 +476,10 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
     );
 
     return Padding(
-      padding: EdgeInsets.only(left: widget.depth * 20.0),
+      // Mobil darf der Einzug nicht mit jeder Ebene kumulieren.
+      padding: EdgeInsets.only(
+        left: MediaQuery.sizeOf(context).width < 600 ? 0 : widget.depth * 20.0,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -500,7 +493,10 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                     width: 2,
                     color: AppColors.outlineVariant,
                   ),
-                if (widget.depth > 0) const SizedBox(width: 18),
+                if (widget.depth > 0)
+                  SizedBox(
+                    width: MediaQuery.sizeOf(context).width < 600 ? 6 : 18,
+                  ),
 
                 // ── Node itself ─────────────────────────────────────────
                 Expanded(
@@ -516,201 +512,223 @@ class _KomponentenNodeState extends ConsumerState<_KomponentenNode> {
                         Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 8),
-                          child: Row(
+                          child: Column(
                             children: [
-                              // Expand/collapse chevron
-                              SizedBox(
-                                width: 20,
-                                child: hasChildren
-                                    ? GestureDetector(
-                                        onTap: () => setState(
-                                            () => _expanded = !_expanded),
-                                        child: Icon(
-                                          _expanded
-                                              ? Icons.expand_more
-                                              : Icons.chevron_right,
-                                          size: 18,
-                                          color:
-                                              AppColors.onSurfaceVariant,
-                                        ),
-                                      )
-                                    : const SizedBox.shrink(),
-                              ),
+                              Row(
+                                children: [
+                                  // Expand/collapse chevron
+                                  SizedBox(
+                                    width: 20,
+                                    child: hasChildren
+                                        ? GestureDetector(
+                                            onTap: () => setState(
+                                                () => _expanded = !_expanded),
+                                            child: Icon(
+                                              _expanded
+                                                  ? Icons.expand_more
+                                                  : Icons.chevron_right,
+                                              size: 18,
+                                              color: AppColors.onSurfaceVariant,
+                                            ),
+                                          )
+                                        : const SizedBox.shrink(),
+                                  ),
 
-                              // Type icon
-                              _TypIcon(typ: k.typ),
-                              const SizedBox(width: 8),
+                                  // Type icon
+                                  _TypIcon(typ: k.typ),
+                                  const SizedBox(width: 8),
 
-                              // BMK + Zielbezeichnung + technische Daten
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    if (k.betriebsmittelkennzeichen.isNotEmpty)
-                                      Text(
-                                        k.betriebsmittelkennzeichen,
-                                        style: AppTheme.dataMono(
-                                          fontSize: 11,
-                                          color: AppColors.primary,
+                                  // BMK + Zielbezeichnung + technische Daten
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        if (widget.depth > 0 &&
+                                            MediaQuery.sizeOf(context).width <
+                                                600)
+                                          Text(
+                                            'Ebene ${widget.depth + 1}',
+                                            style: AppTheme.dataMono(
+                                              fontSize: 10,
+                                              color: AppColors.onSurfaceVariant,
+                                            ),
+                                          ),
+                                        if (k.betriebsmittelkennzeichen
+                                            .isNotEmpty)
+                                          Text(
+                                            k.betriebsmittelkennzeichen,
+                                            style: AppTheme.dataMono(
+                                              fontSize: 11,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        Text(
+                                          k.zielbezeichnung.isNotEmpty
+                                              ? k.zielbezeichnung
+                                              : k.betriebsmittelkennzeichen,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall,
                                         ),
-                                      ),
-                                    Text(
-                                      k.zielbezeichnung.isNotEmpty
-                                          ? k.zielbezeichnung
-                                          : k.betriebsmittelkennzeichen,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleSmall,
+                                        _TechnischeDaten(k: k),
+                                      ],
                                     ),
-                                    _TechnischeDaten(k: k),
-                                  ],
-                                ),
-                              ),
-
-                              // Status pill
-                              StatusPill(status: status),
-                              const SizedBox(width: 4),
-
-                              // QR button
-                              IconButton(
-                                onPressed: () => context.push(
-                                  '/qr/${k.uuid}',
-                                ),
-                                icon: const Icon(
-                                  Icons.qr_code_outlined,
-                                  size: 16,
-                                  color: AppColors.onSurfaceVariant,
-                                ),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(
-                                  minWidth: 28,
-                                  minHeight: 28,
-                                ),
-                                tooltip: 'QR-Code',
-                              ),
-
-                              // More menu
-                              PopupMenuButton<String>(
-                                icon: const Icon(Icons.more_vert,
-                                    size: 16,
-                                    color: AppColors.onSurfaceVariant),
-                                padding: EdgeInsets.zero,
-                                itemBuilder: (_) => const [
-                                  PopupMenuItem(
-                                    value: 'messungen',
-                                    child: Row(children: [
-                                      Icon(Icons.bar_chart_outlined, size: 14),
-                                      SizedBox(width: 8),
-                                      Text('Messungen'),
-                                    ]),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'bearbeiten',
-                                    child: Row(children: [
-                                      Icon(Icons.edit_outlined, size: 14),
-                                      SizedBox(width: 8),
-                                      Text('Bearbeiten'),
-                                    ]),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'add_child',
-                                    child: Row(children: [
-                                      Icon(Icons.add, size: 14),
-                                      SizedBox(width: 8),
-                                      Text('Unterkomponente'),
-                                    ]),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'messung',
-                                    child: Row(children: [
-                                      Icon(Icons.science_outlined, size: 14),
-                                      SizedBox(width: 8),
-                                      Text('Messung hinzufügen'),
-                                    ]),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'nach_oben',
-                                    child: Row(children: [
-                                      Icon(Icons.arrow_upward_outlined,
-                                          size: 14),
-                                      SizedBox(width: 8),
-                                      Text('Nach oben'),
-                                    ]),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'nach_unten',
-                                    child: Row(children: [
-                                      Icon(Icons.arrow_downward_outlined,
-                                          size: 14),
-                                      SizedBox(width: 8),
-                                      Text('Nach unten'),
-                                    ]),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'verschieben',
-                                    child: Row(children: [
-                                      Icon(Icons.drive_file_move_outlined,
-                                          size: 14),
-                                      SizedBox(width: 8),
-                                      Text('Verschieben'),
-                                    ]),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'loeschen',
-                                    child: Row(children: [
-                                      Icon(Icons.delete_outlined,
-                                          size: 14, color: AppColors.error),
-                                      SizedBox(width: 8),
-                                      Text('Löschen',
-                                          style: TextStyle(
-                                              color: AppColors.error)),
-                                    ]),
                                   ),
                                 ],
-                                onSelected: (v) async {
-                                  if (v == 'messungen') {
-                                    _showMessungenSheet(context, k);
-                                  } else if (v == 'bearbeiten') {
-                                    widget.onEditKomponente(k);
-                                  } else if (v == 'add_child') {
-                                    widget.onAddChild(k.uuid);
-                                  } else if (v == 'messung') {
-                                    Map<String, dynamic>? props;
-                                    if (k.eigenschaftenJson != null) {
-                                      try {
-                                        props = jsonDecode(k.eigenschaftenJson!)
-                                            as Map<String, dynamic>;
-                                      } catch (_) {}
-                                    }
-                                    showModalBottomSheet(
-                                      context: context,
-                                      isScrollControlled: true,
-                                      backgroundColor:
-                                          AppColors.surfaceContainerLowest,
-                                      shape: const RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.vertical(
-                                          top: Radius.circular(16),
-                                        ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  // Status und Aktionen belegen nie die Titelbreite.
+                                  StatusPill(status: status),
+                                  const SizedBox(width: 4),
+
+                                  // QR button
+                                  IconButton(
+                                    onPressed: () => context.push(
+                                      '/qr/${k.uuid}',
+                                    ),
+                                    icon: const Icon(
+                                      Icons.qr_code_outlined,
+                                      size: 16,
+                                      color: AppColors.onSurfaceVariant,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 28,
+                                      minHeight: 28,
+                                    ),
+                                    tooltip: 'QR-Code',
+                                  ),
+
+                                  // More menu
+                                  PopupMenuButton<String>(
+                                    icon: const Icon(Icons.more_vert,
+                                        size: 16,
+                                        color: AppColors.onSurfaceVariant),
+                                    padding: EdgeInsets.zero,
+                                    itemBuilder: (_) => const [
+                                      PopupMenuItem(
+                                        value: 'messungen',
+                                        child: Row(children: [
+                                          Icon(Icons.bar_chart_outlined,
+                                              size: 14),
+                                          SizedBox(width: 8),
+                                          Text('Messungen'),
+                                        ]),
                                       ),
-                                      builder: (_) => MessungFormular(
-                                        komponenteUuid: k.uuid,
-                                        komponenteTyp: k.typ,
-                                        komponenteEigenschaften: props,
+                                      PopupMenuItem(
+                                        value: 'bearbeiten',
+                                        child: Row(children: [
+                                          Icon(Icons.edit_outlined, size: 14),
+                                          SizedBox(width: 8),
+                                          Text('Bearbeiten'),
+                                        ]),
                                       ),
-                                    );
-                                  } else if (v == 'nach_oben') {
-                                    await _moveKomponente(ref, k, -1,
-                                        widget.allKomponenten);
-                                  } else if (v == 'nach_unten') {
-                                    await _moveKomponente(ref, k, 1,
-                                        widget.allKomponenten);
-                                  } else if (v == 'verschieben') {
-                                    _showVerschiebenDialog(context, k);
-                                  } else if (v == 'loeschen') {
-                                    _showLoeschenDialog(context, k);
-                                  }
-                                },
+                                      PopupMenuItem(
+                                        value: 'add_child',
+                                        child: Row(children: [
+                                          Icon(Icons.add, size: 14),
+                                          SizedBox(width: 8),
+                                          Text('Unterkomponente'),
+                                        ]),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'messung',
+                                        child: Row(children: [
+                                          Icon(Icons.science_outlined,
+                                              size: 14),
+                                          SizedBox(width: 8),
+                                          Text('Messung hinzufügen'),
+                                        ]),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'nach_oben',
+                                        child: Row(children: [
+                                          Icon(Icons.arrow_upward_outlined,
+                                              size: 14),
+                                          SizedBox(width: 8),
+                                          Text('Nach oben'),
+                                        ]),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'nach_unten',
+                                        child: Row(children: [
+                                          Icon(Icons.arrow_downward_outlined,
+                                              size: 14),
+                                          SizedBox(width: 8),
+                                          Text('Nach unten'),
+                                        ]),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'verschieben',
+                                        child: Row(children: [
+                                          Icon(Icons.drive_file_move_outlined,
+                                              size: 14),
+                                          SizedBox(width: 8),
+                                          Text('Verschieben'),
+                                        ]),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'loeschen',
+                                        child: Row(children: [
+                                          Icon(Icons.delete_outlined,
+                                              size: 14, color: AppColors.error),
+                                          SizedBox(width: 8),
+                                          Text('Löschen',
+                                              style: TextStyle(
+                                                  color: AppColors.error)),
+                                        ]),
+                                      ),
+                                    ],
+                                    onSelected: (v) async {
+                                      if (v == 'messungen') {
+                                        _showMessungenSheet(context, k);
+                                      } else if (v == 'bearbeiten') {
+                                        widget.onEditKomponente(k);
+                                      } else if (v == 'add_child') {
+                                        widget.onAddChild(k.uuid);
+                                      } else if (v == 'messung') {
+                                        Map<String, dynamic>? props;
+                                        if (k.eigenschaftenJson != null) {
+                                          try {
+                                            props =
+                                                jsonDecode(k.eigenschaftenJson!)
+                                                    as Map<String, dynamic>;
+                                          } catch (_) {}
+                                        }
+                                        showModalBottomSheet(
+                                          context: context,
+                                          isScrollControlled: true,
+                                          backgroundColor:
+                                              AppColors.surfaceContainerLowest,
+                                          shape: const RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.vertical(
+                                              top: Radius.circular(16),
+                                            ),
+                                          ),
+                                          builder: (_) => MessungFormular(
+                                            komponenteUuid: k.uuid,
+                                            komponenteTyp: k.typ,
+                                            komponenteEigenschaften: props,
+                                          ),
+                                        );
+                                      } else if (v == 'nach_oben') {
+                                        await _moveKomponente(
+                                            ref, k, -1, widget.allKomponenten);
+                                      } else if (v == 'nach_unten') {
+                                        await _moveKomponente(
+                                            ref, k, 1, widget.allKomponenten);
+                                      } else if (v == 'verschieben') {
+                                        _showVerschiebenDialog(context, k);
+                                      } else if (v == 'loeschen') {
+                                        _showLoeschenDialog(context, k);
+                                      }
+                                    },
+                                  ),
+                                ],
                               ),
                             ],
                           ),
