@@ -35,4 +35,9 @@ class StorageService {
       stringMapStoreFactory.store('sichtpruefungen');
   static final pruefprotokollStore =
       stringMapStoreFactory.store('pruefprotokolle');
+
+  /// Geräteeigene Auswahl, welche Standorte/Verteiler dieses Gerät im Detail
+  /// (Komponentenbaum, Messungen, Sichtprüfungen) synchron halten soll —
+  /// bewusst NICHT Teil der Server-Sync (siehe SyncAuswahlRepository).
+  static final syncAuswahlStore = stringMapStoreFactory.store('sync_auswahl');
 }

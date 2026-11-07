@@ -197,9 +197,28 @@ class ApiService {
   }
 
   /// Zieht alle Rohdaten vom Backend (GET /api/sync).
-  static Future<Map<String, dynamic>> pullAll() async {
+  ///
+  /// [standortUuids]/[verteilerUuids] steuern die selektive Synchronisation
+  /// (Roadmap M9.7): Kunden sowie Basisdaten von Standorten/Verteilern
+  /// liefert der Server immer vollständig, der "Aufbau" eines Verteilers
+  /// (Komponenten/Messungen/Sichtprüfungen) nur für hier übergebene UUIDs
+  /// bzw. für alle Verteiler eines übergebenen Standorts. Werden beide
+  /// Parameter weggelassen (null), verhält sich der Server wie vor M9.7
+  /// (alles liefern) — z.B. für einen expliziten "Alles laden"-Aufruf.
+  static Future<Map<String, dynamic>> pullAll({
+    Set<String>? standortUuids,
+    Set<String>? verteilerUuids,
+  }) async {
+    final queryParams = <String, String>{};
+    if (standortUuids != null) {
+      queryParams['standorte'] = standortUuids.join(',');
+    }
+    if (verteilerUuids != null) {
+      queryParams['verteiler'] = verteilerUuids.join(',');
+    }
     final resp = await _authGet(
-      Uri.parse('$baseUrl/sync'),
+      Uri.parse('$baseUrl/sync')
+          .replace(queryParameters: queryParams.isEmpty ? null : queryParams),
       headers: await _headers(auth: true),
       auth: true,
     );
