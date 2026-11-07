@@ -158,6 +158,22 @@ docker compose -f docker-compose-dev.yml up -d  # PostgreSQL für Entwicklung
 dart bin/main.dart
 ```
 
+### Server-Tests
+
+API-Tests laufen gegen den echten Handler (`lib/src/app.dart`) und ein
+Wegwerf-Postgres. Die Test-Datenbank wird bei jedem Test **komplett
+geleert** und mit `migrations/*.sql` neu aufgebaut — nie auf eine
+produktive Datenbank zeigen lassen.
+
+```bash
+docker run -d --rm --name elektralog-test-pg -e POSTGRES_PASSWORD=test \
+  -e POSTGRES_USER=test -e POSTGRES_DB=test -p 127.0.0.1:55434:5432 postgres:16-alpine
+cd packages/elektralog_server
+ELEKTRALOG_TEST_DB=localhost:55434:test:test:test dart test
+```
+
+Ohne `ELEKTRALOG_TEST_DB` werden die Server-Tests übersprungen.
+
 ---
 
 ## Dokumentation
