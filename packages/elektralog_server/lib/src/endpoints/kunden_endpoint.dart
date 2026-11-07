@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:shelf/shelf.dart';
+import 'package:uuid/uuid.dart';
 import 'package:postgres/postgres.dart';
 import '../middleware/auth_middleware.dart';
 
@@ -304,6 +305,16 @@ class KundenEndpoint {
       final filterAktiv = standorteParam != null || verteilerParam != null;
       final angeforderteStandorte = _splitUuidListe(standorteParam);
       final angeforderteVerteiler = _splitUuidListe(verteilerParam);
+      final ungueltig = [...angeforderteStandorte, ...angeforderteVerteiler]
+          .where((id) => !Uuid.isValidUUID(fromString: id))
+          .toList();
+      if (ungueltig.isNotEmpty) {
+        return Response(400,
+            body: jsonEncode({
+              'error': 'Ungültige UUID in standorte/verteiler: ${ungueltig.join(', ')}'
+            }),
+            headers: {'Content-Type': 'application/json'});
+      }
 
       // Menge der Verteiler-UUIDs, deren Aufbau geliefert werden darf —
       // Mandantengrenze (firma_id) gilt hier zusätzlich zur Auswahl, damit
