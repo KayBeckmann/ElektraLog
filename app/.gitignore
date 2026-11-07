@@ -44,3 +44,9 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 /android/.kotlin/
+
+# Lokale Signatur-Konfiguration — niemals committen (siehe Vault-Notiz
+# "Flutter Android-App als echte Release-APK bauen").
+/android/key.properties
+*.jks
+*.keystore
