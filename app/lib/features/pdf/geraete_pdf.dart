@@ -307,3 +307,84 @@ void _blatt(pw.Document doc, PdfSchriften s, ProtokollKopf kopf, Geraet aktuell,
     ],
   ));
 }
+
+// ── Etiketten (Roadmap M7) ───────────────────────────────────────────────────
+
+/// Etikettenformate. Kein Drucker ist festgelegt (Gate 5): Ausgabe als PDF
+/// für den Systemdruck; Bluetooth-Direktdruck erst mit getestetem Gerät.
+enum EtikettFormat {
+  e50x30('50 × 30 mm', 50, 30),
+  e62x29('62 × 29 mm', 62, 29),
+  e40x30('40 × 30 mm', 40, 30),
+  a4('A4-Bogen 70 × 37 mm (3 × 8)', 70, 37);
+
+  const EtikettFormat(this.bezeichnung, this.breiteMm, this.hoeheMm);
+  final String bezeichnung;
+  final double breiteMm;
+  final double hoeheMm;
+}
+
+/// Ein Etikett: QR-Code mit der **vollständigen** Geräte-UUID und dieselbe
+/// UUID lesbar darunter — keine Kunden- oder Ortsangaben im Code.
+pw.Widget _etikett(Geraet g, EtikettFormat f, PdfSchriften s, {required bool mitBezeichnung}) {
+  final breite = f.breiteMm * PdfPageFormat.mm;
+  final hoehe = f.hoeheMm * PdfPageFormat.mm;
+  const rand = 2 * PdfPageFormat.mm;
+  // Monospace: Zeichenbreite ≈ 0,6 × Schriftgröße; 36 Zeichen sollen passen.
+  final textGroesse = ((breite - 2 * rand) / (36 * 0.6)).clamp(3.5, 8.0);
+  final textHoehe = textGroesse * 1.3 + (mitBezeichnung ? textGroesse * 1.4 : 0);
+  return pw.Container(
+    width: breite,
+    height: hoehe,
+    padding: const pw.EdgeInsets.all(rand),
+    child: pw.Column(
+      mainAxisAlignment: pw.MainAxisAlignment.center,
+      children: [
+        pw.BarcodeWidget(
+          barcode: pw.Barcode.qrCode(errorCorrectLevel: pw.BarcodeQRCorrectionLevel.medium),
+          data: g.uuid,
+          width: hoehe - 2 * rand - textHoehe - 2,
+          height: hoehe - 2 * rand - textHoehe - 2,
+          drawText: false,
+        ),
+        pw.SizedBox(height: 2),
+        pw.Text(g.uuid, style: pw.TextStyle(font: s.mono, fontSize: textGroesse)),
+        if (mitBezeichnung)
+          pw.Text(g.bezeichnung, maxLines: 1, style: pw.TextStyle(font: s.bold, fontSize: textGroesse * 1.1)),
+      ],
+    ),
+  );
+}
+
+/// Etiketten für ein oder mehrere Geräte. Nachdruck ergibt dieselbe UUID.
+Future<Uint8List> etikettenPdf(
+  List<Geraet> geraete, {
+  EtikettFormat format = EtikettFormat.e50x30,
+  bool mitBezeichnung = false,
+  PdfSchriften? schriften,
+  bool komprimieren = true,
+}) async {
+  final s = schriften ?? await PdfSchriften.laden();
+  final doc = pw.Document(compress: komprimieren);
+  if (format == EtikettFormat.a4) {
+    const proSeite = 24;
+    for (var i = 0; i < geraete.length; i += proSeite) {
+      final seite = geraete.skip(i).take(proSeite).toList();
+      doc.addPage(pw.Page(
+        pageFormat: PdfPageFormat.a4.copyWith(marginLeft: 0, marginRight: 0, marginTop: 0, marginBottom: 0),
+        build: (_) => pw.Padding(
+          padding: const pw.EdgeInsets.only(top: 0.5 * PdfPageFormat.cm),
+          child: pw.Wrap(children: [for (final g in seite) _etikett(g, format, s, mitBezeichnung: mitBezeichnung)]),
+        ),
+      ));
+    }
+  } else {
+    for (final g in geraete) {
+      doc.addPage(pw.Page(
+        pageFormat: PdfPageFormat(format.breiteMm * PdfPageFormat.mm, format.hoeheMm * PdfPageFormat.mm),
+        build: (_) => _etikett(g, format, s, mitBezeichnung: mitBezeichnung),
+      ));
+    }
+  }
+  return doc.save();
+}

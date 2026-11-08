@@ -17,6 +17,7 @@ import '../features/team/team_screen.dart';
 import '../features/protokolle/protokolle_screen.dart';
 import '../features/geraete/geraet_detail_screen.dart';
 import '../features/geraete/geraet_pruefung_screen.dart';
+import '../features/geraete/geraet_scan_screen.dart';
 import '../features/geraete/raum_detail_screen.dart';
 import '../features/sync/konflikte_screen.dart';
 import '../shared/widgets/app_scaffold.dart';
@@ -42,6 +43,7 @@ abstract final class AppRoutes {
   static const String protokolle = '/protokolle';
   static const String geraetDetail = '/geraete/:geraetUuid';
   static const String konflikte = '/konflikte';
+  static const String scan = '/scan';
 }
 
 @riverpod
@@ -176,6 +178,12 @@ GoRouter router(Ref ref) {
                 ),
               ),
             ],
+          ),
+          GoRoute(
+            path: AppRoutes.scan,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: GeraetScanScreen(),
+            ),
           ),
           GoRoute(
             path: AppRoutes.konflikte,

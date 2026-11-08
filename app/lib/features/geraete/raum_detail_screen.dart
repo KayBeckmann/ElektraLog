@@ -8,6 +8,7 @@ import '../../core/providers/standorte_provider.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../core/models/geraete_protokoll.dart';
 import 'geraet_formular.dart';
+import 'etiketten_dialog.dart';
 import 'geraete_protokoll_sheet.dart';
 import 'geraete_widgets.dart';
 import 'raum_formular.dart';
@@ -51,6 +52,12 @@ class RaumDetailScreen extends ConsumerWidget {
                         standortUuid: standortUuid,
                         raumUuid: raumUuid,
                       ),
+            ),
+            IconButton(
+              key: const Key('etiketten-raum'),
+              tooltip: 'Etiketten aller Geräte',
+              icon: const Icon(Icons.qr_code_2),
+              onPressed: geraete.isEmpty ? null : () => zeigeEtikettenDialog(context, geraete),
             ),
             IconButton(
               tooltip: 'Raum bearbeiten',

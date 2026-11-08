@@ -17,6 +17,7 @@ import '../../core/providers/standorte_provider.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../core/models/geraete_protokoll.dart';
 import 'geraet_formular.dart';
+import 'etiketten_dialog.dart';
 import 'geraete_protokoll_sheet.dart';
 import 'geraete_widgets.dart';
 
@@ -99,6 +100,7 @@ class _Menue extends ConsumerWidget {
           value: 'status',
           child: Text(geraet.aktiv ? 'Inaktiv setzen' : 'Wieder aktiv setzen'),
         ),
+        const PopupMenuItem(value: 'etikett', child: Text('Etikett drucken')),
         const PopupMenuItem(value: 'protokoll', child: Text('Protokoll (PDF)')),
         const PopupMenuItem(value: 'uuid', child: Text('UUID kopieren')),
         if (darfLoeschen) const PopupMenuItem(value: 'loeschen', child: Text('Löschen')),
@@ -107,6 +109,8 @@ class _Menue extends ConsumerWidget {
         switch (v) {
           case 'status':
             await statusWechseln(context, ref, geraet);
+          case 'etikett':
+            await zeigeEtikettenDialog(context, [geraet]);
           case 'protokoll':
             await zeigeGeraeteProtokoll(
               context,
