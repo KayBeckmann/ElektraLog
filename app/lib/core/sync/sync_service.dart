@@ -51,7 +51,8 @@ class SyncService {
   /// laden deshalb zunächst keinen Aufbau — spart Datenvolumen/Speicher.
   static Future<bool> pullAll(Database db) async {
     try {
-      return await _seriell(() => SyncEngine(db).pull());
+      // Web-App: immer der ganze Bestand, die Auswahl gilt für Endgeräte.
+      return await _seriell(() => SyncEngine(db, vollstaendig: kIsWeb).pull());
     } catch (e) {
       debugPrint('pullAll fehlgeschlagen: $e');
       return false;

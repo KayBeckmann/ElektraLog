@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -661,6 +662,7 @@ class _StandortSyncCheckbox extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (kIsWeb) return const SizedBox.shrink(); // Web-App lädt immer alles
     final kundeAktiviert = ref.watch(kundeSyncAktiviertProvider(kundeUuid)).valueOrNull ?? false;
     final aktiviert = ref.watch(standortSyncAktiviertProvider(standortUuid)).valueOrNull ?? false;
 
@@ -712,6 +714,7 @@ class _VerteilerSyncCheckbox extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (kIsWeb) return const SizedBox.shrink(); // Web-App lädt immer alles
     final kundeAktiviert = ref.watch(kundeSyncAktiviertProvider(kundeUuid)).valueOrNull ?? false;
     final standortAktiviert =
         ref.watch(standortSyncAktiviertProvider(standortUuid)).valueOrNull ??

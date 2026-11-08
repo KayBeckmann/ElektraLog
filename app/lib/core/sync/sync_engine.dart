@@ -100,12 +100,17 @@ class SyncEngine {
     this.db, {
     this.transport = const ApiSyncTransport(),
     this.revision = const PrefsRevisionSpeicher(),
+    this.vollstaendig = false,
   })  : meta = SyncMetaRepository(db),
         konflikte = SyncKonfliktRepository(db);
 
   final Database db;
   final SyncTransport transport;
   final RevisionSpeicher revision;
+
+  /// Alles laden, ohne Auswahl und ohne Entfernen — für die Web-App
+  /// (Büro, immer online), die den ganzen Firmenbestand zeigen soll.
+  final bool vollstaendig;
   final SyncMetaRepository meta;
   final SyncKonfliktRepository konflikte;
 
@@ -185,7 +190,7 @@ class SyncEngine {
   Future<bool> pull() async {
     final auswahl = SyncAuswahlRepository(db);
     String liste(Set<String> s) => s.join(',');
-    final data = await transport.pull({
+    final data = await transport.pull(vollstaendig ? const {} : {
       'kunden': liste(await auswahl.getAktivierteKundeUuids()),
       'standorte': liste(await auswahl.getAktivierteStandortUuids()),
       'verteiler': liste(await auswahl.getAktivierteVerteilerUuids()),
@@ -221,7 +226,7 @@ class SyncEngine {
         await _uebernehmen(typ, uuid, json, version, offen.contains(syncSchluessel(typ.name, uuid)));
       }
     }
-    await abgewaehltesEntfernen(db);
+    if (!vollstaendig) await abgewaehltesEntfernen(db);
     return false;
   }
 

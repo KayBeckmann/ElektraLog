@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -92,7 +93,8 @@ class _GeraeteBereichState extends ConsumerState<GeraeteBereich> {
         const SizedBox(height: 8),
         _SyncCheckbox(
           key: const Key('sync-geraete-standort'),
-          wert: kundeAktiv || (ref.watch(geraeteStandortSyncAktiviertProvider(widget.standortUuid)).valueOrNull ?? false),
+          wert:
+              kundeAktiv || (ref.watch(geraeteStandortSyncAktiviertProvider(widget.standortUuid)).valueOrNull ?? false),
           gesperrt: kundeAktiv,
           text: kundeAktiv
               ? 'Synchronisiert (ganzer Kunde gewählt)'
@@ -225,15 +227,17 @@ class _SyncCheckbox extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Row(
-        children: [
-          Checkbox(value: wert, onChanged: gesperrt ? null : (v) => _toggle(ref, v ?? false)),
-          Expanded(
-            child: Text(
-              text,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.onSurfaceVariant),
+  Widget build(BuildContext context, WidgetRef ref) => kIsWeb
+      ? const SizedBox.shrink() // Web-App lädt immer alles
+      : Row(
+          children: [
+            Checkbox(value: wert, onChanged: gesperrt ? null : (v) => _toggle(ref, v ?? false)),
+            Expanded(
+              child: Text(
+                text,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.onSurfaceVariant),
+              ),
             ),
-          ),
-        ],
-      );
+          ],
+        );
 }
