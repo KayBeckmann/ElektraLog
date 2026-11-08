@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:shelf/shelf.dart';
 import 'package:postgres/postgres.dart';
+import 'package:uuid/uuid.dart';
 import '../middleware/auth_middleware.dart';
 
 /// Endpoint für die rechtssichere Protokoll-Ablage.
@@ -33,7 +34,8 @@ class ProtokollEndpoint {
   //   "verteilerBezeichnung", "standortBezeichnung", "kundenBezeichnung",
   //   "prueferName", "firmaName", "protokollDatum" (ISO8601),
   //   "messdatenJson", "pdfBase64", "pdfHash",
-  //   "art" ('anlage' | 'geraete', ohne Angabe 'anlage')
+  //   "art" ('anlage' | 'geraete', ohne Angabe 'anlage'),
+  //   "bezugUuid" (Verteiler bzw. Standort/Raum/Gerät, optional)
   // }
   Future<Response> create(Request request) async {
     final claims = verifyJwt(request);
@@ -63,6 +65,13 @@ class ProtokollEndpoint {
             headers: {'Content-Type': 'application/json'});
       }
 
+      final bezug = body['bezugUuid'] as String?;
+      if (bezug != null && !Uuid.isValidUUID(fromString: bezug)) {
+        return Response(400,
+            body: jsonEncode({'error': 'Ungültige bezugUuid'}),
+            headers: {'Content-Type': 'application/json'});
+      }
+
       final pdfBytes = base64Decode(pdfBase64);
 
       // Protokolldatum vom Client; Erstellungszeitpunkt kommt vom Server
@@ -79,10 +88,10 @@ class ProtokollEndpoint {
           'INSERT INTO protokolle ('
           '  firma_id, verteiler_bezeichnung, standort_bezeichnung, '
           '  kunden_bezeichnung, pruefer_name, firma_name, '
-          '  protokoll_datum, messdaten_json, pdf_data, pdf_hash, art'
+          '  protokoll_datum, messdaten_json, pdf_data, pdf_hash, art, bezug_uuid'
           ') VALUES ('
           '  @firma_id, @vb, @sb, @kb, @pn, @fn, '
-          '  @pd, @mj, @pdf, @hash, @art'
+          '  @pd, @mj, @pdf, @hash, @art, @bezug'
           ') RETURNING id, erstellt_am',
         ),
         parameters: {
@@ -97,6 +106,7 @@ class ProtokollEndpoint {
           'pdf': TypedValue(Type.byteArray, pdfBytes),
           'hash': pdfHash,
           'art': art,
+          'bezug': TypedValue(Type.uuid, bezug),
         },
       );
 
@@ -129,15 +139,23 @@ class ProtokollEndpoint {
 
     try {
       final firmaId = claims['firmaId'] as String;
+      // ?bezug=<uuid>: Prüfverlauf eines Verteilers/Raums/Geräts (Web-App).
+      final bezug = request.url.queryParameters['bezug'];
+      if (bezug != null && !Uuid.isValidUUID(fromString: bezug)) {
+        return Response(400,
+            body: jsonEncode({'error': 'Ungültige UUID'}),
+            headers: {'Content-Type': 'application/json'});
+      }
       final rows = await db.execute(
         Sql.named(
           'SELECT id, verteiler_bezeichnung, standort_bezeichnung, '
           '  kunden_bezeichnung, pruefer_name, protokoll_datum, '
-          '  pdf_hash, erstellt_am, art '
+          '  pdf_hash, erstellt_am, art, bezug_uuid '
           'FROM protokolle WHERE firma_id = @fid '
+          '${bezug == null ? '' : 'AND bezug_uuid = @bezug '}'
           'ORDER BY erstellt_am DESC',
         ),
-        parameters: {'fid': firmaId},
+        parameters: {'fid': firmaId, if (bezug != null) 'bezug': TypedValue(Type.uuid, bezug)},
       );
 
       final result = rows
@@ -151,6 +169,7 @@ class ProtokollEndpoint {
                 'pdfHash': r[6],
                 'erstelltAm': r[7].toString(),
                 'art': r[8],
+                'bezugUuid': r[9]?.toString(),
               })
           .toList();
 
