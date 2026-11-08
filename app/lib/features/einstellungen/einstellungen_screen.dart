@@ -7,6 +7,7 @@ import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/einstellungen_provider.dart';
 import '../../core/router.dart';
 import '../../shared/theme/app_colors.dart';
+import 'module_einstellungen.dart';
 
 class EinstellungenScreen extends ConsumerStatefulWidget {
   const EinstellungenScreen({super.key});
@@ -364,6 +365,12 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+
+            // ── Module ───────────────────────────────────────────────────
+            const _SectionLabel('MODULE'),
+            const SizedBox(height: 8),
+            const ModuleEinstellungen(),
             const SizedBox(height: 16),
 
             // ── Prüfgerät ────────────────────────────────────────────────
