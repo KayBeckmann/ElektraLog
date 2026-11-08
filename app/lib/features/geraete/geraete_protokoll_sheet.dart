@@ -191,11 +191,23 @@ class _GeraeteProtokollSheetState extends ConsumerState<GeraeteProtokollSheet> {
             ] else ...[
               Text('2 · Übersicht', style: theme.textTheme.titleSmall),
               const SizedBox(height: 4),
+              if (inhalt.durchgefallen.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text(
+                    'Nicht bestanden: ${inhalt.durchgefallen.length}',
+                    key: const Key('uebersicht-durchgefallen'),
+                    style: theme.textTheme.labelLarge?.copyWith(color: AppColors.error),
+                  ),
+                ),
               for (final z in inhalt.zeilen)
                 Container(
                   key: Key('uebersicht-${z.geraet.uuid}'),
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.outlineVariant))),
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: z.durchgefallen ? AppColors.errorContainer : null,
+                    border: const Border(bottom: BorderSide(color: AppColors.outlineVariant)),
+                  ),
                   child: Row(
                     children: [
                       Expanded(
