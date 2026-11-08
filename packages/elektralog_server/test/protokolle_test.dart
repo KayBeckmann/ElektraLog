@@ -2,8 +2,10 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:test/test.dart';
 
 import 'support/test_server.dart';
@@ -46,6 +48,24 @@ void main() {
 
       final id = (g.body as Map)['id'];
       expect(((await server.call('GET', '/api/protokolle/$id', token: token)).body as Map)['art'], 'geraete');
+    });
+
+    test('PDF mit Umlauten im Namen lässt sich über echtes HTTP herunterladen', () async {
+      final r = await server.call('POST', '/api/protokolle',
+          body: protokoll('Geräteübersicht Standort', art: 'geraete'), token: token);
+      final http = await shelf_io.serve(server.handler, InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => http.close(force: true));
+      final client = HttpClient();
+      addTearDown(client.close);
+      final req = await client.get('127.0.0.1', http.port, '/api/protokolle/${(r.body as Map)['id']}/pdf');
+      req.headers.set('authorization', 'Bearer $token');
+      final resp = await req.close();
+      final bytes = await resp.fold<List<int>>([], (a, b) => a..addAll(b));
+      expect(resp.statusCode, 200);
+      expect(utf8.decode(bytes), startsWith('%PDF'));
+      final cd = resp.headers.value('content-disposition')!;
+      expect(cd, contains('filename="Protokoll_Geraeteuebersicht_Standort_2026-11-08.pdf"'));
+      expect(cd, contains("filename*=UTF-8''Protokoll_Ger%C3%A4te%C3%BCbersicht_Standort_2026-11-08.pdf"));
     });
 
     test('unbekannte Art wird abgelehnt', () async {

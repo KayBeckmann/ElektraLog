@@ -261,14 +261,14 @@ class ProtokollEndpoint {
       }
       final bezeichnung = (r[1] as String?)?.replaceAll(' ', '_') ?? 'Protokoll';
       final datum = r[2].toString().substring(0, 10);
+      final dateiname = 'Protokoll_${bezeichnung}_$datum.pdf';
 
       return Response(
         200,
         body: Stream<List<int>>.value(pdfBytes),
         headers: {
           'Content-Type': 'application/pdf',
-          'Content-Disposition':
-              'attachment; filename="Protokoll_${bezeichnung}_$datum.pdf"',
+          'Content-Disposition': contentDisposition(dateiname),
           'Content-Length': pdfBytes.length.toString(),
         },
       );
@@ -280,4 +280,18 @@ class ProtokollEndpoint {
       );
     }
   }
+}
+
+/// `Content-Disposition` für beliebige Dateinamen: HTTP-Header erlauben
+/// nur ASCII — Umlaute („Geräteübersicht“) ließen den Download sonst mit
+/// einem Serverfehler abbrechen. Daher ein ASCII-Ersatz für alte Clients
+/// und der echte Name UTF-8-kodiert nach RFC 5987/6266.
+String contentDisposition(String dateiname) {
+  const ersatz = {'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'Ä': 'Ae', 'Ö': 'Oe', 'Ü': 'Ue', 'ß': 'ss'};
+  final ascii = dateiname
+      .split('')
+      .map((c) => ersatz[c] ?? c)
+      .join()
+      .replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+  return 'attachment; filename="$ascii"; filename*=UTF-8\'\'${Uri.encodeComponent(dateiname)}';
 }
