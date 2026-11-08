@@ -36,6 +36,7 @@ class _GeraeteBereichState extends ConsumerState<GeraeteBereich> {
     final geraete = ref.watch(geraeteByStandortProvider(widget.standortUuid)).valueOrNull ?? const [];
     final treffer = _suche.trim().isEmpty ? null : geraete.where((g) => g.passtZu(_suche)).toList();
     final raumNamen = {for (final r in raeume) r.uuid: r.bezeichnung};
+    final kundeAktiv = ref.watch(kundeSyncAktiviertProvider(widget.kundeUuid)).valueOrNull ?? false;
 
     return Column(
       key: const Key('geraete-bereich'),
@@ -89,8 +90,11 @@ class _GeraeteBereichState extends ConsumerState<GeraeteBereich> {
         const SizedBox(height: 8),
         _SyncCheckbox(
           key: const Key('sync-geraete-standort'),
-          wert: ref.watch(geraeteStandortSyncAktiviertProvider(widget.standortUuid)).valueOrNull ?? false,
-          text: 'Alle Geräte dieses Standorts auf dieses Gerät synchronisieren',
+          wert: kundeAktiv || (ref.watch(geraeteStandortSyncAktiviertProvider(widget.standortUuid)).valueOrNull ?? false),
+          gesperrt: kundeAktiv,
+          text: kundeAktiv
+              ? 'Synchronisiert (ganzer Kunde gewählt)'
+              : 'Alle Geräte dieses Standorts auf dieses Gerät synchronisieren',
           setzen: (repo, v) => repo.setGeraeteStandortAktiviert(widget.standortUuid, v),
         ),
         const SizedBox(height: 8),
@@ -127,6 +131,7 @@ class _GeraeteBereichState extends ConsumerState<GeraeteBereich> {
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: _RaumTile(
+                kundeAktiv: kundeAktiv,
                 raum: r,
                 anzahl: geraete.where((g) => g.raumUuid == r.uuid).length,
                 onTap: () => context.go('/kunden/${widget.kundeUuid}/standort/${widget.standortUuid}/raum/${r.uuid}'),
@@ -138,7 +143,10 @@ class _GeraeteBereichState extends ConsumerState<GeraeteBereich> {
 }
 
 class _RaumTile extends ConsumerWidget {
-  const _RaumTile({required this.raum, required this.anzahl, required this.onTap});
+  const _RaumTile({required this.raum, required this.anzahl, required this.onTap, this.kundeAktiv = false});
+
+  /// Ganzer Kunde gewählt — deckt alle Räume ab.
+  final bool kundeAktiv;
 
   final Raum raum;
   final int anzahl;
@@ -146,7 +154,8 @@ class _RaumTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final standortAktiv = ref.watch(geraeteStandortSyncAktiviertProvider(raum.standortUuid)).valueOrNull ?? false;
+    final standortAktiv =
+        kundeAktiv || (ref.watch(geraeteStandortSyncAktiviertProvider(raum.standortUuid)).valueOrNull ?? false);
     final raumAktiv = ref.watch(raumSyncAktiviertProvider(raum.uuid)).valueOrNull ?? false;
     return Material(
       color: AppColors.surfaceContainerLowest,
@@ -170,7 +179,9 @@ class _RaumTile extends ConsumerWidget {
               key: Key('sync-raum-${raum.uuid}'),
               wert: standortAktiv || raumAktiv,
               gesperrt: standortAktiv,
-              text: standortAktiv ? 'Synchronisiert (ganzer Standort gewählt)' : 'Diesen Raum synchronisieren',
+              text: standortAktiv
+                  ? 'Synchronisiert (ganzer ${kundeAktiv ? 'Kunde' : 'Standort'} gewählt)'
+                  : 'Diesen Raum synchronisieren',
               setzen: (repo, v) => repo.setRaumAktiviert(raum.uuid, v),
             ),
           ),
@@ -180,8 +191,8 @@ class _RaumTile extends ConsumerWidget {
   }
 }
 
-/// Lokale Geräte-Sync-Auswahl. Abwählen stoppt nur künftige Downloads —
-/// lokale Daten und ausstehende Uploads bleiben erhalten.
+/// Lokale Geräte-Sync-Auswahl. Abwählen entfernt hochgeladene Daten vom
+/// Gerät; ungesendete Änderungen bleiben, bis sie hochgeladen sind.
 class _SyncCheckbox extends ConsumerWidget {
   const _SyncCheckbox({super.key, required this.wert, required this.text, required this.setzen, this.gesperrt = false});
 
@@ -192,10 +203,8 @@ class _SyncCheckbox extends ConsumerWidget {
 
   Future<void> _toggle(WidgetRef ref, bool v) async {
     await setzen(ref.read(syncAuswahlRepositoryProvider), v);
-    if (v) {
-      final db = await ref.read(dbProvider.future);
-      unawaited(SyncService.pullAll(db));
-    }
+    final db = await ref.read(dbProvider.future);
+    unawaited(SyncService.pullAll(db));
   }
 
   @override

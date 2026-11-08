@@ -1,11 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/models/standort.dart';
 import '../../core/providers/app_mode_provider.dart';
+import '../../core/providers/isar_provider.dart';
 import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/standorte_provider.dart';
+import '../../core/providers/sync_auswahl_provider.dart';
+import '../../core/sync/sync_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
 import '../struktur/standort_formular.dart';
@@ -28,6 +33,7 @@ class KundenDetailScreen extends ConsumerWidget {
       error: (_, __) => null,
     );
     final isAdmin = ref.watch(isAdminProvider).valueOrNull ?? false;
+    final angemeldet = ref.watch(appModusProvider).valueOrNull == AppModus.company;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -139,6 +145,10 @@ class KundenDetailScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+            if (angemeldet) ...[
+              const SizedBox(height: 8),
+              _KundeSyncCheckbox(kundeUuid: kundeUuid),
+            ],
             const SizedBox(height: 24),
 
             // ── Standorte ─────────────────────────────────────────────────
@@ -280,6 +290,45 @@ class _StandortTile extends StatelessWidget {
                 size: 16, color: AppColors.onSurfaceVariant),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Ganzen Kunden auf dieses Gerät laden: alle Standorte mit Anlagen
+/// (Komponenten, Messungen, Sichtprüfungen) und Geräten. Abwählen entfernt
+/// hochgeladene Daten vom Gerät; ungesendete Änderungen bleiben.
+class _KundeSyncCheckbox extends ConsumerWidget {
+  const _KundeSyncCheckbox({required this.kundeUuid});
+
+  final String kundeUuid;
+
+  Future<void> _toggle(WidgetRef ref, bool aktiviert) async {
+    await ref.read(syncAuswahlRepositoryProvider).setKundeAktiviert(kundeUuid, aktiviert);
+    final db = await ref.read(dbProvider.future);
+    unawaited(SyncService.pullAll(db));
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final aktiviert = ref.watch(kundeSyncAktiviertProvider(kundeUuid)).valueOrNull ?? false;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _toggle(ref, !aktiviert),
+      child: Row(
+        children: [
+          Checkbox(
+            key: const Key('sync-kunde'),
+            value: aktiviert,
+            onChanged: (v) => _toggle(ref, v ?? false),
+          ),
+          Expanded(
+            child: Text(
+              'Ganzen Kunden auf dieses Gerät laden (alle Standorte, Anlagen und Geräte)',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.onSurfaceVariant),
+            ),
+          ),
+        ],
       ),
     );
   }

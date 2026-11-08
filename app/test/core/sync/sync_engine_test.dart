@@ -149,20 +149,26 @@ void main() {
     await b.engine.pull();
     expect(await lokal(), {'gA', 'gB', 'gNeu'});
 
-    // Abwahl: lokale Daten bleiben, ausstehende Änderung wird trotzdem gesendet.
+    // Abwahl: Hochgeladenes verschwindet vom Gerät, die ausstehende
+    // Änderung bleibt, bis sie gesendet ist.
     final gA = (await GeraeteRepository(b.db).getByUuid('gA'))!;
     await GeraeteRepository(b.db).save(gA.mitStammdaten(bezeichnung: 'offline geändert'));
     await auswahl.setGeraeteStandortAktiviert('s1', false);
     await b.engine.pull();
-    expect(await lokal(), {'gA', 'gB', 'gNeu'}, reason: 'Abwahl löscht nichts');
+    expect(await lokal(), {'gA'}, reason: 'nur die ungesendete Änderung bleibt');
+    await auswahl.setRaumAktiviert('rA', false); // Push wählt den Raum wieder aus …
     await b.engine.push();
     expect(server.daten['geraete']!['gA']!.json['bezeichnung'], 'offline geändert');
+    expect(await auswahl.istRaumAktiviert('rA'), isTrue, reason: '… weil hier gearbeitet wurde');
+    await auswahl.setRaumAktiviert('rA', false);
+    await b.engine.pull();
+    expect(await lokal(), isEmpty, reason: 'hochgeladen und abgewählt');
 
     // Wiederanwahl lädt den aktuellen Stand nach.
     final gB = server.daten['geraete']!['gB']!;
     server.daten['geraete']!['gB'] = (json: {...gB.json, 'bezeichnung': 'auf Server geändert'}, version: gB.version + 1);
     await b.engine.pull();
-    expect((await GeraeteRepository(b.db).getByUuid('gB'))!.bezeichnung, 'Gerät gB', reason: 'nicht ausgewählt');
+    expect(await GeraeteRepository(b.db).getByUuid('gB'), isNull, reason: 'nicht ausgewählt');
     await auswahl.setRaumAktiviert('rB', true);
     await b.engine.pull();
     expect((await GeraeteRepository(b.db).getByUuid('gB'))!.bezeichnung, 'auf Server geändert');

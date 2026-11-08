@@ -144,7 +144,12 @@ class SyncService {
   /// ihn blind zu übernehmen. Ausstehende Protokoll-Uploads laufen aus
   /// demselben Grund direkt nach dem Push — auch das ist letztlich nur
   /// eine weitere Art, lokale Daten zum Server zu bringen.
+  ///
+  /// Läuft schon ein Durchgang, kehrt ein weiterer sofort zurück — sonst
+  /// könnten zwei Läufe dasselbe ausstehende PDF doppelt ablegen.
   static Future<SyncResult> autoSync(Database db) async {
+    if (_autoSyncLaeuft) return SyncResult.success;
+    _autoSyncLaeuft = true;
     try {
       final prefs = await SharedPreferences.getInstance();
       if (prefs.getString('jwt_token') == null) return SyncResult.offline;
@@ -155,8 +160,12 @@ class SyncService {
     } catch (e) {
       debugPrint('autoSync: keine Verbindung oder Fehler: $e');
       return SyncResult.offline;
+    } finally {
+      _autoSyncLaeuft = false;
     }
   }
+
+  static bool _autoSyncLaeuft = false;
 
   // ── Backward compat (weiterhin exportiert) ────────────────────────────────
 
@@ -170,7 +179,13 @@ class SyncService {
 final syncStatusProvider =
     StateProvider<SyncStatus>((ref) => SyncStatus.idle);
 
-/// Startet automatisch einen Pull alle 60s wenn im Company-Modus.
+/// Ein automatischer Sync-Durchgang; in Tests ersetzbar.
+final syncLaufProvider = Provider<Future<SyncResult> Function(Database db)>((ref) => SyncService.autoSync);
+
+/// Angemeldet am Backend: sofort (nach Login bzw. App-Start) alle lokalen
+/// Daten hochladen, danach alle 60 s Push + ausstehende Protokolle + Pull —
+/// so kommen auch Änderungen aus einem Funkloch ohne weiteres Zutun an.
+/// Der Download bleibt auf die Auswahl beschränkt (siehe [SyncEngine.pull]).
 /// Stoppt sich selbst bei Logout. In AppScaffold watchen.
 final autoSyncProvider = Provider<void>((ref) {
   final modus = ref.watch(appModusProvider).valueOrNull;
@@ -179,8 +194,8 @@ final autoSyncProvider = Provider<void>((ref) {
   final db = ref.watch(dbProvider).valueOrNull;
   if (db == null) return;
 
-  final timer = Timer.periodic(const Duration(seconds: 60), (_) {
-    SyncService.pullAll(db);
-  });
+  final lauf = ref.watch(syncLaufProvider);
+  unawaited(lauf(db));
+  final timer = Timer.periodic(const Duration(seconds: 60), (_) => lauf(db));
   ref.onDispose(timer.cancel);
 });

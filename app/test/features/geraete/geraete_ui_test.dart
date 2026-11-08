@@ -7,6 +7,7 @@ import 'package:elektralog/core/providers/isar_provider.dart';
 import 'package:elektralog/core/providers/kunden_provider.dart';
 import 'package:elektralog/core/providers/module_provider.dart';
 import 'package:elektralog/core/providers/standorte_provider.dart';
+import 'package:elektralog/core/providers/sync_auswahl_provider.dart';
 import 'package:elektralog/features/geraete/geraet_detail_screen.dart';
 import 'package:elektralog/features/geraete/geraete_bereich.dart';
 import 'package:flutter/material.dart';
@@ -96,6 +97,18 @@ void main() {
     await tester.enterText(find.byKey(const Key('geraete-suche')), 'gibtsnicht');
     await tester.pumpAndSettle();
     expect(find.text('0 Treffer'), findsOneWidget);
+  });
+
+  testWidgets('Ganzer Kunde ausgewählt: Standort und Räume fest angehakt', (tester) async {
+    await RaeumeRepository(db).save(Raum(uuid: 'r1', standortUuid: 's1', bezeichnung: 'Büro'));
+    await SyncAuswahlRepository(db).setKundeAktiviert('k1', true);
+    await pump(tester, const Scaffold(body: SingleChildScrollView(child: GeraeteBereich(kundeUuid: 'k1', standortUuid: 's1'))));
+    for (final key in ['sync-geraete-standort', 'sync-raum-r1']) {
+      final box = tester.widget<Checkbox>(find.descendant(of: find.byKey(Key(key)), matching: find.byType(Checkbox)));
+      expect((box.value, box.onChanged), (true, null), reason: key);
+    }
+    expect(find.text('Synchronisiert (ganzer Kunde gewählt)'), findsNWidgets(2));
+    await syncTimerAbwarten(tester);
   });
 
   testWidgets('Intervall: Vorauswahl oder frei 1–23, 24 nur über Vorauswahl, Begründung im Verlauf', (tester) async {
