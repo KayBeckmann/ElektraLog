@@ -35,6 +35,7 @@ class StorageService {
       stringMapStoreFactory.store('sichtpruefungen');
   static final raeumeStore = stringMapStoreFactory.store('raeume');
   static final geraeteStore = stringMapStoreFactory.store('geraete');
+  static final geraetepruefungenStore = stringMapStoreFactory.store('geraetepruefungen');
   static final pruefprotokollStore =
       stringMapStoreFactory.store('pruefprotokolle');
 
