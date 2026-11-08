@@ -95,7 +95,14 @@ Future<Uint8List> geraeteProtokollPdf(
     build: (ctx) => [
       _kopfzeile(s, inhalt.titel, kopf, 'Erstellt am ${_datum(jetzt)} · Auswahl: ${inhalt.filter.bezeichnung}'),
       pw.SizedBox(height: 12),
-      _uebersicht(inhalt.zeilen, s),
+      if (inhalt.durchgefallen.isNotEmpty) ...[
+        _abschnitt(s, 'Nicht bestanden: ${inhalt.durchgefallen.length} '
+            '${inhalt.durchgefallen.length == 1 ? 'Gerät' : 'Geräte'} (Mängel beseitigen, nicht benutzen)', _schlecht),
+        _uebersicht(inhalt.durchgefallen, s, durchgefallen: true),
+        pw.SizedBox(height: 14),
+        if (inhalt.uebrige.isNotEmpty) _abschnitt(s, 'Übrige Geräte', _primary),
+      ],
+      if (inhalt.uebrige.isNotEmpty) _uebersicht(inhalt.uebrige, s, abNr: inhalt.durchgefallen.length + 1),
       pw.SizedBox(height: 8),
       pw.Text(
         '${inhalt.zeilen.length} Geräte, davon ${inhalt.blaetter.length} mit Prüfprotokoll. '
@@ -172,26 +179,41 @@ pw.Widget _zelle(String text, {pw.Font? font, PdfColor? farbe, double size = 8})
     );
 
 pw.Widget _tabelle(PdfSchriften s, List<String> kopf, List<List<pw.Widget>> zeilen,
-        {Map<int, pw.TableColumnWidth>? breiten}) =>
+        {Map<int, pw.TableColumnWidth>? breiten, PdfColor? zeilenFarbe, PdfColor? rahmen}) =>
     pw.Table(
-      border: pw.TableBorder.all(color: _grau, width: 0.5),
+      border: pw.TableBorder.all(color: rahmen ?? _grau, width: 0.5),
       columnWidths: breiten,
       children: [
         pw.TableRow(
           decoration: pw.BoxDecoration(color: _flaeche),
+          repeat: true,
           children: [for (final k in kopf) _zelle(k, font: s.bold)],
         ),
-        for (final z in zeilen) pw.TableRow(children: z),
+        for (final z in zeilen)
+          pw.TableRow(decoration: zeilenFarbe == null ? null : pw.BoxDecoration(color: zeilenFarbe), children: z),
       ],
     );
 
-pw.Widget _uebersicht(List<UebersichtZeile> zeilen, PdfSchriften s) => _tabelle(
+final _schlechtFlaeche = PdfColor.fromHex('#FDECEA');
+
+/// Abschnittsüberschrift der Übersicht (farbiger Balken links).
+pw.Widget _abschnitt(PdfSchriften s, String text, PdfColor farbe) => pw.Container(
+      margin: const pw.EdgeInsets.only(bottom: 4),
+      padding: const pw.EdgeInsets.only(left: 6),
+      decoration: pw.BoxDecoration(border: pw.Border(left: pw.BorderSide(color: farbe, width: 3))),
+      child: pw.Text(text, style: pw.TextStyle(font: s.bold, fontSize: 10, color: farbe)),
+    );
+
+pw.Widget _uebersicht(List<UebersichtZeile> zeilen, PdfSchriften s, {bool durchgefallen = false, int abNr = 1}) =>
+    _tabelle(
       s,
       ['Nr.', 'Gerät', 'Inventar-/Seriennr.', 'SK', 'Raum', 'Status', 'Letzte Prüfung', 'Nächste Prüfung'],
+      zeilenFarbe: durchgefallen ? _schlechtFlaeche : null,
+      rahmen: durchgefallen ? _schlecht : null,
       [
         for (final (i, z) in zeilen.indexed)
           [
-            _zelle('${i + 1}'),
+            _zelle('${abNr + i}'),
             _zelle([z.geraet.bezeichnung, z.geraet.hersteller, z.geraet.typ].whereType<String>().join(' · ')),
             _zelle([z.geraet.inventarnummer, z.geraet.seriennummer].whereType<String>().join(' / ')),
             _zelle(z.geraet.schutzklasse ?? '–'),
@@ -200,11 +222,24 @@ pw.Widget _uebersicht(List<UebersichtZeile> zeilen, PdfSchriften s) => _tabelle(
             _zelle(z.letztePruefung == null
                 ? (z.geraet.aktiv ? 'nicht geprüft' : '–')
                 : '${_datum(z.letztePruefung!.datum)} · ${pruefartKurz(z.letztePruefung!)} · '
-                    '${z.letztePruefung!.bestanden ? 'bestanden' : 'nicht bestanden'}'),
+                    '${z.letztePruefung!.bestanden ? 'bestanden' : 'nicht bestanden'}',
+                font: z.durchgefallen ? s.bold : null,
+                farbe: z.durchgefallen ? _schlecht : null),
             _zelle(z.naechstePruefung == null ? '–' : _datum(z.naechstePruefung!)),
           ],
       ],
-      breiten: const {0: pw.FixedColumnWidth(24), 3: pw.FixedColumnWidth(26)},
+      // Feste Breiten, damit beide Abschnitte (nicht bestanden / übrige)
+      // dieselben Spalten haben.
+      breiten: const {
+        0: pw.FixedColumnWidth(24),
+        1: pw.FlexColumnWidth(2.6),
+        2: pw.FlexColumnWidth(1.7),
+        3: pw.FixedColumnWidth(26),
+        4: pw.FlexColumnWidth(1.5),
+        5: pw.FlexColumnWidth(1.6),
+        6: pw.FlexColumnWidth(3.9),
+        7: pw.FlexColumnWidth(1.4),
+      },
     );
 
 /// Unterschriftsfeld: Bild (falls vorhanden) über der Linie, darunter

@@ -77,8 +77,8 @@ void main() {
 
   test('Übersicht enthält alle im Filter, Prüfblätter nur aktive und tatsächlich geprüfte', () {
     final alleInhalt = inhalt(ProtokollFilter.alle);
-    expect(alleInhalt.zeilen.map((z) => z.geraet.uuid), ['A', 'B', 'C', 'D', 'E']);
-    expect(alleInhalt.blaetter.map((x) => x.geraet.uuid), ['A', 'B']);
+    expect(alleInhalt.zeilen.map((z) => z.geraet.uuid), ['B', 'A', 'C', 'D', 'E'], reason: 'durchgefallen zuerst');
+    expect(alleInhalt.blaetter.map((x) => x.geraet.uuid), ['B', 'A']);
     final inaktiv = alleInhalt.zeilen.firstWhere((z) => z.geraet.uuid == 'D');
     expect((inaktiv.status, inaktiv.mitProtokoll), ('Inaktiv: in Reparatur', false));
 
@@ -90,9 +90,26 @@ void main() {
 
   test('Sammelprotokoll mit verschiedenen echten Prüftagen und Schutzklassen', () {
     final blaetter = inhalt(ProtokollFilter.alle).blaetter;
-    expect([for (final x in blaetter) x.pruefung.pruefungDatum], ['2026-10-01', '2026-05-15']);
-    expect([for (final x in blaetter) x.pruefung.schutzklasse], ['I', 'II']);
+    expect([for (final x in blaetter) x.pruefung.pruefungDatum], ['2026-05-15', '2026-10-01']);
+    expect([for (final x in blaetter) x.pruefung.schutzklasse], ['II', 'I']);
     expect(blaetter.every((x) => x.pruefung.pruefartText.contains('DGUV Vorschrift 3')), isTrue);
+  });
+
+  test('Durchgefallene Geräte stehen abgesetzt am Anfang, inaktive nicht', () {
+    final i = inhalt(ProtokollFilter.alle);
+    expect([for (final z in i.durchgefallen) z.geraet.uuid], ['B']);
+    expect([for (final z in i.uebrige) z.geraet.uuid], ['A', 'C', 'D', 'E'], reason: 'sonst Reihenfolge wie gewählt');
+    // Inaktives Gerät mit nicht bestandener Prüfung gehört nicht in den Block.
+    final raus = b.mitStatus(aktiv: false, grund: 'ausgesondert');
+    final j = protokollInhalt(
+      titel: 'T',
+      filter: ProtokollFilter.alle,
+      geraete: [a, raus],
+      pruefungenJeGeraet: pruefungen,
+      raumNamen: const {},
+      heute: heute,
+    );
+    expect(j.durchgefallen, isEmpty);
   });
 
   test('Umzug nach der Prüfung ändert die historische Fassung nicht; Korrektur ersetzt', () {
@@ -132,6 +149,9 @@ void main() {
     expect(text.startsWith('%PDF'), isTrue);
     final seiten = RegExp(r'/Type\s*/Page[^s]').allMatches(text).length;
     expect(seiten, greaterThanOrEqualTo(3), reason: 'Übersicht + zwei Prüfblätter');
+    final formate = [for (final m in RegExp(r'/MediaBox\s*\[\s*0\s+0\s+([\d.]+)\s+([\d.]+)').allMatches(text)) double.parse(m[1]!) > double.parse(m[2]!)];
+    expect(formate.first, isTrue, reason: 'Übersicht im Querformat');
+    expect(formate.skip(1), everyElement(isFalse), reason: 'Prüfblätter im Hochformat');
 
     final einzel = await einzelProtokollPdf(
       pruefungen['A']!.single,

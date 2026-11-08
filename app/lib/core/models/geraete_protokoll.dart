@@ -70,6 +70,10 @@ class UebersichtZeile {
 
   /// Bekommt ein eigenes Prüfblatt (aktiv + tatsächlich geprüft).
   final bool mitProtokoll;
+
+  /// Aktives Gerät, dessen letzte gültige Prüfung nicht bestanden ist —
+  /// steht in der Übersicht abgesetzt ganz oben.
+  bool get durchgefallen => geraet.aktiv && letztePruefung != null && !letztePruefung!.bestanden;
 }
 
 class GeraeteProtokollInhalt {
@@ -79,8 +83,12 @@ class GeraeteProtokollInhalt {
   final String titel;
   final ProtokollFilter filter;
 
-  /// Übersicht aller Geräte im Filter — immer zuerst.
+  /// Übersicht aller Geräte im Filter — immer zuerst; durchgefallene
+  /// Geräte stehen am Anfang (Reihenfolge sonst wie gewählt).
   final List<UebersichtZeile> zeilen;
+
+  List<UebersichtZeile> get durchgefallen => [for (final z in zeilen) if (z.durchgefallen) z];
+  List<UebersichtZeile> get uebrige => [for (final z in zeilen) if (!z.durchgefallen) z];
 
   /// Prüfblätter: je aktivem, tatsächlich geprüftem Gerät dessen letzte
   /// gültige abgeschlossene Prüfung (echte Prüftage, kein gemeinsames Datum).
@@ -109,9 +117,13 @@ GeraeteProtokollInhalt protokollInhalt({
       naechstePruefung: g.aktiv ? geraetTermin(g, letztePruefung: nachweis, heute: heute).faelligAm : null,
       mitProtokoll: mitProtokoll,
     ));
-    if (mitProtokoll) blaetter.add((geraet: g, pruefung: letzte));
   }
-  return GeraeteProtokollInhalt(titel: titel, filter: filter, zeilen: zeilen, blaetter: blaetter);
+  // Durchgefallene zuerst — in der Übersicht und bei den Prüfblättern.
+  final sortiert = [...zeilen.where((z) => z.durchgefallen), ...zeilen.where((z) => !z.durchgefallen)];
+  for (final z in sortiert) {
+    if (z.mitProtokoll) blaetter.add((geraet: z.geraet, pruefung: z.letztePruefung!));
+  }
+  return GeraeteProtokollInhalt(titel: titel, filter: filter, zeilen: sortiert, blaetter: blaetter);
 }
 
 /// Bewertung lesbar für Übersicht und Protokoll.
