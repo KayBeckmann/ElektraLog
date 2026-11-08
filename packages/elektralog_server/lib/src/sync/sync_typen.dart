@@ -41,6 +41,8 @@ class SyncTyp {
 
   /// Spalten, die bei einem Update überschrieben werden. Eltern-Spalten,
   /// die sich nie ändern dürfen (z. B. Standort eines Verteilers), fehlen.
+  /// Liefert [werte] eine Spalte nicht (Feld kennt ein älterer Client noch
+  /// nicht), bleibt sie unverändert.
   final List<String> updateSpalten;
 
   /// (Spalte, Elterntabelle): referenzierte Datensätze müssen der Firma
@@ -77,7 +79,7 @@ class SyncTyp {
         'INSERT INTO $tabelle (${spalten.join(', ')}, firma_id, version) '
         'VALUES (${spalten.map((s) => '@$s').join(', ')}, @firma_id, 1) '
         'ON CONFLICT (uuid) DO UPDATE SET '
-        '${updateSpalten.map((s) => '$s = EXCLUDED.$s').join(', ')}, '
+        '${updateSpalten.where(w.containsKey).map((s) => '$s = EXCLUDED.$s').join(', ')}, '
         'version = $tabelle.version + 1 '
         'WHERE $tabelle.firma_id = EXCLUDED.firma_id',
       ),
@@ -260,9 +262,20 @@ final messungenTyp = SyncTyp(
     'messwert_json': m['messwertJson'],
     'ergebnis': _pflicht(m, 'ergebnis', 'Ergebnis'),
     'bemerkung': m['bemerkung'],
+    // Ältere Apps kennen das Feld nicht und dürfen es nicht löschen.
+    if (m.containsKey('pruefgeraet')) 'pruefgeraet': _text(m, 'pruefgeraet'),
     ..._zeiten(m),
   },
-  updateSpalten: ['norm', 'pruefung_datum', 'pruefer_name', 'messwert_json', 'ergebnis', 'bemerkung', 'aktualisiert_am'],
+  updateSpalten: [
+    'norm',
+    'pruefung_datum',
+    'pruefer_name',
+    'messwert_json',
+    'ergebnis',
+    'bemerkung',
+    'pruefgeraet',
+    'aktualisiert_am',
+  ],
   zuJson: (z) => {
     'uuid': z['uuid'].toString(),
     'komponenteUuid': z['komponente_uuid']?.toString(),
@@ -272,6 +285,7 @@ final messungenTyp = SyncTyp(
     'messwertJson': z['messwert_json'],
     'ergebnis': z['ergebnis'],
     'bemerkung': z['bemerkung'],
+    'pruefgeraet': z['pruefgeraet'],
     ..._zeitenJson(z),
   },
 );
