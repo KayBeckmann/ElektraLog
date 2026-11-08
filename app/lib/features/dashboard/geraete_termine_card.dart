@@ -166,7 +166,6 @@ class _Abschnitt extends StatelessWidget {
 
 class _Zeile extends StatelessWidget {
   const _Zeile({
-    super.key,
     required this.datum,
     required this.titel,
     required this.unterzeile,
