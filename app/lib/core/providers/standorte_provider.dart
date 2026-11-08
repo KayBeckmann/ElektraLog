@@ -4,15 +4,31 @@ import 'package:sembast/sembast.dart';
 import '../database/isar_service.dart';
 import '../models/standort.dart';
 import '../sync/sync_service.dart';
+import '../online/online_daten.dart';
+import '../online/online_repositories.dart';
 import 'isar_provider.dart';
 
 // ── Repository ────────────────────────────────────────────────────────────────
 
-class StandorteRepository {
-  const StandorteRepository(this._db);
+/// Datenzugriff; lokal (Endgeräte, sembast) oder online (Web-App, siehe
+/// `core/online`). `StandorteRepository(db)` liefert die lokale Umsetzung.
+abstract interface class StandorteRepository {
+  const factory StandorteRepository(Database db) = LokaleStandorteRepository;
+
+  Stream<List<Standort>> watchByKunde(String kundeUuid);
+  Future<List<Standort>> getByKunde(String kundeUuid);
+  Future<Standort?> getByUuid(String uuid);
+  Future<int> countByKunde(String kundeUuid);
+  Future<void> save(Standort standort);
+  Future<void> delete(String uuid);
+}
+
+class LokaleStandorteRepository implements StandorteRepository {
+  const LokaleStandorteRepository(this._db);
 
   final Database _db;
 
+  @override
   Stream<List<Standort>> watchByKunde(String kundeUuid) {
     final finder = Finder(
       filter: Filter.equals('kundeUuid', kundeUuid),
@@ -26,6 +42,7 @@ class StandorteRepository {
             .toList());
   }
 
+  @override
   Future<List<Standort>> getByKunde(String kundeUuid) async {
     final finder = Finder(
       filter: Filter.equals('kundeUuid', kundeUuid),
@@ -37,6 +54,7 @@ class StandorteRepository {
         .toList();
   }
 
+  @override
   Future<Standort?> getByUuid(String uuid) async {
     final snapshot =
         await StorageService.standorteStore.record(uuid).get(_db);
@@ -44,11 +62,13 @@ class StandorteRepository {
     return Standort.fromJson(snapshot.cast<String, dynamic>());
   }
 
+  @override
   Future<int> countByKunde(String kundeUuid) async {
     final filter = Filter.equals('kundeUuid', kundeUuid);
     return StorageService.standorteStore.count(_db, filter: filter);
   }
 
+  @override
   Future<void> save(Standort standort) async {
     await StorageService.standorteStore
         .record(standort.uuid)
@@ -56,6 +76,7 @@ class StandorteRepository {
     SyncService.scheduleSync(_db);
   }
 
+  @override
   Future<void> delete(String uuid) async {
     await StorageService.standorteStore.record(uuid).delete(_db);
     SyncService.scheduleSync(_db);
@@ -65,6 +86,8 @@ class StandorteRepository {
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final standorteRepositoryProvider = Provider<StandorteRepository>((ref) {
+  final o = ref.watch(onlineDatenProvider);
+  if (o != null) return OnlineStandorteRepository(o);
   final dbAsync = ref.watch(dbProvider);
   return dbAsync.when(
     data: (db) => StandorteRepository(db),
@@ -75,6 +98,8 @@ final standorteRepositoryProvider = Provider<StandorteRepository>((ref) {
 
 final standorteByKundeProvider =
     StreamProvider.family<List<Standort>, String>((ref, kundeUuid) {
+  final o = ref.watch(onlineDatenProvider);
+  if (o != null) return OnlineStandorteRepository(o).watchByKunde(kundeUuid);
   final dbAsync = ref.watch(dbProvider);
   return dbAsync.when(
     data: (db) => StandorteRepository(db).watchByKunde(kundeUuid),
@@ -84,6 +109,8 @@ final standorteByKundeProvider =
 });
 
 final alleStandorteProvider = StreamProvider<List<Standort>>((ref) {
+  final o = ref.watch(onlineDatenProvider);
+  if (o != null) return OnlineStandorteRepository(o).watchAlle();
   final dbAsync = ref.watch(dbProvider);
   return dbAsync.when(
     data: (db) {

@@ -4,6 +4,8 @@ import 'package:sembast/sembast.dart';
 import '../database/isar_service.dart';
 import '../models/verteiler_komponente.dart';
 import '../sync/sync_service.dart';
+import '../online/online_daten.dart';
+import '../online/online_repositories.dart';
 import 'isar_provider.dart';
 
 /// Speichert die zuletzt angelegte Komponente als Vorlage für die nächste.
@@ -13,11 +15,24 @@ final letzteKomponenteTemplateProvider =
 
 // ── Repository ────────────────────────────────────────────────────────────────
 
-class KomponentenRepository {
-  const KomponentenRepository(this._db);
+/// Datenzugriff; lokal (Endgeräte, sembast) oder online (Web-App, siehe
+/// `core/online`). `KomponentenRepository(db)` liefert die lokale Umsetzung.
+abstract interface class KomponentenRepository {
+  const factory KomponentenRepository(Database db) = LokaleKomponentenRepository;
+
+  Stream<List<VerteilerKomponente>> watchByVerteiler(String verteilerUuid);
+  Future<List<VerteilerKomponente>> getByVerteiler(String verteilerUuid);
+  Future<VerteilerKomponente?> getByUuid(String uuid);
+  Future<void> save(VerteilerKomponente komponente);
+  Future<void> delete(String uuid);
+}
+
+class LokaleKomponentenRepository implements KomponentenRepository {
+  const LokaleKomponentenRepository(this._db);
 
   final Database _db;
 
+  @override
   Stream<List<VerteilerKomponente>> watchByVerteiler(String verteilerUuid) {
     final finder = Finder(
       filter: Filter.equals('verteilerUuid', verteilerUuid),
@@ -32,6 +47,7 @@ class KomponentenRepository {
             .toList());
   }
 
+  @override
   Future<List<VerteilerKomponente>> getByVerteiler(
       String verteilerUuid) async {
     final finder = Finder(
@@ -46,6 +62,7 @@ class KomponentenRepository {
         .toList();
   }
 
+  @override
   Future<VerteilerKomponente?> getByUuid(String uuid) async {
     final snapshot =
         await StorageService.komponentenStore.record(uuid).get(_db);
@@ -53,6 +70,7 @@ class KomponentenRepository {
     return VerteilerKomponente.fromJson(snapshot.cast<String, dynamic>());
   }
 
+  @override
   Future<void> save(VerteilerKomponente komponente) async {
     await StorageService.komponentenStore
         .record(komponente.uuid)
@@ -60,6 +78,7 @@ class KomponentenRepository {
     SyncService.scheduleSync(_db);
   }
 
+  @override
   Future<void> delete(String uuid) async {
     await StorageService.komponentenStore.record(uuid).delete(_db);
     SyncService.scheduleSync(_db);
@@ -69,6 +88,8 @@ class KomponentenRepository {
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final komponentenRepositoryProvider = Provider<KomponentenRepository>((ref) {
+  final o = ref.watch(onlineDatenProvider);
+  if (o != null) return OnlineKomponentenRepository(o);
   final dbAsync = ref.watch(dbProvider);
   return dbAsync.when(
     data: (db) => KomponentenRepository(db),
@@ -80,6 +101,8 @@ final komponentenRepositoryProvider = Provider<KomponentenRepository>((ref) {
 final komponentenByVerteilerProvider =
     StreamProvider.family<List<VerteilerKomponente>, String>(
         (ref, verteilerUuid) {
+  final o = ref.watch(onlineDatenProvider);
+  if (o != null) return OnlineKomponentenRepository(o).watchByVerteiler(verteilerUuid);
   final dbAsync = ref.watch(dbProvider);
   return dbAsync.when(
     data: (db) => KomponentenRepository(db).watchByVerteiler(verteilerUuid),

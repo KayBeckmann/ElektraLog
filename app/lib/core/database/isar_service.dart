@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sembast/sembast_io.dart';
+import 'package:sembast/sembast_memory.dart';
 import 'package:sembast/sembast.dart';
 import 'package:sembast_web/sembast_web.dart';
 import 'package:path_provider/path_provider.dart';
@@ -19,7 +20,13 @@ class StorageService {
 
   Future<Database> _open() async {
     if (kIsWeb) {
-      return databaseFactoryWeb.openDatabase('elektralog.db');
+      // Web-App arbeitet online (Kay, 2026-11-08): nichts dauerhaft im
+      // Browser. Eine Kopie aus früheren Versionen wird entfernt; lokale
+      // Hilfsdaten (Auswahl, Protokoll-Puffer) leben nur im Speicher.
+      try {
+        await databaseFactoryWeb.deleteDatabase('elektralog.db');
+      } catch (_) {}
+      return databaseFactoryMemory.openDatabase('elektralog.db');
     }
     final dir = await getApplicationDocumentsDirectory();
     return databaseFactoryIo.openDatabase(p.join(dir.path, 'elektralog.db'));

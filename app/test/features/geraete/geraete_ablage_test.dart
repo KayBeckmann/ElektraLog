@@ -26,7 +26,7 @@ void main() {
 
   test('mit Verbindung: abgelegt, lokales PDF verworfen, Art „geraete“', () async {
     String? hochgeladenArt;
-    final r = await geraeteProtokollAblegen(db,
+    final r = await geraeteProtokollAblegen(PruefprotokollRepository(db),
         bezugUuid: 'r1',
         titel: 'Geräteübersicht Raum Büro',
         bytes: pdf,
@@ -43,14 +43,14 @@ void main() {
   });
 
   test('ohne Verbindung: bleibt mit PDF ausstehend und wird später hochgeladen', () async {
-    final r = await geraeteProtokollAblegen(db,
+    final r = await geraeteProtokollAblegen(PruefprotokollRepository(db),
         bezugUuid: 'g1', titel: 'Prüfprotokoll Lampe', bytes: pdf, snapshot: '{}', upload: (_, __) async => null);
     await r.upload;
     final ausstehend = await PruefprotokollRepository(db).getAusstehende();
     expect(ausstehend.single.art, 'geraete');
     expect(base64Decode(ausstehend.single.pdfBase64!), pdf);
 
-    final fehler = await geraeteProtokollAblegen(db,
+    final fehler = await geraeteProtokollAblegen(PruefprotokollRepository(db),
         bezugUuid: 'g2', titel: 'X', bytes: pdf, snapshot: '{}', upload: (_, __) => Future.error('kein Netz'));
     expect((await fehler.upload).backendUuid, isNull);
     expect(await PruefprotokollRepository(db).getAusstehende(), hasLength(2));

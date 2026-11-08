@@ -9,7 +9,7 @@ import '../../core/models/geraete_protokoll.dart';
 import '../../core/models/geraete_pruefung.dart';
 import '../../core/providers/einstellungen_provider.dart';
 import '../../core/providers/geraete_provider.dart';
-import '../../core/providers/isar_provider.dart';
+import '../../core/providers/pruefprotokoll_provider.dart';
 import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../shared/theme/app_colors.dart';
@@ -33,7 +33,10 @@ Future<PdfOptions?> _unterschreiben(BuildContext context, String titel, String? 
 /// Prüfgeräte der Prüfungen als Vorschlag; ohne Angabe gilt das Prüfgerät
 /// der Geräteprüfung aus den Einstellungen.
 String? _pruefgeraete(Iterable<GeraetePruefung> pruefungen) {
-  final g = {for (final p in pruefungen) if (p.messgeraet?.trim().isNotEmpty ?? false) p.messgeraet!.trim()};
+  final g = {
+    for (final p in pruefungen)
+      if (p.messgeraet?.trim().isNotEmpty ?? false) p.messgeraet!.trim()
+  };
   return g.isEmpty ? null : g.join(' / ');
 }
 
@@ -110,8 +113,14 @@ class _GeraeteProtokollSheetState extends ConsumerState<GeraeteProtokollSheet> {
 
   List<Geraet> _imUmfang(List<Geraet> standortGeraete) => switch (widget.umfang) {
         ProtokollUmfang.standort => standortGeraete,
-        ProtokollUmfang.raum => [for (final g in standortGeraete) if (g.raumUuid == widget.raumUuid) g],
-        ProtokollUmfang.geraet => [for (final g in standortGeraete) if (g.uuid == widget.geraetUuid) g],
+        ProtokollUmfang.raum => [
+            for (final g in standortGeraete)
+              if (g.raumUuid == widget.raumUuid) g
+          ],
+        ProtokollUmfang.geraet => [
+            for (final g in standortGeraete)
+              if (g.uuid == widget.geraetUuid) g
+          ],
       };
 
   @override
@@ -120,7 +129,8 @@ class _GeraeteProtokollSheetState extends ConsumerState<GeraeteProtokollSheet> {
     final pruefungen = ref.watch(allePruefungenProvider).valueOrNull ?? const <GeraetePruefung>[];
     final nachweise = ref.watch(geraetePruefNachweiseProvider).valueOrNull ?? const {};
     final raeume = <String, String>{
-      for (final r in ref.watch(raeumeByStandortProvider(widget.standortUuid)).valueOrNull ?? const []) r.uuid: r.bezeichnung,
+      for (final r in ref.watch(raeumeByStandortProvider(widget.standortUuid)).valueOrNull ?? const [])
+        r.uuid: r.bezeichnung,
     };
     final imUmfang = _imUmfang(standortGeraete);
     final heute = DateTime.now();
@@ -289,33 +299,43 @@ class _GeraeteProtokollSheetState extends ConsumerState<GeraeteProtokollSheet> {
       schriften: widget.schriften,
       unterschrift: _unterschrift(optionen),
     );
-    await geraeteProtokollAblegen(
-      await ref.read(dbProvider.future),
-      bezugUuid: switch (widget.umfang) {
-        ProtokollUmfang.standort => widget.standortUuid,
-        ProtokollUmfang.raum => widget.raumUuid ?? widget.standortUuid,
-        ProtokollUmfang.geraet => widget.geraetUuid ?? widget.standortUuid,
-      },
-      titel: inhalt.titel,
-      bytes: bytes,
-      snapshot: geraeteSnapshot(
+    String? ablageFehler;
+    try {
+      await geraeteProtokollAblegen(
+        ref.read(pruefprotokollRepositoryProvider),
+        bezugUuid: switch (widget.umfang) {
+          ProtokollUmfang.standort => widget.standortUuid,
+          ProtokollUmfang.raum => widget.raumUuid ?? widget.standortUuid,
+          ProtokollUmfang.geraet => widget.geraetUuid ?? widget.standortUuid,
+        },
         titel: inhalt.titel,
-        filter: inhalt.filter,
-        zeilen: inhalt.zeilen,
-        pruefungen: [for (final b in inhalt.blaetter) b.pruefung],
-      ),
-      kunde: kunde?.name,
-      standort: standort?.bezeichnung,
-      pruefer: optionen.prueferName,
-      firma: optionen.firma ?? e.firma,
-    );
+        bytes: bytes,
+        snapshot: geraeteSnapshot(
+          titel: inhalt.titel,
+          filter: inhalt.filter,
+          zeilen: inhalt.zeilen,
+          pruefungen: [for (final b in inhalt.blaetter) b.pruefung],
+        ),
+        kunde: kunde?.name,
+        standort: standort?.bezeichnung,
+        pruefer: optionen.prueferName,
+        firma: optionen.firma ?? e.firma,
+      );
+    } catch (fehler) {
+      // Web-App: Upload direkt — das PDF bekommt der Nutzer trotzdem.
+      ablageFehler = 'Nicht in der Dokumentenablage gespeichert: $fehler';
+    }
     final datum = DateTime.now();
     await widget.ausgabe(
       bytes,
       'Geraetepruefung_${standort?.bezeichnung ?? 'Standort'}_${datum.year}-${datum.month}-${datum.day}.pdf'
           .replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_'),
     );
-    if (mounted) setState(() => _erzeugt = true);
+    if (!mounted) return;
+    setState(() => _erzeugt = ablageFehler == null);
+    if (ablageFehler != null) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(ablageFehler)));
+    }
   }
 }
 
@@ -343,7 +363,7 @@ Future<void> einzelProtokollAusgeben(
     unterschrift: _unterschrift(optionen),
   );
   await geraeteProtokollAblegen(
-    await ref.read(dbProvider.future),
+    ref.read(pruefprotokollRepositoryProvider),
     bezugUuid: geraet.uuid,
     titel: titel,
     bytes: bytes,
