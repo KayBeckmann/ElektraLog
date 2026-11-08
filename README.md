@@ -32,6 +32,11 @@ Sobald Sync, Mehrbenutzer und Firmenstruktur benötigt werden, schaltet die App 
 | Messformulare | DIN VDE 0701-0702, DGUV V3, DIN VDE 0100 |
 | Grenzwert-Bewertung | Automatische Auswertung Bestanden / Nicht bestanden |
 | PDF-Export | ZVEH-angelehnte Prüfprotokolle direkt auf dem Gerät |
+| Firmenmodule | Anlagenprüfung und Geräteprüfung unabhängig schaltbar (Firmenadmin, im Solo-Modus lokal) |
+| Geräteprüfung | Kunde → Standort → Raum → Gerät, Prüfung nach DGUV V3 für ortsveränderliche Geräte mit Schutzklasse I/II, Intervall 3/6/12/24 oder 1–23 Monate |
+| Gerätetermine | Eigene 90-Tage-Liste neben den Anlagenmessungen, Überfälliges gesondert |
+| Geräteprotokolle | Übersicht (alle / aktive / fristgerecht / manuell) und Prüfblätter für Gerät, Raum oder Standort |
+| Etiketten & Scan | QR-Etikett mit vollständiger UUID, Kamera- oder Handscanner öffnet das Gerät |
 
 ### Company-Modus — Cloud oder Self-Hosting
 
@@ -43,6 +48,8 @@ Sobald Sync, Mehrbenutzer und Firmenstruktur benötigt werden, schaltet die App 
 | Multi-Tenant | Firma-getrennte Datenhaltung via PostgreSQL Row-Level-Security |
 | Multi-Device | Daten auf allen Geräten verfügbar |
 | Upgrade-Flow | Lokale Solo-Daten optional ins Backend übertragen |
+| Konfliktsicherer Sync | Version pro Datensatz; gleichzeitige Änderungen werden feldweise zusammengeführt statt überschrieben, Ortswechsel von Geräten nur mit Bestätigung (auditiert) |
+| Selektiver Sync | Anlagen je Standort/Verteiler, Geräte je Standort oder Raum — lokal pro Arbeitsgerät |
 
 ### Preisstruktur
 
@@ -174,6 +181,40 @@ ELEKTRALOG_TEST_DB=localhost:55434:test:test:test dart test
 
 Ohne `ELEKTRALOG_TEST_DB` werden die Server-Tests übersprungen.
 
+### End-to-End-Test (zwei Arbeitsgeräte gegen echten Server)
+
+`app/test/e2e/` treibt zwei App-Instanzen (eigene lokale Datenbanken,
+echte `SyncEngine`) gegen einen laufenden Server: Anlage, Raumauswahl,
+gleichzeitige Änderung mit Zusammenführung, bestätigter Raumwechsel,
+abgeschlossene Prüfung (danach unveränderlich), Mandantengrenze,
+Modul aus/an. Legt eigene fiktive Testfirmen an — **nie gegen eine
+produktive Instanz laufen lassen.**
+
+```bash
+docker exec elektralog-test-pg psql -U test -d test -c "CREATE DATABASE e2e;"
+cd packages/elektralog_server
+POSTGRES_HOST=localhost POSTGRES_PORT=55434 POSTGRES_DB=e2e POSTGRES_USER=test \
+  POSTGRES_PASSWORD=test SERVERPOD_PORT=18080 JWT_SECRET=<min. 32 Zeichen> \
+  SUPERADMIN_EMAIL=e2e-admin@e2e.invalid SUPERADMIN_PASSWORD=<passwort> dart run bin/main.dart &
+cd ../../app
+ELEKTRALOG_E2E_URL=http://localhost:18080 \
+  ELEKTRALOG_E2E_ADMIN=e2e-admin@e2e.invalid:<passwort> flutter test test/e2e/
+```
+
+Ohne die beiden Variablen wird der Test übersprungen.
+
+### Restore-Probe
+
+Nach dem E2E-Test liegen synthetische Daten in `e2e`. Probe:
+
+```bash
+docker exec elektralog-test-pg pg_dump -U test -d e2e --no-owner | gzip > e2e_backup.sql.gz
+docker exec elektralog-test-pg psql -U test -d test -c "CREATE DATABASE e2e_restore;"
+gunzip -c e2e_backup.sql.gz | docker exec -i elektralog-test-pg psql -q -U test -d e2e_restore -v ON_ERROR_STOP=1
+# Tabellenbestände beider Datenbanken vergleichen, dann den Server mit
+# POSTGRES_DB=e2e_restore starten: erwartet „Datenbankschema aktuell“.
+```
+
 ### Datenbank-Migrationen
 
 Der Server spielt `packages/elektralog_server/migrations/*.sql` **beim
@@ -183,7 +224,7 @@ bestehenden Datenbanken. Postgres' `docker-entrypoint-initdb.d` legt nur
 noch die Wiki-Datenbank an.
 
 - Neue Schemaänderung = **neue Datei** mit der nächsten Nummer
-  (`009_….sql`). Angewendete Dateien nie ändern: Der Server erkennt das
+  (`013_….sql`). Angewendete Dateien nie ändern: Der Server erkennt das
   an der Prüfsumme und startet dann nicht.
 - Jede Datei läuft in einer eigenen Transaktion. Schlägt sie fehl, bleibt
   die Datenbank auf dem alten Stand und der Server startet nicht.

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:postgres/postgres.dart';
 
 /// Ein Datensatz, den der Server beim Sync bewusst nicht übernimmt
@@ -437,6 +439,17 @@ final geraeteTyp = SyncTyp(
 );
 
 const pruefStatus = {'entwurf', 'abgeschlossen'};
+
+/// Bewertungen aller Prüfpunkte; ungültiges JSON wird abgelehnt.
+List<Object?> _bewertungen(String punkteJson) {
+  try {
+    return [
+      for (final p in jsonDecode(punkteJson) as List) (p as Map)['bewertung'],
+    ];
+  } on Object {
+    throw SyncAbgelehnt('Prüfpunkte sind kein gültiges JSON');
+  }
+}
 const pruefErgebnisse = {'bestanden', 'nicht_bestanden'};
 
 final geraetepruefungenTyp = SyncTyp(
@@ -449,11 +462,12 @@ final geraetepruefungenTyp = SyncTyp(
     final ergebnis = _text(p, 'ergebnis');
     if (ergebnis != null && !pruefErgebnisse.contains(ergebnis)) throw SyncAbgelehnt('Unbekanntes Ergebnis');
     final punkte = _pflicht(p, 'punkteJson', 'Prüfpunkte');
+    _bewertungen(punkte);
     if (status == 'abgeschlossen') {
       if (ergebnis == null) throw SyncAbgelehnt('Abgeschlossene Prüfung braucht ein Ergebnis');
       if (_text(p, 'prueferName') == null) throw SyncAbgelehnt('Abgeschlossene Prüfung braucht einen Prüfer');
       // Ein nicht in Ordnung bewerteter Punkt kann nie „bestanden“ sein.
-      if (ergebnis == 'bestanden' && RegExp(r'"bewertung"\s*:\s*"nio"').hasMatch(punkte)) {
+      if (ergebnis == 'bestanden' && _bewertungen(punkte).contains('nio')) {
         throw SyncAbgelehnt('Bestanden trotz Punkt „nicht in Ordnung“');
       }
     }
