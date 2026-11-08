@@ -24,6 +24,7 @@ import '../../core/providers/sync_auswahl_provider.dart';
 import '../../core/sync/sync_service.dart';
 import '../../features/pdf/pdf_options_sheet.dart';
 import '../../features/pdf/pdf_service.dart';
+import '../geraete/geraete_bereich.dart';
 import 'verteiler_formular.dart';
 import 'standort_formular.dart';
 
@@ -264,9 +265,12 @@ class StandortDetailScreen extends ConsumerWidget {
                         padding: const EdgeInsets.all(24),
                         child: anlagen,
                       ),
-                      const SingleChildScrollView(
-                        padding: EdgeInsets.all(24),
-                        child: _GeraeteBereich(),
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(24),
+                        child: GeraeteBereich(
+                          kundeUuid: kundeUuid,
+                          standortUuid: standortUuid,
+                        ),
                       ),
                     ],
                   ),
@@ -283,7 +287,11 @@ class StandortDetailScreen extends ConsumerWidget {
                 if (infoKarte != null) infoKarte,
                 const SizedBox(height: 24),
                 if (module.anlagenpruefung) anlagen,
-                if (module.geraetepruefung) const _GeraeteBereich(),
+                if (module.geraetepruefung)
+                  GeraeteBereich(
+                    kundeUuid: kundeUuid,
+                    standortUuid: standortUuid,
+                  ),
                 if (module.keines) const _KeinModulHinweis(),
               ],
             ),
@@ -787,21 +795,6 @@ class _PruefstatusZeile extends StatelessWidget {
       ],
     );
   }
-}
-
-/// Platzhalter bis M2 (Räume/Geräte): zeigt ehrlich, dass das Modul aktiv
-/// ist, aber noch keine Funktionen hat — keine vorgetäuschte Geräteprüfung.
-class _GeraeteBereich extends StatelessWidget {
-  const _GeraeteBereich();
-
-  @override
-  Widget build(BuildContext context) => const _Hinweis(
-        key: Key('geraete-platzhalter'),
-        icon: Icons.devices_other_outlined,
-        titel: 'Geräteprüfung in Vorbereitung',
-        text: 'Räume und Geräte dieses Standorts lassen sich in einer der '
-            'nächsten Versionen erfassen.',
-      );
 }
 
 class _KeinModulHinweis extends StatelessWidget {

@@ -96,6 +96,11 @@ Handler buildHandler(Connection conn,
     // Komponenten
     ..delete('/api/komponenten/<uuid>',
         (req, uuid) => KundenEndpoint(conn).deleteKomponente(req, uuid))
+    // Räume / Geräte (Geräteprüfung)
+    ..delete('/api/raeume/<uuid>',
+        (req, uuid) => KundenEndpoint(conn).deleteRaum(req, uuid))
+    ..delete('/api/geraete/<uuid>',
+        (req, uuid) => KundenEndpoint(conn).deleteGeraet(req, uuid))
     // Sync endpoints
     ..get('/api/sync', (req) => KundenEndpoint(conn).pullAll(req))
     ..post('/api/sync', (req) => KundenEndpoint(conn).sync(req))

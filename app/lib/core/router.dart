@@ -15,6 +15,8 @@ import '../features/qr/qr_screen.dart';
 import '../features/einstellungen/einstellungen_screen.dart';
 import '../features/team/team_screen.dart';
 import '../features/protokolle/protokolle_screen.dart';
+import '../features/geraete/geraet_detail_screen.dart';
+import '../features/geraete/raum_detail_screen.dart';
 import '../shared/widgets/app_scaffold.dart';
 
 part 'router.g.dart';
@@ -36,6 +38,7 @@ abstract final class AppRoutes {
   static const String einstellungen = '/einstellungen';
   static const String team = '/team';
   static const String protokolle = '/protokolle';
+  static const String geraetDetail = '/geraete/:geraetUuid';
 }
 
 @riverpod
@@ -82,6 +85,16 @@ GoRouter router(Ref ref) {
                       );
                     },
                     routes: [
+                      GoRoute(
+                        path: 'raum/:raumUuid',
+                        pageBuilder: (context, state) => NoTransitionPage(
+                          child: RaumDetailScreen(
+                            kundeUuid: state.pathParameters['kundeUuid']!,
+                            standortUuid: state.pathParameters['standortUuid']!,
+                            raumUuid: state.pathParameters['raumUuid']!,
+                          ),
+                        ),
+                      ),
                       GoRoute(
                         path: 'verteiler/:verteilerUuid',
                         pageBuilder: (context, state) {
@@ -140,6 +153,14 @@ GoRouter router(Ref ref) {
             path: AppRoutes.team,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: TeamScreen(),
+            ),
+          ),
+          GoRoute(
+            path: AppRoutes.geraetDetail,
+            pageBuilder: (context, state) => NoTransitionPage(
+              child: GeraetDetailScreen(
+                geraetUuid: state.pathParameters['geraetUuid']!,
+              ),
             ),
           ),
           GoRoute(

@@ -208,8 +208,16 @@ class ApiService {
   static Future<Map<String, dynamic>> pullAll({
     Set<String>? standortUuids,
     Set<String>? verteilerUuids,
+    Set<String>? geraeteStandortUuids,
+    Set<String>? raumUuids,
   }) async {
     final queryParams = <String, String>{};
+    if (geraeteStandortUuids != null) {
+      queryParams['geraeteStandorte'] = geraeteStandortUuids.join(',');
+    }
+    if (raumUuids != null) {
+      queryParams['raeume'] = raumUuids.join(',');
+    }
     if (standortUuids != null) {
       queryParams['standorte'] = standortUuids.join(',');
     }
@@ -439,6 +447,22 @@ class ApiService {
   static Future<void> deleteVerteiler(String uuid) async {
     await _authDelete(
       Uri.parse('$baseUrl/verteiler/$uuid'),
+      headers: await _headers(auth: true),
+      auth: true,
+    );
+  }
+
+  static Future<void> deleteRaum(String uuid) async {
+    await _authDelete(
+      Uri.parse('$baseUrl/raeume/$uuid'),
+      headers: await _headers(auth: true),
+      auth: true,
+    );
+  }
+
+  static Future<void> deleteGeraet(String uuid) async {
+    await _authDelete(
+      Uri.parse('$baseUrl/geraete/$uuid'),
       headers: await _headers(auth: true),
       auth: true,
     );

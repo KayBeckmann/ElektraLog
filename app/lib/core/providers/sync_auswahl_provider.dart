@@ -22,6 +22,11 @@ class SyncAuswahlRepository {
   static const _typStandort = 'standort';
   static const _typVerteiler = 'verteiler';
 
+  // Geräteprüfung: eigene Auswahl, unabhängig von der Anlagen-Auswahl —
+  // ganzer Standort (alle Räume) oder einzelne Räume.
+  static const _typGeraeteStandort = 'geraete_standort';
+  static const _typRaum = 'raum';
+
   String _key(String typ, String uuid) => '$typ:$uuid';
 
   Future<bool> istStandortAktiviert(String uuid) =>
@@ -36,6 +41,28 @@ class SyncAuswahlRepository {
         .get(_db);
     return (snap?['aktiviert'] as bool?) ?? false;
   }
+
+  Future<bool> istGeraeteStandortAktiviert(String uuid) =>
+      _istAktiviert(_typGeraeteStandort, uuid);
+
+  Future<bool> istRaumAktiviert(String uuid) => _istAktiviert(_typRaum, uuid);
+
+  Future<void> setGeraeteStandortAktiviert(String uuid, bool aktiviert) =>
+      _setAktiviert(_typGeraeteStandort, uuid, aktiviert);
+
+  Future<void> setRaumAktiviert(String uuid, bool aktiviert) =>
+      _setAktiviert(_typRaum, uuid, aktiviert);
+
+  Stream<Set<String>> watchAktivierteGeraeteStandortUuids() =>
+      _watchAktivierteUuids(_typGeraeteStandort);
+
+  Stream<Set<String>> watchAktivierteRaumUuids() =>
+      _watchAktivierteUuids(_typRaum);
+
+  Future<Set<String>> getAktivierteGeraeteStandortUuids() =>
+      _getAktivierteUuids(_typGeraeteStandort);
+
+  Future<Set<String>> getAktivierteRaumUuids() => _getAktivierteUuids(_typRaum);
 
   Future<void> setStandortAktiviert(String uuid, bool aktiviert) =>
       _setAktiviert(_typStandort, uuid, aktiviert);
@@ -121,6 +148,32 @@ final verteilerSyncAktiviertProvider =
     data: (db) => SyncAuswahlRepository(db)
         .watchAktivierteVerteilerUuids()
         .map((uuids) => uuids.contains(verteilerUuid)),
+    loading: () => const Stream.empty(),
+    error: (e, _) => Stream.error(e),
+  );
+});
+
+/// Geräte-Sync für den ganzen Standort (alle Räume) aktiviert?
+final geraeteStandortSyncAktiviertProvider =
+    StreamProvider.family<bool, String>((ref, standortUuid) {
+  final dbAsync = ref.watch(dbProvider);
+  return dbAsync.when(
+    data: (db) => SyncAuswahlRepository(db)
+        .watchAktivierteGeraeteStandortUuids()
+        .map((uuids) => uuids.contains(standortUuid)),
+    loading: () => const Stream.empty(),
+    error: (e, _) => Stream.error(e),
+  );
+});
+
+/// Geräte-Sync für genau diesen Raum aktiviert (ohne Standort-Flag).
+final raumSyncAktiviertProvider =
+    StreamProvider.family<bool, String>((ref, raumUuid) {
+  final dbAsync = ref.watch(dbProvider);
+  return dbAsync.when(
+    data: (db) => SyncAuswahlRepository(db)
+        .watchAktivierteRaumUuids()
+        .map((uuids) => uuids.contains(raumUuid)),
     loading: () => const Stream.empty(),
     error: (e, _) => Stream.error(e),
   );

@@ -13,6 +13,8 @@ import '../models/verteiler.dart';
 import '../models/verteiler_komponente.dart';
 import '../models/messung.dart';
 import '../models/sichtpruefung.dart';
+import '../models/raum.dart';
+import '../models/geraet.dart';
 import '../providers/app_mode_provider.dart';
 import '../providers/isar_provider.dart';
 import '../providers/pruefprotokoll_provider.dart';
@@ -73,6 +75,8 @@ class SyncService {
       final data = await ApiService.pullAll(
         standortUuids: await auswahl.getAktivierteStandortUuids(),
         verteilerUuids: await auswahl.getAktivierteVerteilerUuids(),
+        geraeteStandortUuids: await auswahl.getAktivierteGeraeteStandortUuids(),
+        raumUuids: await auswahl.getAktivierteRaumUuids(),
       );
 
       final serverRevision = data['syncRevision'] as int?;
@@ -144,6 +148,22 @@ class SyncService {
                 Sichtpruefung.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),
       );
+
+      await _mergeList<Raum>(
+        db: db,
+        store: StorageService.raeumeStore,
+        items: (data['raeume'] as List? ?? [])
+            .map((e) => Raum.fromJson((e as Map).cast<String, dynamic>()))
+            .toList(),
+      );
+
+      await _mergeList<Geraet>(
+        db: db,
+        store: StorageService.geraeteStore,
+        items: (data['geraete'] as List? ?? [])
+            .map((e) => Geraet.fromJson((e as Map).cast<String, dynamic>()))
+            .toList(),
+      );
       return false;
     } catch (e) {
       debugPrint('pullAll fehlgeschlagen: $e');
@@ -205,6 +225,14 @@ class SyncService {
             Sichtpruefung.fromJson(s.value.cast<String, dynamic>()).toJson())
         .toList();
 
+    final raeume = (await StorageService.raeumeStore.find(db))
+        .map((s) => Raum.fromJson(s.value.cast<String, dynamic>()).toJson())
+        .toList();
+
+    final geraete = (await StorageService.geraeteStore.find(db))
+        .map((s) => Geraet.fromJson(s.value.cast<String, dynamic>()).toJson())
+        .toList();
+
     await ApiService.syncAll([
       {'type': 'kunden', 'items': kunden},
       {'type': 'standorte', 'items': standorte},
@@ -212,6 +240,8 @@ class SyncService {
       {'type': 'komponenten', 'items': komponenten},
       {'type': 'messungen', 'items': messungen},
       {'type': 'sichtpruefungen', 'items': sichtpruefungen},
+      {'type': 'raeume', 'items': raeume},
+      {'type': 'geraete', 'items': geraete},
     ]);
 
     return kunden.length +
@@ -219,7 +249,9 @@ class SyncService {
         verteiler.length +
         komponenten.length +
         messungen.length +
-        sichtpruefungen.length;
+        sichtpruefungen.length +
+        raeume.length +
+        geraete.length;
   }
 
   // ── Ausstehende Protokoll-Uploads (Retry) ───────────────────────────────────

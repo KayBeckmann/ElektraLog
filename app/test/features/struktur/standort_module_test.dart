@@ -1,5 +1,6 @@
 import 'package:elektralog/core/models/kunde.dart';
 import 'package:elektralog/core/models/standort.dart';
+import 'package:elektralog/core/providers/geraete_provider.dart';
 import 'package:elektralog/core/providers/kunden_provider.dart';
 import 'package:elektralog/core/providers/module_provider.dart';
 import 'package:elektralog/core/providers/standorte_provider.dart';
@@ -24,6 +25,9 @@ void main() {
         standorteByKundeProvider('k1').overrideWith((ref) => Stream.value([standort])),
         verteilerByStandortProvider('s1').overrideWith((ref) => Stream.value([])),
         standortSyncAktiviertProvider('s1').overrideWith((ref) => Stream.value(true)),
+        raeumeByStandortProvider('s1').overrideWith((ref) => Stream.value([])),
+        geraeteByStandortProvider('s1').overrideWith((ref) => Stream.value([])),
+        geraeteStandortSyncAktiviertProvider('s1').overrideWith((ref) => Stream.value(false)),
       ],
       child: const MaterialApp(home: StandortDetailScreen(kundeUuid: 'k1', standortUuid: 's1')),
     ));
@@ -32,12 +36,12 @@ void main() {
   }
 
   final anlagenInhalt = find.text('Noch keine Verteiler');
-  final geraeteInhalt = find.byKey(const Key('geraete-platzhalter'));
+  final geraeteInhalt = find.byKey(const Key('geraete-bereich'));
   final keinModul = find.byKey(const Key('kein-modul-hinweis'));
   final reiter = find.byType(TabBar);
   final verteilerFab = find.widgetWithText(FloatingActionButton, 'Verteiler');
 
-  testWidgets('Beide Module: zwei Reiter, Geräte-Reiter zeigt ehrlichen Platzhalter', (tester) async {
+  testWidgets('Beide Module: zwei Reiter, Geräte-Reiter zeigt Räume/Geräte', (tester) async {
     await pump(tester, const FirmenModule(anlagenpruefung: true, geraetepruefung: true));
     expect(reiter, findsOneWidget);
     expect(anlagenInhalt, findsOneWidget);
