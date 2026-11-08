@@ -14,11 +14,11 @@ import '../../core/models/pruefprotokoll.dart';
 import '../../core/models/verteiler.dart';
 import '../../core/models/standort.dart';
 import '../../core/models/kunde.dart';
-import '../../core/models/messung.dart';
 import '../../core/providers/module_provider.dart';
 import '../../core/router.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
+import 'geraete_termine_card.dart';
 
 // ── KPI — Laufende Prüfung ────────────────────────────────────────────────────
 
@@ -204,7 +204,7 @@ class _TermineCard extends ConsumerWidget {
           Row(
             children: [
               Text(
-                'Anstehende Termine (90 Tage)',
+                'Anlagenmessungen (90 Tage)',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(width: 8),
@@ -579,6 +579,7 @@ class DashboardScreen extends ConsumerWidget {
     final isCompany = appModusAsync.valueOrNull == AppModus.company;
     // Abgeschaltete Module ausblenden, Daten bleiben unangetastet (M1).
     final anlagen = ref.watch(aktiveModuleProvider).anlagenpruefung;
+    final geraete = ref.watch(aktiveModuleProvider).geraetepruefung;
 
     return Scaffold(
       body: SafeArea(
@@ -589,6 +590,11 @@ class DashboardScreen extends ConsumerWidget {
               _KpiLaufendePruefungCard(kundenAsync: kundenAsync),
               const SizedBox(height: 12),
               _TermineCard(),
+              const SizedBox(height: 20),
+            ],
+            // Getrennte Terminliste der Geräteprüfung (M4).
+            if (geraete) ...[
+              const GeraeteTermineCard(),
               const SizedBox(height: 20),
             ],
             _StatistikSection(

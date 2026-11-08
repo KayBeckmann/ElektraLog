@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:sembast/sembast.dart';
 
 import '../../core/database/isar_service.dart';
+import '../../core/models/geraet.dart';
 import '../../core/providers/isar_provider.dart';
 import '../../core/sync/sync_engine.dart';
 import '../../core/sync/sync_meta.dart';
@@ -175,6 +176,11 @@ class _KonfliktAufloesenState extends ConsumerState<KonfliktAufloesen> {
     final ergebnis = {...?k.server};
     for (final e in _lokal.entries) {
       if (e.value) ergebnis[e.key] = k.lokal[e.key];
+    }
+    if (k.typ == 'geraete') {
+      // Verlauf (Status/Intervall) beider Seiten behalten.
+      ergebnis['statusHistorieJson'] =
+          verlaufVereinigen(k.lokal['statusHistorieJson'] as String?, k.server?['statusHistorieJson'] as String?);
     }
     final ortLokal = _ortsFelder.any((f) => _lokal[f] == true);
     final db = await ref.read(dbProvider.future);

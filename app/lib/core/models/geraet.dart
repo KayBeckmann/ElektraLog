@@ -15,28 +15,64 @@ DateTime textAlsTag(String s) {
   return DateTime.utc(d.year, d.month, d.day);
 }
 
-/// Ein Eintrag der Nutzungsstatus-Historie (aktiv ↔ inaktiv).
-class StatusEreignis {
-  const StatusEreignis({required this.aktiv, this.grund, required this.zeit, this.benutzer});
+/// Eintrag im Geräteverlauf: Statuswechsel (aktiv ↔ inaktiv) oder
+/// Intervallfestlegung durch den Messtechniker (auditierbar, M4).
+class VerlaufEintrag {
+  const VerlaufEintrag.status({required this.aktiv, this.grund, required this.zeit, this.benutzer})
+      : art = 'status',
+        intervall = null,
+        begruendung = null;
 
-  final bool aktiv;
+  const VerlaufEintrag.intervall({required this.intervall, this.begruendung, required this.zeit, this.benutzer})
+      : art = 'intervall',
+        aktiv = null,
+        grund = null;
+
+  const VerlaufEintrag._(
+      {required this.art, this.aktiv, this.grund, this.intervall, this.begruendung, required this.zeit, this.benutzer});
+
+  final String art;
+  final bool? aktiv;
   final String? grund;
+  final int? intervall;
+  final String? begruendung;
   final DateTime zeit;
   final String? benutzer;
 
   Map<String, dynamic> toJson() => {
-        'aktiv': aktiv,
+        'art': art,
+        if (aktiv != null) 'aktiv': aktiv,
         if (grund != null) 'grund': grund,
+        if (art == 'intervall') 'intervall': intervall,
+        if (begruendung != null) 'begruendung': begruendung,
         'zeit': zeit.toUtc().toIso8601String(),
         if (benutzer != null) 'benutzer': benutzer,
       };
 
-  factory StatusEreignis.fromJson(Map<String, dynamic> j) => StatusEreignis(
-        aktiv: j['aktiv'] as bool,
+  factory VerlaufEintrag.fromJson(Map<String, dynamic> j) => VerlaufEintrag._(
+        art: j['art'] as String? ?? 'status',
+        aktiv: j['aktiv'] as bool?,
         grund: j['grund'] as String?,
+        intervall: (j['intervall'] as num?)?.toInt(),
+        begruendung: j['begruendung'] as String?,
         zeit: DateTime.parse(j['zeit'] as String),
         benutzer: j['benutzer'] as String?,
       );
+
+  String get _schluessel => '$art|${zeit.toUtc().toIso8601String()}|$benutzer';
+}
+
+/// Vereinigt zwei Verlaufsfassungen (z. B. beim Zusammenführen eines
+/// Sync-Konflikts) — kein Eintrag geht verloren.
+String? verlaufVereinigen(String? a, String? b) {
+  List<VerlaufEintrag> lesen(String? raw) => raw == null || raw.isEmpty
+      ? const []
+      : [for (final e in jsonDecode(raw) as List) VerlaufEintrag.fromJson((e as Map).cast<String, dynamic>())];
+  final alle = {
+    for (final e in [...lesen(a), ...lesen(b)]) e._schluessel: e
+  }.values.toList()
+    ..sort((x, y) => x.zeit.compareTo(y.zeit));
+  return alle.isEmpty ? null : jsonEncode([for (final e in alle) e.toJson()]);
 }
 
 /// Ortsveränderliches Gerät (Geräteprüfung M2). UUID wird automatisch
@@ -142,12 +178,52 @@ class Geraet {
     );
   }
 
-  List<StatusEreignis> get statusHistorie {
+  /// Gesamter Verlauf (Status und Intervall), älteste zuerst.
+  List<VerlaufEintrag> get verlauf {
     final raw = statusHistorieJson;
     if (raw == null || raw.isEmpty) return const [];
     return [
-      for (final e in jsonDecode(raw) as List) StatusEreignis.fromJson((e as Map).cast<String, dynamic>()),
+      for (final e in jsonDecode(raw) as List) VerlaufEintrag.fromJson((e as Map).cast<String, dynamic>()),
     ];
+  }
+
+  List<VerlaufEintrag> get statusHistorie => [
+        for (final e in verlauf)
+          if (e.art == 'status') e
+      ];
+
+  /// Intervall festlegen/ändern mit Verlaufseintrag (wer, wann, warum).
+  /// Ohne Änderung bleibt das Gerät unverändert.
+  Geraet mitIntervall(int? monate, {String? begruendung, String? benutzer, DateTime? zeit}) {
+    if (monate == pruefintervallMonate && begruendung == intervallBegruendung) return this;
+    final eintrag = VerlaufEintrag.intervall(
+      intervall: monate,
+      begruendung: begruendung,
+      zeit: (zeit ?? DateTime.now()).toUtc(),
+      benutzer: benutzer,
+    );
+    return Geraet(
+      uuid: uuid,
+      kundeUuid: kundeUuid,
+      standortUuid: standortUuid,
+      raumUuid: raumUuid,
+      bezeichnung: bezeichnung,
+      hersteller: hersteller,
+      typ: typ,
+      seriennummer: seriennummer,
+      inventarnummer: inventarnummer,
+      schutzart: schutzart,
+      schutzklasse: schutzklasse,
+      aktiv: aktiv,
+      inaktivGrund: inaktivGrund,
+      pruefintervallMonate: monate,
+      intervallBegruendung: begruendung,
+      letztePruefungDatum: letztePruefungDatum,
+      letztePruefungErsatzwert: letztePruefungErsatzwert,
+      statusHistorieJson: jsonEncode([...verlauf, eintrag].map((e) => e.toJson()).toList()),
+      bemerkung: bemerkung,
+      erstelltAm: erstelltAm,
+    );
   }
 
   /// Pflicht- und Wertprüfung wie auf dem Server. Leere Liste = gültig.
@@ -165,7 +241,7 @@ class Geraet {
   /// Statuswechsel mit Historieneintrag. Prüftermin und Prüfhistorie
   /// bleiben unverändert — der Wechsel selbst ist keine Prüfung.
   Geraet mitStatus({required bool aktiv, String? grund, String? benutzer, DateTime? zeit}) {
-    final eintrag = StatusEreignis(
+    final eintrag = VerlaufEintrag.status(
       aktiv: aktiv,
       grund: aktiv ? null : grund,
       zeit: (zeit ?? DateTime.now()).toUtc(),
@@ -175,7 +251,7 @@ class Geraet {
       aktiv: aktiv,
       inaktivGrund: aktiv ? null : grund,
       setzeGrund: true,
-      statusHistorieJson: jsonEncode([...statusHistorie, eintrag].map((e) => e.toJson()).toList()),
+      statusHistorieJson: jsonEncode([...verlauf, eintrag].map((e) => e.toJson()).toList()),
     );
   }
 

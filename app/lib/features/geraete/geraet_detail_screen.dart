@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_service.dart';
 import '../../core/models/geraet.dart';
+import '../../core/models/geraete_faelligkeit.dart';
 import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/geraete_provider.dart';
 import '../../core/providers/kunden_provider.dart';
@@ -216,6 +217,8 @@ class _Inhalt extends ConsumerWidget {
         .where((r) => r.uuid == geraet.raumUuid)
         .firstOrNull;
     final letzte = geraet.letztePruefungDatum;
+    final nachweis = ref.watch(geraetPruefNachweisProvider(geraet.uuid)).valueOrNull;
+    final termin = geraetTermin(geraet, letztePruefung: nachweis, heute: DateTime.now());
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -230,37 +233,63 @@ class _Inhalt extends ConsumerWidget {
               text: '${geraet.inaktivGrund ?? ''}\nWird aktuell nicht geprüft.',
             ),
           ),
-        _Karte(titel: 'Ort', zeilen: {
-          'Kunde': kunde?.name ?? '?',
-          'Standort': standort?.bezeichnung ?? '?',
-          'Raum': raum?.bezeichnung ?? '?',
-        }),
+        _Karte(titel: 'Ort', zeilen: [
+          ('Kunde', kunde?.name ?? '?'),
+          ('Standort', standort?.bezeichnung ?? '?'),
+          ('Raum', raum?.bezeichnung ?? '?'),
+        ]),
         const SizedBox(height: 12),
-        _Karte(titel: 'Stammdaten', zeilen: {
-          'Hersteller': geraet.hersteller,
-          'Type': geraet.typ,
-          'Seriennummer': geraet.seriennummer,
-          'Inventarnummer': geraet.inventarnummer,
-          'Schutzart': geraet.schutzart,
-          'Schutzklasse': geraet.schutzklasse ?? 'nicht festgestellt',
-          'Bemerkung': geraet.bemerkung,
-          'UUID': geraet.uuid,
-        }),
+        _Karte(titel: 'Stammdaten', zeilen: [
+          ('Hersteller', geraet.hersteller),
+          ('Type', geraet.typ),
+          ('Seriennummer', geraet.seriennummer),
+          ('Inventarnummer', geraet.inventarnummer),
+          ('Schutzart', geraet.schutzart),
+          ('Schutzklasse', geraet.schutzklasse ?? 'nicht festgestellt'),
+          ('Bemerkung', geraet.bemerkung),
+          ('UUID', geraet.uuid),
+        ]),
         const SizedBox(height: 12),
-        _Karte(titel: 'Prüfung', zeilen: {
-          'Letzte Prüfung': letzte == null
-              ? '–'
-              : geraet.letztePruefungErsatzwert
-                  ? '${datumDeutsch(textAlsTag(letzte))} (Erstellungsdatum, kein Prüfnachweis)'
-                  : '${datumDeutsch(textAlsTag(letzte))} (vor ElektraLog)',
-        }),
-        if (geraet.statusHistorie.isNotEmpty) ...[
+        _Karte(titel: 'Prüfung', zeilen: [
+          (
+            'Letzte Prüfung',
+            nachweis != null
+                ? '${datumDeutsch(nachweis.datum)} (${nachweis.bestanden ? 'bestanden' : 'nicht bestanden'})'
+                : letzte == null
+                    ? '–'
+                    : geraet.letztePruefungErsatzwert
+                        ? '${datumDeutsch(textAlsTag(letzte))} (Erstellungsdatum, kein Prüfnachweis)'
+                        : '${datumDeutsch(textAlsTag(letzte))} (vor ElektraLog)',
+          ),
+          (
+            'Intervall',
+            geraet.pruefintervallMonate == null ? 'nicht festgelegt' : '${geraet.pruefintervallMonate} Monate',
+          ),
+          ('Begründung', geraet.intervallBegruendung),
+          (
+            'Nächste Prüfung',
+            switch (termin.status) {
+              GeraetTerminStatus.inaktiv => 'keine (inaktiv)',
+              GeraetTerminStatus.ueberfaellig => 'überfällig seit ${datumDeutsch(termin.faelligAm!)}',
+              _ => datumDeutsch(termin.faelligAm!),
+            },
+          ),
+          ('Hinweis', termin.hinweis),
+        ]),
+        const SizedBox(height: 12),
+        if (geraet.verlauf.isNotEmpty) ...[
           const SizedBox(height: 12),
-          _Karte(titel: 'Statusverlauf', zeilen: {
-            for (final e in geraet.statusHistorie.reversed)
-              datumDeutsch(e.zeit.toLocal()) + (e.benutzer == null ? '' : ' · ${e.benutzer}'):
-                  e.aktiv ? 'wieder aktiv' : 'inaktiv: ${e.grund ?? ''}',
-          }),
+          _Karte(titel: 'Verlauf', zeilen: [
+            for (final e in geraet.verlauf.reversed)
+              (
+                datumDeutsch(e.zeit.toLocal()) + (e.benutzer == null ? '' : ' · ${e.benutzer}'),
+                switch (e.art) {
+                  'intervall' => 'Intervall ${e.intervall == null ? 'offen' : '${e.intervall} Monate'}'
+                      '${e.begruendung == null ? '' : ' — ${e.begruendung}'}',
+                  _ => e.aktiv == true ? 'wieder aktiv' : 'inaktiv: ${e.grund ?? ''}',
+                },
+              ),
+          ]),
         ],
       ],
     );
@@ -271,11 +300,11 @@ class _Karte extends StatelessWidget {
   const _Karte({required this.titel, required this.zeilen});
 
   final String titel;
-  final Map<String, String?> zeilen;
+  final List<(String, String?)> zeilen;
 
   @override
   Widget build(BuildContext context) {
-    final sichtbar = zeilen.entries.where((e) => e.value != null && e.value!.isNotEmpty);
+    final sichtbar = zeilen.where((e) => e.$2 != null && e.$2!.isNotEmpty);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -296,10 +325,10 @@ class _Karte extends StatelessWidget {
                 children: [
                   SizedBox(
                     width: 130,
-                    child: Text(e.key,
+                    child: Text(e.$1,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.onSurfaceVariant)),
                   ),
-                  Expanded(child: SelectableText(e.value!)),
+                  Expanded(child: SelectableText(e.$2!)),
                 ],
               ),
             ),
