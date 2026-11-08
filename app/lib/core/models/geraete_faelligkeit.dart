@@ -101,3 +101,52 @@ GeraetTermin geraetTermin(Geraet g, {PruefNachweis? letztePruefung, required Dat
           : GeraetTerminStatus.imPlan;
   return GeraetTermin(status: status, faelligAm: faellig, hinweis: hinweis, ohneNachweis: ohneNachweis);
 }
+
+/// Prüfstatus eines Geräts für Listen (wie PASSED/FAILED bei Verteilern):
+/// Ergebnis der letzten gültigen ElektraLog-Prüfung.
+enum GeraetPruefErgebnis { bestanden, nichtBestanden, ungeprueft, inaktiv }
+
+GeraetPruefErgebnis pruefErgebnis(Geraet g, PruefNachweis? letzte) {
+  if (!g.aktiv) return GeraetPruefErgebnis.inaktiv;
+  if (letzte == null) return GeraetPruefErgebnis.ungeprueft;
+  return letzte.bestanden ? GeraetPruefErgebnis.bestanden : GeraetPruefErgebnis.nichtBestanden;
+}
+
+/// „bestanden / gesamt“ für einen Raum oder Standort. Gezählt werden nur
+/// aktive Geräte — inaktive sind außer Betrieb und brauchen keine Prüfung.
+({int bestanden, int nichtBestanden, int gesamt}) pruefBilanz(
+    Iterable<Geraet> geraete, Map<String, PruefNachweis> nachweise) {
+  var bestanden = 0, nichtBestanden = 0, gesamt = 0;
+  for (final g in geraete) {
+    switch (pruefErgebnis(g, nachweise[g.uuid])) {
+      case GeraetPruefErgebnis.inaktiv:
+        continue;
+      case GeraetPruefErgebnis.bestanden:
+        bestanden++;
+      case GeraetPruefErgebnis.nichtBestanden:
+        nichtBestanden++;
+      case GeraetPruefErgebnis.ungeprueft:
+        break;
+    }
+    gesamt++;
+  }
+  return (bestanden: bestanden, nichtBestanden: nichtBestanden, gesamt: gesamt);
+}
+
+/// Reparaturbedarf zuerst: nicht bestandene, dann ungeprüfte, bestandene,
+/// zuletzt inaktive — innerhalb gleich wie übergeben.
+List<Geraet> nachPruefErgebnis(Iterable<Geraet> geraete, Map<String, PruefNachweis> nachweise) {
+  const rang = {
+    GeraetPruefErgebnis.nichtBestanden: 0,
+    GeraetPruefErgebnis.ungeprueft: 1,
+    GeraetPruefErgebnis.bestanden: 2,
+    GeraetPruefErgebnis.inaktiv: 3,
+  };
+  final liste = geraete.indexed.toList()
+    ..sort((a, b) {
+      final r = rang[pruefErgebnis(a.$2, nachweise[a.$2.uuid])]!
+          .compareTo(rang[pruefErgebnis(b.$2, nachweise[b.$2.uuid])]!);
+      return r != 0 ? r : a.$1.compareTo(b.$1);
+    });
+  return [for (final (_, g) in liste) g];
+}

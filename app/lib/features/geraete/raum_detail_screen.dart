@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_service.dart';
+import '../../core/models/geraete_faelligkeit.dart';
 import '../../core/providers/geraete_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../shared/theme/app_colors.dart';
@@ -30,6 +31,8 @@ class RaumDetailScreen extends ConsumerWidget {
         .firstOrNull;
     final geraete = ref.watch(geraeteByRaumProvider(raumUuid)).valueOrNull ?? const [];
     final aktiv = geraete.where((g) => g.aktiv).length;
+    final nachweise = ref.watch(geraetePruefNachweiseProvider).valueOrNull ?? const <String, PruefNachweis>{};
+    final bilanz = pruefBilanz(geraete, nachweise);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -88,6 +91,10 @@ class RaumDetailScreen extends ConsumerWidget {
             [standort?.bezeichnung, '${geraete.length} Geräte, davon $aktiv aktiv'].whereType<String>().join(' · '),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.onSurfaceVariant),
           ),
+          if (bilanz.gesamt > 0) ...[
+            const SizedBox(height: 4),
+            PruefBilanzAnzeige(bilanz: bilanz),
+          ],
           const SizedBox(height: 16),
           if (geraete.isEmpty)
             const GeraeteHinweis(
@@ -95,7 +102,8 @@ class RaumDetailScreen extends ConsumerWidget {
               titel: 'Keine Geräte in diesem Raum',
               text: 'Neue Geräte über „Gerät“ anlegen. Nicht synchronisierte Räume zeigen nur lokal vorhandene Geräte.',
             ),
-          for (final g in geraete)
+          // Nicht bestandene zuerst: die müssen repariert und nachgeprüft werden.
+          for (final g in nachPruefErgebnis(geraete, nachweise))
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: GeraetTile(geraet: g, onTap: () => context.go('/geraete/${g.uuid}')),
