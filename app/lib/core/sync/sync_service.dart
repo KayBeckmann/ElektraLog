@@ -100,6 +100,7 @@ class SyncService {
           firmaName: p.firma,
           protokollDatum: p.protokollDatum,
           messdatenJson: p.messdatenSnapshot,
+          art: p.art,
         );
         if (backendUuid != null) {
           await repo.save(p.mitBackendUuid(backendUuid).ohnePdf());

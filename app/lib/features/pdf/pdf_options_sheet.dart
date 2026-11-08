@@ -29,19 +29,28 @@ class PdfOptions {
 // ── Bottom-Sheet ──────────────────────────────────────────────────────────────
 
 class PdfOptionsSheet extends ConsumerStatefulWidget {
-  const PdfOptionsSheet({super.key, required this.titel, this.pruefgeraet});
+  const PdfOptionsSheet({
+    super.key,
+    required this.titel,
+    this.pruefgeraet,
+    this.geraetepruefung = false,
+  });
 
   final String titel;
 
   /// Prüfgerät(e) aus den Messungen; ohne Angabe gilt das Prüfgerät
-  /// für die Anlagenprüfung aus den Einstellungen.
+  /// für die Anlagen- bzw. Geräteprüfung aus den Einstellungen.
   final String? pruefgeraet;
+
+  /// Geräteprüfung: Ersatz ist das Prüfgerät der Geräteprüfung.
+  final bool geraetepruefung;
 
   /// Öffnet das Sheet und gibt [PdfOptions] zurück, oder null bei Abbruch.
   static Future<PdfOptions?> show(
     BuildContext context, {
     required String titel,
     String? pruefgeraet,
+    bool geraetepruefung = false,
   }) =>
       showModalBottomSheet<PdfOptions>(
         context: context,
@@ -51,7 +60,11 @@ class PdfOptionsSheet extends ConsumerStatefulWidget {
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
-        builder: (_) => PdfOptionsSheet(titel: titel, pruefgeraet: pruefgeraet),
+        builder: (_) => PdfOptionsSheet(
+          titel: titel,
+          pruefgeraet: pruefgeraet,
+          geraetepruefung: geraetepruefung,
+        ),
       );
 
   @override
@@ -79,7 +92,10 @@ class _PdfOptionsSheetState extends ConsumerState<PdfOptionsSheet> {
     ref.read(einstellungenProvider.future).then((einstellungen) {
       if (!mounted) return;
       if (_pruefgeraetCtrl.text.isEmpty) {
-        _pruefgeraetCtrl.text = einstellungen.pruefgeraetAnlagen ?? '';
+        _pruefgeraetCtrl.text = (widget.geraetepruefung
+                ? einstellungen.pruefgeraetGeraete
+                : einstellungen.pruefgeraetAnlagen) ??
+            '';
       }
       if (_prueferCtrl.text.isEmpty &&
           (einstellungen.prueferName?.isNotEmpty ?? false)) {

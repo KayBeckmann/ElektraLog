@@ -373,7 +373,7 @@ class _PruefungFormularState extends ConsumerState<_PruefungFormular> {
             key: const Key('pruefung-drucken'),
             icon: const Icon(Icons.picture_as_pdf_outlined),
             label: const Text('Protokoll ausgeben (historische Fassung)'),
-            onPressed: () => einzelProtokollAusgeben(ref, _p, widget.geraet),
+            onPressed: () => einzelProtokollAusgeben(context, ref, _p, widget.geraet),
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(

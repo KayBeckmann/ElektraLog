@@ -7,7 +7,14 @@ import 'package:uuid/uuid.dart';
 /// der Protokollerstellung — unabhängig von späteren Änderungen an den Messungen.
 class Pruefprotokoll {
   final String uuid;
+
+  /// Bezug: bei Anlagenprotokollen der Verteiler, bei Geräteprotokollen
+  /// (`art == 'geraete'`) Gerät, Raum oder Standort des Protokolls.
   final String verteilerUuid;
+
+  /// 'anlage' oder 'geraete' — so landet es auch in der Dokumentenablage.
+  final String art;
+
   final DateTime protokollDatum;
   final String? prueferName;
   final String? firma;
@@ -37,6 +44,7 @@ class Pruefprotokoll {
   Pruefprotokoll({
     String? uuid,
     required this.verteilerUuid,
+    this.art = 'anlage',
     required this.protokollDatum,
     this.prueferName,
     this.firma,
@@ -53,6 +61,7 @@ class Pruefprotokoll {
   Map<String, dynamic> toJson() => {
         'uuid': uuid,
         'verteilerUuid': verteilerUuid,
+        'art': art,
         'protokollDatum': protokollDatum.toUtc().toIso8601String(),
         'prueferName': prueferName,
         'firma': firma,
@@ -68,6 +77,7 @@ class Pruefprotokoll {
   factory Pruefprotokoll.fromJson(Map<String, dynamic> json) => Pruefprotokoll(
         uuid: json['uuid'] as String,
         verteilerUuid: json['verteilerUuid'] as String,
+        art: json['art'] as String? ?? 'anlage',
         protokollDatum: DateTime.parse(json['protokollDatum'] as String),
         prueferName: json['prueferName'] as String?,
         firma: json['firma'] as String?,
@@ -83,6 +93,7 @@ class Pruefprotokoll {
   Pruefprotokoll mitBackendUuid(String id) => Pruefprotokoll(
         uuid: uuid,
         verteilerUuid: verteilerUuid,
+        art: art,
         protokollDatum: protokollDatum,
         prueferName: prueferName,
         firma: firma,
@@ -101,6 +112,7 @@ class Pruefprotokoll {
   Pruefprotokoll ohnePdf() => Pruefprotokoll(
         uuid: uuid,
         verteilerUuid: verteilerUuid,
+        art: art,
         protokollDatum: protokollDatum,
         prueferName: prueferName,
         firma: firma,

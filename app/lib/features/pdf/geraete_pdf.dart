@@ -41,6 +41,26 @@ class ProtokollKopf {
   final String? standort;
 }
 
+/// Unterschrift beim Erzeugen des PDFs (wie bei der Anlagenprüfung).
+class PdfUnterschrift {
+  const PdfUnterschrift({required this.name, this.datumOrt, this.pruefgeraet, this.bild});
+  final String name;
+
+  /// z. B. „08.11.2026, Musterstadt“.
+  final String? datumOrt;
+
+  /// Für die Übersicht; die Prüfblätter zeigen das Prüfgerät der Prüfung.
+  final String? pruefgeraet;
+
+  /// Unterschrift als PNG; ohne Bild bleibt die Linie zum Unterschreiben.
+  final Uint8List? bild;
+
+  /// Das Prüfblatt trägt die Unterschrift nur, wenn der Unterzeichner die
+  /// Prüfung selbst durchgeführt hat — sonst bleibt die Linie leer.
+  bool unterschreibt(GeraetePruefung p) =>
+      p.prueferName == null || p.prueferName!.trim().toLowerCase() == name.trim().toLowerCase();
+}
+
 final _primary = PdfColor.fromHex('#091426');
 final _grau = PdfColor.fromHex('#C5C6CD');
 final _flaeche = PdfColor.fromHex('#F5F3F4');
@@ -62,6 +82,7 @@ Future<Uint8List> geraeteProtokollPdf(
   required ProtokollKopf kopf,
   PdfSchriften? schriften,
   DateTime? erstellt,
+  PdfUnterschrift? unterschrift,
 }) async {
   final s = schriften ?? await PdfSchriften.laden();
   final doc = pw.Document(theme: pw.ThemeData.withFont(base: s.regular, bold: s.bold));
@@ -82,11 +103,21 @@ Future<Uint8List> geraeteProtokollPdf(
         'aktive Geräte ohne abgeschlossene Prüfung sind als „nicht geprüft“ gekennzeichnet.',
         style: const pw.TextStyle(fontSize: 8),
       ),
+      if (unterschrift?.pruefgeraet?.isNotEmpty ?? false) ...[
+        pw.SizedBox(height: 4),
+        pw.Text('Prüfgerät: ${unterschrift!.pruefgeraet}', style: const pw.TextStyle(fontSize: 8)),
+      ],
+      pw.SizedBox(height: 24),
+      _unterschriftBlock(
+        name: unterschrift?.name,
+        datumOrt: unterschrift?.datumOrt,
+        bild: unterschrift?.bild,
+      ),
     ],
   ));
 
   for (final b in inhalt.blaetter) {
-    _blatt(doc, s, kopf, b.geraet, b.pruefung);
+    _blatt(doc, s, kopf, b.geraet, b.pruefung, unterschrift: unterschrift);
   }
   return doc.save();
 }
@@ -94,10 +125,10 @@ Future<Uint8List> geraeteProtokollPdf(
 /// Nachdruck eines einzelnen, historischen Prüfprotokolls — ausschließlich
 /// aus dem bei Abschluss gespeicherten Snapshot.
 Future<Uint8List> einzelProtokollPdf(GeraetePruefung p, Geraet geraet,
-    {required ProtokollKopf kopf, PdfSchriften? schriften}) async {
+    {required ProtokollKopf kopf, PdfSchriften? schriften, PdfUnterschrift? unterschrift}) async {
   final s = schriften ?? await PdfSchriften.laden();
   final doc = pw.Document(theme: pw.ThemeData.withFont(base: s.regular, bold: s.bold));
-  _blatt(doc, s, kopf, geraet, p);
+  _blatt(doc, s, kopf, geraet, p, unterschrift: unterschrift);
   return doc.save();
 }
 
@@ -176,7 +207,31 @@ pw.Widget _uebersicht(List<UebersichtZeile> zeilen, PdfSchriften s) => _tabelle(
       breiten: const {0: pw.FixedColumnWidth(24), 3: pw.FixedColumnWidth(26)},
     );
 
-void _blatt(pw.Document doc, PdfSchriften s, ProtokollKopf kopf, Geraet aktuell, GeraetePruefung p) {
+/// Unterschriftsfeld: Bild (falls vorhanden) über der Linie, darunter
+/// Name und Datum/Ort.
+pw.Widget _unterschriftBlock({String? name, String? datumOrt, Uint8List? bild}) => pw.Row(children: [
+      pw.Expanded(
+        child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          pw.Container(
+            height: 48,
+            decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(width: 0.5))),
+            child: bild == null ? null : pw.Image(pw.MemoryImage(bild), fit: pw.BoxFit.contain),
+          ),
+          pw.SizedBox(height: 2),
+          pw.Text(
+            [
+              if (datumOrt?.isNotEmpty ?? false) datumOrt,
+              'Unterschrift Prüfer${name == null || name.isEmpty ? '' : ' ($name)'}',
+            ].join(' · '),
+            style: const pw.TextStyle(fontSize: 8),
+          ),
+        ]),
+      ),
+      pw.SizedBox(width: 120),
+    ]);
+
+void _blatt(pw.Document doc, PdfSchriften s, ProtokollKopf kopf, Geraet aktuell, GeraetePruefung p,
+    {PdfUnterschrift? unterschrift}) {
   final snap = p.ortSnapshot ?? const {};
   final stamm = (snap['geraet'] as Map?)?.cast<String, dynamic>() ?? aktuell.toJson();
   String? ort(String k, String f) => (snap[k] as Map?)?[f] as String?;
@@ -292,18 +347,11 @@ void _blatt(pw.Document doc, PdfSchriften s, ProtokollKopf kopf, Geraet aktuell,
           ),
         ]),
       ),
-      pw.SizedBox(height: 36),
-      pw.Row(children: [
-        pw.Expanded(
-          child: pw.Container(
-            decoration: const pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 0.5))),
-            padding: const pw.EdgeInsets.only(top: 2),
-            child:
-                pw.Text('Datum, Unterschrift Prüfer (${p.prueferName ?? ''})', style: const pw.TextStyle(fontSize: 8)),
-          ),
-        ),
-        pw.SizedBox(width: 120),
-      ]),
+      pw.SizedBox(height: 20),
+      if (unterschrift != null && unterschrift.unterschreibt(p))
+        _unterschriftBlock(name: p.prueferName ?? unterschrift.name, datumOrt: unterschrift.datumOrt, bild: unterschrift.bild)
+      else
+        _unterschriftBlock(name: p.prueferName, datumOrt: 'Datum'),
     ],
   ));
 }

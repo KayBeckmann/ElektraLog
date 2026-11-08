@@ -9,16 +9,40 @@ import '../../core/models/geraete_protokoll.dart';
 import '../../core/models/geraete_pruefung.dart';
 import '../../core/providers/einstellungen_provider.dart';
 import '../../core/providers/geraete_provider.dart';
+import '../../core/providers/isar_provider.dart';
 import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../shared/theme/app_colors.dart';
 import '../pdf/geraete_pdf.dart';
+import '../pdf/pdf_options_sheet.dart';
+import 'geraete_ablage.dart';
 import 'geraete_widgets.dart';
 
 /// Wird in Tests ersetzt, damit kein Druck-/Teilen-Dialog nötig ist.
 typedef PdfAusgabe = Future<void> Function(Uint8List bytes, String dateiname);
 
 Future<void> _teilen(Uint8List bytes, String dateiname) => Printing.sharePdf(bytes: bytes, filename: dateiname);
+
+/// Fragt vor dem PDF Prüfer, Datum/Ort, Prüfgerät und Unterschrift ab
+/// (dasselbe Formular wie bei der Anlagenprüfung). In Tests ersetzbar.
+typedef UnterschriftAbfrage = Future<PdfOptions?> Function(BuildContext context, String titel, String? pruefgeraet);
+
+Future<PdfOptions?> _unterschreiben(BuildContext context, String titel, String? pruefgeraet) =>
+    PdfOptionsSheet.show(context, titel: titel, pruefgeraet: pruefgeraet, geraetepruefung: true);
+
+/// Prüfgeräte der Prüfungen als Vorschlag; ohne Angabe gilt das Prüfgerät
+/// der Geräteprüfung aus den Einstellungen.
+String? _pruefgeraete(Iterable<GeraetePruefung> pruefungen) {
+  final g = {for (final p in pruefungen) if (p.messgeraet?.trim().isNotEmpty ?? false) p.messgeraet!.trim()};
+  return g.isEmpty ? null : g.join(' / ');
+}
+
+PdfUnterschrift _unterschrift(PdfOptions o) => PdfUnterschrift(
+      name: o.prueferName,
+      datumOrt: o.datumOrt,
+      pruefgeraet: o.pruefgeraet,
+      bild: o.signaturPng,
+    );
 
 /// Protokolle für Gerät, Raum oder Standort (Roadmap M6). Ablauf strikt
 /// getrennt: 1. Filter wählen → 2. Übersicht aller Geräte im Filter mit
@@ -33,6 +57,7 @@ Future<void> zeigeGeraeteProtokoll(
   String? geraetUuid,
   PdfAusgabe? ausgabe,
   PdfSchriften? schriften,
+  UnterschriftAbfrage? unterschrift,
 }) =>
     showModalBottomSheet<void>(
       context: context,
@@ -47,6 +72,7 @@ Future<void> zeigeGeraeteProtokoll(
         geraetUuid: geraetUuid,
         ausgabe: ausgabe ?? _teilen,
         schriften: schriften,
+        unterschrift: unterschrift ?? _unterschreiben,
       ),
     );
 
@@ -60,6 +86,7 @@ class GeraeteProtokollSheet extends ConsumerStatefulWidget {
     this.geraetUuid,
     required this.ausgabe,
     this.schriften,
+    this.unterschrift = _unterschreiben,
   });
 
   final ProtokollUmfang umfang;
@@ -69,6 +96,7 @@ class GeraeteProtokollSheet extends ConsumerStatefulWidget {
   final String? geraetUuid;
   final PdfAusgabe ausgabe;
   final PdfSchriften? schriften;
+  final UnterschriftAbfrage unterschrift;
 
   @override
   ConsumerState<GeraeteProtokollSheet> createState() => _GeraeteProtokollSheetState();
@@ -213,7 +241,12 @@ class _GeraeteProtokollSheetState extends ConsumerState<GeraeteProtokollSheet> {
                 label: const Text('3 · PDF erzeugen'),
                 onPressed: () => _erzeugen(inhalt),
               ),
-              if (_erzeugt) const Text('PDF erzeugt.', key: Key('pdf-erzeugt')),
+              if (_erzeugt)
+                const Text(
+                  'PDF erzeugt und in der Dokumentenablage gespeichert '
+                  '(ohne Verbindung wird es später hochgeladen).',
+                  key: Key('pdf-erzeugt'),
+                ),
               if (widget.umfang != ProtokollUmfang.geraet)
                 TextButton(onPressed: () => setState(() => _uebersicht = false), child: const Text('Auswahl ändern')),
             ],
@@ -224,18 +257,45 @@ class _GeraeteProtokollSheetState extends ConsumerState<GeraeteProtokollSheet> {
   }
 
   Future<void> _erzeugen(GeraeteProtokollInhalt inhalt) async {
+    final optionen = await widget.unterschrift(
+      context,
+      inhalt.titel,
+      _pruefgeraete(inhalt.blaetter.map((b) => b.pruefung)),
+    );
+    if (optionen == null || !mounted) return;
     final e = await ref.read(einstellungenProvider.future);
     final kunde = (await ref.read(kundenProvider.future)).where((k) => k.uuid == widget.kundeUuid).firstOrNull;
     final standort = await ref.read(standorteRepositoryProvider).getByUuid(widget.standortUuid);
     final bytes = await geraeteProtokollPdf(
       inhalt,
       kopf: ProtokollKopf(
-        firma: e.firma,
+        firma: optionen.firma ?? e.firma,
         firmaAdresse: e.firmaAdresse,
         kunde: kunde?.name,
         standort: standort?.bezeichnung,
       ),
       schriften: widget.schriften,
+      unterschrift: _unterschrift(optionen),
+    );
+    await geraeteProtokollAblegen(
+      await ref.read(dbProvider.future),
+      bezugUuid: switch (widget.umfang) {
+        ProtokollUmfang.standort => widget.standortUuid,
+        ProtokollUmfang.raum => widget.raumUuid ?? widget.standortUuid,
+        ProtokollUmfang.geraet => widget.geraetUuid ?? widget.standortUuid,
+      },
+      titel: inhalt.titel,
+      bytes: bytes,
+      snapshot: geraeteSnapshot(
+        titel: inhalt.titel,
+        filter: inhalt.filter,
+        zeilen: inhalt.zeilen,
+        pruefungen: [for (final b in inhalt.blaetter) b.pruefung],
+      ),
+      kunde: kunde?.name,
+      standort: standort?.bezeichnung,
+      pruefer: optionen.prueferName,
+      firma: optionen.firma ?? e.firma,
     );
     final datum = DateTime.now();
     await widget.ausgabe(
@@ -247,20 +307,39 @@ class _GeraeteProtokollSheetState extends ConsumerState<GeraeteProtokollSheet> {
   }
 }
 
-/// Historisches Einzelprotokoll erneut ausgeben (aus dem Snapshot).
+/// Einzelprotokoll einer abgeschlossenen Prüfung (aus dem Snapshot):
+/// unterschreiben, ablegen, ausgeben.
 Future<void> einzelProtokollAusgeben(
+  BuildContext context,
   WidgetRef ref,
   GeraetePruefung p,
   Geraet geraet, {
   PdfAusgabe? ausgabe,
   PdfSchriften? schriften,
+  UnterschriftAbfrage? unterschrift,
 }) async {
+  final titel = 'Prüfprotokoll ${geraet.bezeichnung}';
+  final optionen = await (unterschrift ?? _unterschreiben)(context, titel, _pruefgeraete([p]));
+  if (optionen == null) return;
   final e = await ref.read(einstellungenProvider.future);
+  final ort = p.ortSnapshot ?? const {};
   final bytes = await einzelProtokollPdf(
     p,
     geraet,
-    kopf: ProtokollKopf(firma: e.firma, firmaAdresse: e.firmaAdresse),
+    kopf: ProtokollKopf(firma: optionen.firma ?? e.firma, firmaAdresse: e.firmaAdresse),
     schriften: schriften,
+    unterschrift: _unterschrift(optionen),
+  );
+  await geraeteProtokollAblegen(
+    await ref.read(dbProvider.future),
+    bezugUuid: geraet.uuid,
+    titel: titel,
+    bytes: bytes,
+    snapshot: geraeteSnapshot(titel: titel, pruefungen: [p]),
+    kunde: (ort['kunde'] as Map?)?['name'] as String?,
+    standort: (ort['standort'] as Map?)?['bezeichnung'] as String?,
+    pruefer: optionen.prueferName,
+    firma: optionen.firma ?? e.firma,
   );
   await (ausgabe ?? _teilen)(bytes, 'Pruefprotokoll_${p.pruefungDatum}_${p.uuid.substring(0, 8)}.pdf');
 }
