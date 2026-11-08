@@ -354,7 +354,7 @@ class KundenEndpoint {
     try {
       final fid = claims['firmaId'] as String;
       final q = request.url.queryParameters;
-      const namen = ['standorte', 'verteiler', 'geraeteStandorte', 'raeume'];
+      const namen = ['kunden', 'standorte', 'verteiler', 'geraeteStandorte', 'raeume'];
       final listen = {for (final n in namen) n: _splitUuidListe(q[n])};
       final ungueltig = listen.values
           .expand((l) => l)
@@ -369,6 +369,7 @@ class KundenEndpoint {
       }
       final auswahl = namen.any(q.containsKey)
           ? SyncAuswahl(
+              kunden: listen['kunden']!,
               standorte: listen['standorte']!,
               verteiler: listen['verteiler']!,
               geraeteStandorte: listen['geraeteStandorte']!,

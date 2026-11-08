@@ -146,6 +146,7 @@ class SyncEngine {
   /// Pull mit Versionen. Kunden, Standorte, Verteiler (Basisdaten) und
   /// Räume immer vollständig; Verteiler-Aufbau und Geräte nur für die
   /// Auswahl, sofern [auswahl] gesetzt ist (`null` = älterer Client, alles).
+  /// Ein ausgewählter Kunde deckt Aufbau und Geräte aller seiner Standorte ab.
   Future<Map<String, List<Map<String, dynamic>>>> pull(String firmaId, SyncAuswahl? auswahl) async {
     Future<List<Map<String, dynamic>>> lade(SyncTyp typ, {String filter = '', Map<String, Object?> p = const {}}) async {
       final rows = await db.execute(
@@ -161,21 +162,32 @@ class SyncEngine {
       ];
     }
 
+    // Standorte ausgewählter Kunden zählen für Anlagen und Geräte mit.
+    var kundenStandorte = const <String>[];
+    if (auswahl != null && auswahl.kunden.isNotEmpty) {
+      final rows = await db.execute(
+        Sql.named('SELECT uuid FROM standorte WHERE firma_id = @fid AND kunde_uuid = ANY(@k)'),
+        parameters: {'fid': firmaId, 'k': TypedValue(Type.uuidArray, auswahl.kunden)},
+      );
+      kundenStandorte = [for (final r in rows) r[0].toString()];
+    }
+    final standorte = [...?auswahl?.standorte, ...kundenStandorte];
+
     List<String> verteiler = const [];
-    if (auswahl != null && (auswahl.standorte.isNotEmpty || auswahl.verteiler.isNotEmpty)) {
+    if (auswahl != null && (standorte.isNotEmpty || auswahl.verteiler.isNotEmpty)) {
       final rows = await db.execute(
         Sql.named('SELECT uuid FROM verteiler WHERE firma_id = @fid AND (uuid = ANY(@v) OR standort_uuid = ANY(@s))'),
         parameters: {
           'fid': firmaId,
           'v': TypedValue(Type.uuidArray, auswahl.verteiler),
-          's': TypedValue(Type.uuidArray, auswahl.standorte),
+          's': TypedValue(Type.uuidArray, standorte),
         },
       );
       verteiler = [for (final r in rows) r[0].toString()];
     }
     final vFilter = {'v': TypedValue(Type.uuidArray, verteiler)};
     final gFilter = {
-      'gs': TypedValue(Type.uuidArray, auswahl?.geraeteStandorte ?? const <String>[]),
+      'gs': TypedValue(Type.uuidArray, [...?auswahl?.geraeteStandorte, ...kundenStandorte]),
       'r': TypedValue(Type.uuidArray, auswahl?.raeume ?? const <String>[]),
     };
 
@@ -216,12 +228,15 @@ class SyncEngine {
 /// Lokale Auswahl eines Arbeitsgeräts (M9.7 + Geräteprüfung M2).
 class SyncAuswahl {
   const SyncAuswahl({
+    this.kunden = const [],
     this.standorte = const [],
     this.verteiler = const [],
     this.geraeteStandorte = const [],
     this.raeume = const [],
   });
 
+  /// Ganze Kunden: alle Standorte samt Anlagen und Geräten.
+  final List<String> kunden;
   final List<String> standorte;
   final List<String> verteiler;
   final List<String> geraeteStandorte;
