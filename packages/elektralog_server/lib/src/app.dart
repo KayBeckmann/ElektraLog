@@ -67,7 +67,10 @@ Future<void> ensureSuperadmin(Connection conn,
 /// Kompletter HTTP-Handler (Router + Middleware) — von `bin/main.dart`
 /// und den Server-Tests gemeinsam genutzt, damit Tests exakt die
 /// ausgelieferten Routen prüfen.
-Handler buildHandler(Connection conn,
+/// [conn] ist ein Verbindungspool: Eine einzelne Verbindung nimmt
+/// während einer Transaktion (Sync, Firmenanlage) keine weiteren Anfragen
+/// an — parallele Nutzer bekämen sonst 500er.
+Handler buildHandler(Pool conn,
     {required String jwtSecret, bool logRequests = true}) {
   setJwtSecret(jwtSecret);
   final router = Router()

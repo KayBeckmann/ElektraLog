@@ -12,7 +12,7 @@ import '../middleware/auth_middleware.dart';
 /// GET  /api/protokolle/:id   — Einzelnes Protokoll (Metadaten ohne PDF)
 /// GET  /api/protokolle/:id/pdf — PDF herunterladen
 class ProtokollEndpoint {
-  final Connection db;
+  final Pool db;
   ProtokollEndpoint(this.db);
 
   /// Siehe KundenEndpoint._bumpRevision — dieselbe Roadmap-M9.1-Logik.

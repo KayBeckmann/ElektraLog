@@ -6,7 +6,7 @@ import '../middleware/auth_middleware.dart';
 import '../sync/sync_engine.dart';
 
 class KundenEndpoint {
-  final Connection db;
+  final Pool db;
   KundenEndpoint(this.db);
 
   /// Erhöht den Sync-Revision-Zähler der Firma um 1 (Roadmap M9.1:

@@ -18,7 +18,7 @@ import '../sync/sync_typen.dart';
 /// DELETE /api/daten/geraetepruefungen/<uuid>   (nur Entwürfe)
 class DatenEndpoint {
   DatenEndpoint(this.db);
-  final Connection db;
+  final Pool db;
 
   /// Erlaubte Filter je Typ: Query-Parameter → Spalte.
   static const filter = <String, Map<String, String>>{

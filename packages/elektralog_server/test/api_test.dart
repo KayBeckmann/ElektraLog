@@ -141,7 +141,7 @@ void main() {
       final a = await server.firmaMitBenutzer('Firma A', 'a@test.invalid');
       final logs = <String>[];
       // Wie im Betrieb: mit Request-Logging.
-      final handler = buildHandler(server.db, jwtSecret: testJwtSecret);
+      final handler = buildHandler(server.pool, jwtSecret: testJwtSecret);
       await runZoned(
         () async {
           for (final token in [a.token, 'kaputt.${a.token}', 'kein.gueltiges.token']) {

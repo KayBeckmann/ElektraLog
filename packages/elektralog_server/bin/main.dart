@@ -13,8 +13,9 @@ void main() async {
   // startet der Server nicht (Datenbank bleibt auf dem alten Stand).
   await Migrator(conn).run();
   await ensureSuperadmin(conn);
+  await conn.close();
 
-  final handler = buildHandler(conn, jwtSecret: config.jwtSecret);
+  final handler = buildHandler(openPool(config), jwtSecret: config.jwtSecret);
 
   final server = await shelf_io.serve(
     handler,
