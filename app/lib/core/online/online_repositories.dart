@@ -286,9 +286,13 @@ class OnlineGeraetePruefungenRepository implements GeraetePruefungenRepository {
   @override
   Future<List<GeraetePruefung>> getAlle() => _liste();
 
-  /// Gleiche Regeln wie lokal; der Server prüft zusätzlich.
+  /// Gleiche Regeln wie lokal; der Server prüft zusätzlich. Prüfen und
+  /// Senden laufen zusammen nacheinander (Tippen in der Prüfmaske).
   @override
-  Future<void> save(GeraetePruefung p) async {
+  Future<void> save(GeraetePruefung p) =>
+      _d.nacheinander('geraetepruefungen:${p.uuid}', () => _pruefenUndSenden(p));
+
+  Future<void> _pruefenUndSenden(GeraetePruefung p) async {
     final bisher = await getByUuid(p.uuid);
     if (bisher != null && bisher.abgeschlossen) {
       throw StateError('Abgeschlossene Prüfung ist unveränderlich — Korrektur als neue Prüfung anlegen');
@@ -301,7 +305,7 @@ class OnlineGeraetePruefungenRepository implements GeraetePruefungenRepository {
     if (p.abgeschlossen && abschlussFehler(p).isNotEmpty) {
       throw StateError(abschlussFehler(p).join(', '));
     }
-    await _d.speichern('geraetepruefungen', p.toJson());
+    await _d.senden('geraetepruefungen', p.toJson());
   }
 
   @override

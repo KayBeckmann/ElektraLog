@@ -181,10 +181,24 @@ ELEKTRALOG_TEST_DB=localhost:55434:test:test:test dart test
 
 Ohne `ELEKTRALOG_TEST_DB` werden die Server-Tests übersprungen.
 
+### Web-App: online statt Kopie
+
+Die Web-App (Büro, immer online) hält keine Daten im Browser. Angemeldet
+liest sie je Ansicht über `GET /api/daten/<typ>?<filter>=…` (z. B. die
+Geräte eines Raums) und schreibt versioniert über `POST /api/sync` —
+dieselben Konfliktregeln wie beim Sync der Endgeräte. Ansichten laden nach
+eigenen Änderungen sofort, sonst im Minutentakt neu. Umsetzung:
+`app/lib/core/online/` (Repositories mit lokaler und Online-Umsetzung).
+Endgeräte arbeiten unverändert lokal mit Sync und Download-Auswahl.
+
+Der Server nutzt einen Verbindungspool: Eine einzelne Postgres-Verbindung
+nimmt während einer Transaktion keine weiteren Anfragen an.
+
 ### End-to-End-Test (zwei Arbeitsgeräte gegen echten Server)
 
 `app/test/e2e/` treibt zwei App-Instanzen (eigene lokale Datenbanken,
-echte `SyncEngine`) gegen einen laufenden Server: Anlage, Raumauswahl,
+echte `SyncEngine`) sowie zwei Web-Sitzungen (Online-Datenschicht) gegen
+einen laufenden Server: Anlage, Raumauswahl,
 gleichzeitige Änderung mit Zusammenführung, bestätigter Raumwechsel,
 abgeschlossene Prüfung (danach unveränderlich), Mandantengrenze,
 Modul aus/an. Legt eigene fiktive Testfirmen an — **nie gegen eine

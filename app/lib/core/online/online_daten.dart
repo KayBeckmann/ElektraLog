@@ -130,29 +130,30 @@ class OnlineDaten {
     return c.stream;
   }
 
-  /// Wartende Fassung je `typ:uuid` — schnelle Folgeänderungen (Tippen in
-  /// der Prüfmaske) werden zusammengefasst und nacheinander gesendet, damit
-  /// sie sich nicht gegenseitig als Konflikt melden.
-  final _wartend = <String, ({Map<String, dynamic> json, bool zuordnung, Completer<void> fertig})>{};
-  final _sendetGerade = <String>{};
+  /// Wartende Aufgabe je Schlüssel (`typ:uuid`) — schnelle Folgeänderungen
+  /// (Tippen in der Prüfmaske) laufen nacheinander, und nur die jeweils
+  /// neueste wartende wird ausgeführt; so überholen sich Fassungen nicht
+  /// und melden sich nicht gegenseitig als Konflikt.
+  final _wartend = <String, ({Future<void> Function() aufgabe, Completer<void> fertig})>{};
+  final _laeuftGerade = <String>{};
 
-  /// Speichert einen Datensatz (anlegen oder ändern) auf dem Server.
-  /// Wirft [OnlineSpeicherFehler], wenn der Server ihn nicht übernimmt.
-  Future<void> speichern(String typ, Map<String, dynamic> json, {bool zuordnungBestaetigt = false}) {
-    final key = '$typ:${json['uuid']}';
+  /// Führt [aufgabe] für [key] nach allen vorherigen aus; ältere, noch
+  /// wartende Aufgaben desselben Schlüssels entfallen (ihre Aufrufer
+  /// erhalten das Ergebnis der neueren).
+  Future<void> nacheinander(String key, Future<void> Function() aufgabe) {
     final vorher = _wartend[key];
     final fertig = Completer<void>();
-    _wartend[key] = (json: json, zuordnung: zuordnungBestaetigt || (vorher?.zuordnung ?? false), fertig: fertig);
+    _wartend[key] = (aufgabe: aufgabe, fertig: fertig);
     if (vorher != null) fertig.future.then(vorher.fertig.complete, onError: vorher.fertig.completeError);
-    if (_sendetGerade.add(key)) _abarbeiten(typ, key);
+    if (_laeuftGerade.add(key)) _abarbeiten(key);
     return fertig.future;
   }
 
-  Future<void> _abarbeiten(String typ, String key) async {
+  Future<void> _abarbeiten(String key) async {
     try {
       for (var w = _wartend.remove(key); w != null; w = _wartend.remove(key)) {
         try {
-          await _senden(typ, key, w.json, w.zuordnung);
+          await w.aufgabe();
           w.fertig.complete();
         } catch (e, st) {
           if (e is OnlineSpeicherFehler && !_meldungen.isClosed) _meldungen.add(e.meldung);
@@ -160,12 +161,19 @@ class OnlineDaten {
         }
       }
     } finally {
-      _sendetGerade.remove(key);
+      _laeuftGerade.remove(key);
     }
   }
 
-  Future<void> _senden(String typ, String key, Map<String, dynamic> json, bool zuordnungBestaetigt) async {
+  /// Speichert einen Datensatz (anlegen oder ändern) auf dem Server.
+  /// Wirft [OnlineSpeicherFehler], wenn der Server ihn nicht übernimmt.
+  Future<void> speichern(String typ, Map<String, dynamic> json, {bool zuordnungBestaetigt = false}) =>
+      nacheinander('$typ:${json['uuid']}', () => senden(typ, json, zuordnungBestaetigt: zuordnungBestaetigt));
+
+  /// Sendet sofort — nur innerhalb von [nacheinander] verwenden.
+  Future<void> senden(String typ, Map<String, dynamic> json, {bool zuordnungBestaetigt = false}) async {
     final uuid = json['uuid'] as String;
+    final key = '$typ:$uuid';
     final antwort = await transport.sync([
       {
         'type': typ,
