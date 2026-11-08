@@ -50,7 +50,7 @@ Map<String, dynamic>? verifyJwt(Request request) {
 /// noch aktiv ist. Gesperrte Firmen erhalten 403, auch mit gültigem JWT.
 ///
 /// Öffentliche Routen (kein Authorization-Header) werden durchgeleitet.
-Middleware firmaSperreMiddleware(Connection db) =>
+Middleware firmaSperreMiddleware(Pool db) =>
     (handler) => (request) async {
           final auth = request.headers['authorization'];
           if (auth == null || !auth.startsWith('Bearer ')) {

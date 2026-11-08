@@ -7,7 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../middleware/auth_middleware.dart';
 
 class AuthEndpoint {
-  final Connection db;
+  final Pool db;
   AuthEndpoint(this.db);
 
   // POST /api/auth/register — deaktiviert, Accounts werden durch SuperAdmin angelegt

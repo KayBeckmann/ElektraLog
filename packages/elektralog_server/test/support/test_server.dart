@@ -24,16 +24,22 @@ const superadminPassword = 'superadmin-passwort';
 /// produktive Datenbank zeigen lassen.
 class TestServer {
   late Connection db;
+  late Pool pool;
   late Handler handler;
 
   Future<void> start() async {
     db = await openEmptyTestDb();
     await Migrator(db, log: (_) {}).run();
     await ensureSuperadmin(db, email: superadminEmail, password: superadminPassword);
-    handler = buildHandler(db, jwtSecret: testJwtSecret, logRequests: false);
+    // Wie im Betrieb: Handler über einen Pool (parallele Anfragen).
+    pool = Pool.withEndpoints([_endpoint()], settings: const PoolSettings(sslMode: SslMode.disable));
+    handler = buildHandler(pool, jwtSecret: testJwtSecret, logRequests: false);
   }
 
-  Future<void> stop() => db.close();
+  Future<void> stop() async {
+    await pool.close();
+    await db.close();
+  }
 
   /// Ruft den Handler direkt auf (ohne Socket) und liefert Status + JSON.
   Future<({int status, dynamic body})> call(String method, String path, {Object? body, String? token}) async {
@@ -80,16 +86,14 @@ class TestServer {
 }
 
 /// Verbindung zur Test-Datenbank mit komplett geleertem Schema.
-Future<Connection> openEmptyTestDb() async {
+Endpoint _endpoint() {
   final parts = testDbSpec!.split(':');
+  return Endpoint(host: parts[0], port: int.parse(parts[1]), database: parts[2], username: parts[3], password: parts[4]);
+}
+
+Future<Connection> openEmptyTestDb() async {
   final db = await Connection.open(
-    Endpoint(
-      host: parts[0],
-      port: int.parse(parts[1]),
-      database: parts[2],
-      username: parts[3],
-      password: parts[4],
-    ),
+    _endpoint(),
     settings: const ConnectionSettings(sslMode: SslMode.disable),
   );
   await db.execute('DROP SCHEMA public CASCADE; CREATE SCHEMA public;', queryMode: QueryMode.simple);

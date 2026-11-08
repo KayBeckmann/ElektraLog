@@ -174,16 +174,6 @@ void main() {
     expect((await GeraeteRepository(b.db).getByUuid('gB'))!.bezeichnung, 'auf Server geändert');
   });
 
-  test('Web-App lädt den ganzen Bestand, ohne Auswahl und ohne Entfernen', () async {
-    await GeraeteRepository(a.db).save(geraet('gA', 'rA'));
-    await GeraeteRepository(a.db).save(geraet('gB', 'rB'));
-    await a.engine.push();
-    final web = SyncEngine(b.db, transport: server, revision: SpeicherRevision(), vollstaendig: true);
-    await web.pull();
-    await web.pull();
-    expect({for (final g in await GeraeteRepository(b.db).getAlle()) g.uuid}, {'gA', 'gB'});
-  });
-
   test('Erster Sync nach dem Update: gleicher Bestand erzeugt keine Konflikte', () async {
     final c = await Arbeitsgeraet.neu(server, 'c${n++}');
     // Alte App-Version: Daten lokal vorhanden, aber ohne Sync-Metadaten.
@@ -308,7 +298,7 @@ class FakeServer implements SyncTransport {
       for (final typ in ['kunden', 'standorte', 'verteiler', 'raeume']) typ: alle(typ),
       'geraete': [
         for (final g in alle('geraete'))
-          if (query.isEmpty || standorte.contains(g['standortUuid']) || raeume.contains(g['raumUuid'])) g,
+          if (standorte.contains(g['standortUuid']) || raeume.contains(g['raumUuid'])) g,
       ],
     };
   }

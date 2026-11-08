@@ -1,4 +1,3 @@
-import 'package:elektralog/core/database/isar_service.dart';
 import 'package:elektralog/core/models/geraet.dart';
 import 'package:elektralog/core/models/messung.dart';
 import 'package:elektralog/core/models/standort.dart';

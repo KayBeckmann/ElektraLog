@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sembast/sembast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../api/api_service.dart';
 import '../providers/app_mode_provider.dart';
 import '../providers/isar_provider.dart';
 import '../providers/pruefprotokoll_provider.dart';
@@ -51,8 +50,8 @@ class SyncService {
   /// laden deshalb zunächst keinen Aufbau — spart Datenvolumen/Speicher.
   static Future<bool> pullAll(Database db) async {
     try {
-      // Web-App: immer der ganze Bestand, die Auswahl gilt für Endgeräte.
-      return await _seriell(() => SyncEngine(db, vollstaendig: kIsWeb).pull());
+      if (kIsWeb) return false; // Web-App arbeitet online, ohne Kopie
+      return await _seriell(() => SyncEngine(db).pull());
     } catch (e) {
       debugPrint('pullAll fehlgeschlagen: $e');
       return false;
@@ -63,7 +62,7 @@ class SyncService {
   /// Geräteprüfung M3: versioniert, Konflikte landen beim Nutzer statt
   /// still überschrieben zu werden). Gibt die Anzahl gesendeter zurück.
   static Future<int> pushAll(Database db) async =>
-      (await _seriell(() => SyncEngine(db).push())).gesendet;
+      kIsWeb ? 0 : (await _seriell(() => SyncEngine(db).push())).gesendet;
 
   /// Push und Pull laufen nie gleichzeitig (60-s-Pull vs. entprellter
   /// Push), sonst könnten sich die Sync-Metadaten gegenseitig überholen.
@@ -92,17 +91,7 @@ class SyncService {
       final pdfBase64 = p.pdfBase64;
       if (pdfBase64 == null) continue;
       try {
-        final backendUuid = await ApiService.uploadProtokoll(
-          pdfBytes: base64Decode(pdfBase64),
-          verteilerBezeichnung: p.verteilerBezeichnung ?? '',
-          standortBezeichnung: p.standortBezeichnung,
-          kundenBezeichnung: p.kundenBezeichnung,
-          prueferName: p.prueferName,
-          firmaName: p.firma,
-          protokollDatum: p.protokollDatum,
-          messdatenJson: p.messdatenSnapshot,
-          art: p.art,
-        );
+        final backendUuid = await protokollHochladen(p, base64Decode(pdfBase64));
         if (backendUuid != null) {
           await repo.save(p.mitBackendUuid(backendUuid).ohnePdf());
           erfolgreich++;
@@ -119,6 +108,7 @@ class SyncService {
   /// Löst einen Push aus, 2 Sekunden nach dem letzten Aufruf.
   /// Nur aktiv wenn ein JWT-Token vorhanden (= Company-Modus).
   static void scheduleSync(Database db) {
+    if (kIsWeb) return;
     _pushTimer?.cancel();
     _pushTimer = Timer(const Duration(seconds: 2), () async {
       try {
@@ -149,7 +139,7 @@ class SyncService {
   /// Läuft schon ein Durchgang, kehrt ein weiterer sofort zurück — sonst
   /// könnten zwei Läufe dasselbe ausstehende PDF doppelt ablegen.
   static Future<SyncResult> autoSync(Database db) async {
-    if (_autoSyncLaeuft) return SyncResult.success;
+    if (_autoSyncLaeuft || kIsWeb) return SyncResult.success;
     _autoSyncLaeuft = true;
     try {
       final prefs = await SharedPreferences.getInstance();

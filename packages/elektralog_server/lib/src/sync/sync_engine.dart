@@ -18,7 +18,7 @@ import 'sync_typen.dart';
 ///   weder blockiert werden noch neuere Stände mit alten überschreiben.
 class SyncEngine {
   SyncEngine(this.db);
-  final Connection db;
+  final Pool db;
 
   Future<Map<String, dynamic>> push(String firmaId, String? benutzerId, List<Map<String, dynamic>> batches) async {
     final ergebnisse = <Map<String, dynamic>>[];

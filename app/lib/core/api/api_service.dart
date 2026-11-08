@@ -228,6 +228,33 @@ class ApiService {
     throw Exception('syncAll HTTP ${resp.statusCode}');
   }
 
+  // ── Online-Zugriff der Web-App (siehe core/online) ─────────────────────────
+
+  static String _fehlertext(http.Response resp) {
+    try {
+      return (jsonDecode(resp.body) as Map)['error'] as String? ?? 'HTTP ${resp.statusCode}';
+    } catch (_) {
+      return 'HTTP ${resp.statusCode}';
+    }
+  }
+
+  /// GET auf einen API-Pfad (z. B. `/daten/geraete`), JSON-Antwort.
+  static Future<dynamic> onlineGet(String pfad, [Map<String, String>? query]) async {
+    final resp = await _authGet(
+      Uri.parse('$baseUrl$pfad').replace(queryParameters: query == null || query.isEmpty ? null : query),
+      headers: await _headers(auth: true),
+      auth: true,
+    );
+    if (resp.statusCode != 200) throw ApiException(resp.statusCode, _fehlertext(resp));
+    return jsonDecode(resp.body);
+  }
+
+  /// DELETE auf einen API-Pfad; wirft mit Klartext bei Fehler.
+  static Future<void> onlineDelete(String pfad) async {
+    final resp = await _authDelete(Uri.parse('$baseUrl$pfad'), headers: await _headers(auth: true), auth: true);
+    if (resp.statusCode != 200) throw ApiException(resp.statusCode, _fehlertext(resp));
+  }
+
   /// Gibt die direkte PDF-Download-URL für ein Protokoll zurück.
   static String protokollPdfUrl(String id) => '$baseUrl/protokolle/$id/pdf';
 
@@ -270,6 +297,7 @@ class ApiService {
     required DateTime protokollDatum,
     String? messdatenJson,
     String art = 'anlage',
+    String? bezugUuid,
   }) async {
     try {
       final token = await _getToken();
@@ -292,6 +320,7 @@ class ApiService {
           'pdfBase64': pdfBase64,
           'pdfHash': pdfHash,
           'art': art,
+          if (bezugUuid != null) 'bezugUuid': bezugUuid,
         }),
         auth: true,
       ).timeout(const Duration(seconds: 30));

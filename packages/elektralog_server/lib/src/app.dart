@@ -6,6 +6,7 @@ import 'package:postgres/postgres.dart';
 import 'package:bcrypt/bcrypt.dart';
 import 'package:uuid/uuid.dart';
 import 'middleware/auth_middleware.dart';
+import 'endpoints/daten_endpoint.dart';
 import 'endpoints/auth_endpoint.dart';
 import 'endpoints/kunden_endpoint.dart';
 import 'endpoints/mandanten_endpoint.dart';
@@ -66,7 +67,10 @@ Future<void> ensureSuperadmin(Connection conn,
 /// Kompletter HTTP-Handler (Router + Middleware) — von `bin/main.dart`
 /// und den Server-Tests gemeinsam genutzt, damit Tests exakt die
 /// ausgelieferten Routen prüfen.
-Handler buildHandler(Connection conn,
+/// [conn] ist ein Verbindungspool: Eine einzelne Verbindung nimmt
+/// während einer Transaktion (Sync, Firmenanlage) keine weiteren Anfragen
+/// an — parallele Nutzer bekämen sonst 500er.
+Handler buildHandler(Pool conn,
     {required String jwtSecret, bool logRequests = true}) {
   setJwtSecret(jwtSecret);
   final router = Router()
@@ -101,6 +105,10 @@ Handler buildHandler(Connection conn,
         (req, uuid) => KundenEndpoint(conn).deleteRaum(req, uuid))
     ..delete('/api/geraete/<uuid>',
         (req, uuid) => KundenEndpoint(conn).deleteGeraet(req, uuid))
+    // Online-Zugriff der Web-App (je Ansicht, ohne lokale Kopie)
+    ..get('/api/daten/<typ>', (req, typ) => DatenEndpoint(conn).liste(req, typ))
+    ..get('/api/daten/<typ>/<uuid>', (req, typ, uuid) => DatenEndpoint(conn).einzeln(req, typ, uuid))
+    ..delete('/api/daten/<typ>/<uuid>', (req, typ, uuid) => DatenEndpoint(conn).loeschen(req, typ, uuid))
     // Sync endpoints
     ..get('/api/sync', (req) => KundenEndpoint(conn).pullAll(req))
     ..post('/api/sync', (req) => KundenEndpoint(conn).sync(req))

@@ -4,15 +4,30 @@ import 'package:sembast/sembast.dart';
 import '../database/isar_service.dart';
 import '../models/verteiler.dart';
 import '../sync/sync_service.dart';
+import '../online/online_daten.dart';
+import '../online/online_repositories.dart';
 import 'isar_provider.dart';
 
 // ── Repository ────────────────────────────────────────────────────────────────
 
-class VerteilerRepository {
-  const VerteilerRepository(this._db);
+/// Datenzugriff; lokal (Endgeräte, sembast) oder online (Web-App, siehe
+/// `core/online`). `VerteilerRepository(db)` liefert die lokale Umsetzung.
+abstract interface class VerteilerRepository {
+  const factory VerteilerRepository(Database db) = LokaleVerteilerRepository;
+
+  Stream<List<Verteiler>> watchByStandort(String standortUuid);
+  Future<List<Verteiler>> getByStandort(String standortUuid);
+  Future<Verteiler?> getByUuid(String uuid);
+  Future<void> save(Verteiler verteiler);
+  Future<void> delete(String uuid);
+}
+
+class LokaleVerteilerRepository implements VerteilerRepository {
+  const LokaleVerteilerRepository(this._db);
 
   final Database _db;
 
+  @override
   Stream<List<Verteiler>> watchByStandort(String standortUuid) {
     final finder = Finder(
       filter: Filter.equals('standortUuid', standortUuid),
@@ -26,6 +41,7 @@ class VerteilerRepository {
             .toList());
   }
 
+  @override
   Future<List<Verteiler>> getByStandort(String standortUuid) async {
     final finder = Finder(
       filter: Filter.equals('standortUuid', standortUuid),
@@ -38,6 +54,7 @@ class VerteilerRepository {
         .toList();
   }
 
+  @override
   Future<Verteiler?> getByUuid(String uuid) async {
     final snapshot =
         await StorageService.verteilerStore.record(uuid).get(_db);
@@ -45,6 +62,7 @@ class VerteilerRepository {
     return Verteiler.fromJson(snapshot.cast<String, dynamic>());
   }
 
+  @override
   Future<void> save(Verteiler verteiler) async {
     await StorageService.verteilerStore
         .record(verteiler.uuid)
@@ -52,6 +70,7 @@ class VerteilerRepository {
     SyncService.scheduleSync(_db);
   }
 
+  @override
   Future<void> delete(String uuid) async {
     await StorageService.verteilerStore.record(uuid).delete(_db);
     SyncService.scheduleSync(_db);
@@ -61,6 +80,8 @@ class VerteilerRepository {
 // ── Providers ─────────────────────────────────────────────────────────────────
 
 final verteilerRepositoryProvider = Provider<VerteilerRepository>((ref) {
+  final o = ref.watch(onlineDatenProvider);
+  if (o != null) return OnlineVerteilerRepository(o);
   final dbAsync = ref.watch(dbProvider);
   return dbAsync.when(
     data: (db) => VerteilerRepository(db),
@@ -71,6 +92,8 @@ final verteilerRepositoryProvider = Provider<VerteilerRepository>((ref) {
 
 final verteilerByStandortProvider =
     StreamProvider.family<List<Verteiler>, String>((ref, standortUuid) {
+  final o = ref.watch(onlineDatenProvider);
+  if (o != null) return OnlineVerteilerRepository(o).watchByStandort(standortUuid);
   final dbAsync = ref.watch(dbProvider);
   return dbAsync.when(
     data: (db) => VerteilerRepository(db).watchByStandort(standortUuid),
@@ -81,11 +104,15 @@ final verteilerByStandortProvider =
 
 final verteilerByUuidProvider =
     FutureProvider.family<Verteiler?, String>((ref, uuid) async {
+  final o = ref.watch(onlineDatenProvider);
+  if (o != null) return OnlineVerteilerRepository(o).getByUuid(uuid);
   final db = await ref.watch(dbProvider.future);
   return VerteilerRepository(db).getByUuid(uuid);
 });
 
 final alleVerteilerProvider = StreamProvider<List<Verteiler>>((ref) {
+  final o = ref.watch(onlineDatenProvider);
+  if (o != null) return OnlineVerteilerRepository(o).watchAlle();
   final dbAsync = ref.watch(dbProvider);
   return dbAsync.when(
     data: (db) {

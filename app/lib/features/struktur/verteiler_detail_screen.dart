@@ -9,7 +9,6 @@ import '../../core/providers/standorte_provider.dart';
 import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/sichtpruefung_provider.dart';
 import '../../core/providers/komponenten_provider.dart';
-import '../../core/api/api_service.dart';
 import '../../core/models/messung.dart';
 import '../../core/models/pruefprotokoll.dart';
 import '../../core/models/sichtpruefung.dart';
@@ -269,26 +268,17 @@ class _VerteilerDetailScreenState extends ConsumerState<VerteilerDetailScreen> {
         messdatenSnapshot: snapshot,
         pdfBase64: base64Encode(bytes),
       );
-      final repo = ref.read(pruefprotokollRepositoryProvider);
-      await repo.save(protokoll);
-
-      // Im Hintergrund ins Backend hochladen (non-blocking, offline-tolerant).
-      // Gelingt der Upload nicht (offline, abgelaufener Token, …), bleibt
-      // das PDF lokal gespeichert und wird per Retry nachgeholt.
-      ApiService.uploadProtokoll(
-        pdfBytes: bytes,
-        verteilerBezeichnung: verteiler.bezeichnung,
-        standortBezeichnung: standortBezeichnung,
-        kundenBezeichnung: kundenName,
-        prueferName: opts.prueferName.isEmpty ? null : opts.prueferName,
-        firmaName: opts.firma?.isEmpty ?? true ? null : opts.firma,
-        protokollDatum: protokoll.protokollDatum,
-        messdatenJson: snapshot,
-      ).then((backendUuid) async {
-        if (backendUuid != null) {
-          await repo.save(protokoll.mitBackendUuid(backendUuid).ohnePdf());
+      // Endgeräte: lokal speichern, Upload im Hintergrund (offline per
+      // Retry nachgeholt). Web-App: direkt in die Dokumentenablage.
+      try {
+        await ref.read(pruefprotokollRepositoryProvider).ablegen(protokoll, bytes);
+      } catch (fehler) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Nicht in der Dokumentenablage gespeichert: $fehler'),
+          ));
         }
-      });
+      }
 
       await Printing.layoutPdf(
         onLayout: (_) async => bytes,

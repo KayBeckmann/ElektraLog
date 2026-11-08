@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,7 @@ import '../theme/app_colors.dart';
 import '../../core/router.dart';
 import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/isar_provider.dart';
+import '../../core/online/online_daten.dart';
 import '../../core/providers/module_provider.dart';
 import '../../core/sync/sync_meta.dart';
 import '../../core/sync/sync_service.dart';
@@ -95,6 +97,11 @@ class AppScaffold extends ConsumerWidget {
     // Auto-Pull alle 60s im Company-Modus — startet nach Login, stoppt nach Logout
     ref.watch(autoSyncProvider);
     final sessionExpired = ref.watch(sessionExpiredProvider);
+    // Web-App online: abgelehntes Speichern/Löschen sichtbar machen.
+    ref.listen(onlineMeldungenProvider, (_, m) {
+      final text = m.valueOrNull;
+      if (text != null) ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(text)));
+    });
 
     return Column(
       children: [
@@ -344,8 +351,8 @@ class _DesktopDrawerState extends ConsumerState<_DesktopDrawer> {
                       ),
                     ),
 
-                    // ── Sync ─────────────────────────────────────────
-                    if (isCompany) ...[
+                    // ── Sync (Web-App arbeitet online, ohne Sync) ─────
+                    if (isCompany && !kIsWeb) ...[
                       const Divider(color: AppColors.outlineVariant),
                       _SyncButton(
                         isSyncing: _isSyncing,

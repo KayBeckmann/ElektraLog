@@ -6,7 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../middleware/auth_middleware.dart';
 
 class FirmaEndpoint {
-  final Connection db;
+  final Pool db;
   FirmaEndpoint(this.db);
 
   // GET /api/firma/benutzer — eigene Mitarbeiter auflisten

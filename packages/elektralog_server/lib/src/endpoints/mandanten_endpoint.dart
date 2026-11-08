@@ -7,7 +7,7 @@ import 'package:bcrypt/bcrypt.dart';
 import '../middleware/auth_middleware.dart';
 
 class MandantenEndpoint {
-  final Connection db;
+  final Pool db;
   MandantenEndpoint(this.db);
 
   // GET /api/admin/firmen — Superadmin: alle Firmen auflisten

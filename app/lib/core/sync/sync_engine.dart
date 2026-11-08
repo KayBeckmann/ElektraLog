@@ -100,17 +100,12 @@ class SyncEngine {
     this.db, {
     this.transport = const ApiSyncTransport(),
     this.revision = const PrefsRevisionSpeicher(),
-    this.vollstaendig = false,
   })  : meta = SyncMetaRepository(db),
         konflikte = SyncKonfliktRepository(db);
 
   final Database db;
   final SyncTransport transport;
   final RevisionSpeicher revision;
-
-  /// Alles laden, ohne Auswahl und ohne Entfernen — für die Web-App
-  /// (Büro, immer online), die den ganzen Firmenbestand zeigen soll.
-  final bool vollstaendig;
   final SyncMetaRepository meta;
   final SyncKonfliktRepository konflikte;
 
@@ -146,7 +141,8 @@ class SyncEngine {
     // Wo hier gearbeitet wurde, bleibt der Bereich für den Download ausgewählt.
     await bereicheAuswaehlen(db, [
       for (final b in batches)
-        for (final item in b['items'] as List<Map<String, dynamic>>) (b['type'] as String, item.cast<String, Object?>()),
+        for (final item in b['items'] as List<Map<String, dynamic>>)
+          (b['type'] as String, item.cast<String, Object?>()),
     ]);
 
     final antwort = await transport.push(batches);
@@ -154,7 +150,8 @@ class SyncEngine {
       final key = syncSchluessel(e['type'] as String, e['uuid'] as String);
       final hash = gesendet[key];
       if (hash == null) continue;
-      await meta.set(e['type'] as String, e['uuid'] as String, SyncMeta(version: (e['version'] as num).toInt(), hash: hash));
+      await meta.set(
+          e['type'] as String, e['uuid'] as String, SyncMeta(version: (e['version'] as num).toInt(), hash: hash));
     }
     var offeneKonflikte = 0;
     for (final k in (antwort['konflikte'] as List? ?? const []).cast<Map>()) {
@@ -190,7 +187,7 @@ class SyncEngine {
   Future<bool> pull() async {
     final auswahl = SyncAuswahlRepository(db);
     String liste(Set<String> s) => s.join(',');
-    final data = await transport.pull(vollstaendig ? const {} : {
+    final data = await transport.pull({
       'kunden': liste(await auswahl.getAktivierteKundeUuids()),
       'standorte': liste(await auswahl.getAktivierteStandortUuids()),
       'verteiler': liste(await auswahl.getAktivierteVerteilerUuids()),
@@ -226,11 +223,12 @@ class SyncEngine {
         await _uebernehmen(typ, uuid, json, version, offen.contains(syncSchluessel(typ.name, uuid)));
       }
     }
-    if (!vollstaendig) await abgewaehltesEntfernen(db);
+    await abgewaehltesEntfernen(db);
     return false;
   }
 
-  Future<void> _uebernehmen(SyncTypDef typ, String uuid, Map<String, dynamic> server, int? version, bool hatKonflikt) async {
+  Future<void> _uebernehmen(
+      SyncTypDef typ, String uuid, Map<String, dynamic> server, int? version, bool hatKonflikt) async {
     final record = typ.store.record(uuid);
     if (version == null) {
       // Server ohne Versionen (älterer Stand): Server hat Vorrang wie früher.

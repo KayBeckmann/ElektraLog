@@ -3,11 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:sembast/sembast.dart';
 
-import '../../core/database/isar_service.dart';
 import '../../core/providers/geraete_provider.dart';
 import '../../core/providers/isar_provider.dart';
+import '../../core/providers/komponenten_provider.dart';
 import '../../core/providers/module_provider.dart';
 import '../../shared/theme/app_colors.dart';
 import 'geraete_widgets.dart';
@@ -61,11 +60,11 @@ class _GeraetScanScreenState extends ConsumerState<GeraetScanScreen> {
     if (_sucht) return;
     _sucht = true;
     try {
-      final db = await ref.read(dbProvider.future);
+      await ref.read(dbProvider.future); // lokale Datenbank (Endgeräte) bereit
       final ergebnis = await scanAufloesen(
         roh,
-        (uuid) async => await GeraeteRepository(db).getByUuid(uuid) != null,
-        (uuid) async => await StorageService.komponentenStore.record(uuid).get(db) != null,
+        (uuid) async => await ref.read(geraeteRepositoryProvider).getByUuid(uuid) != null,
+        (uuid) async => await ref.read(komponentenRepositoryProvider).getByUuid(uuid) != null,
       );
       if (!mounted) return;
       if (ergebnis.$1 == ScanArt.gefunden) {
