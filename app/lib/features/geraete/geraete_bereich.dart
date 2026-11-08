@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/models/geraete_faelligkeit.dart';
 import '../../core/models/raum.dart';
 import '../../core/providers/geraete_provider.dart';
 import '../../core/providers/isar_provider.dart';
@@ -37,6 +38,7 @@ class _GeraeteBereichState extends ConsumerState<GeraeteBereich> {
     final treffer = _suche.trim().isEmpty ? null : geraete.where((g) => g.passtZu(_suche)).toList();
     final raumNamen = {for (final r in raeume) r.uuid: r.bezeichnung};
     final kundeAktiv = ref.watch(kundeSyncAktiviertProvider(widget.kundeUuid)).valueOrNull ?? false;
+    final nachweise = ref.watch(geraetePruefNachweiseProvider).valueOrNull ?? const <String, PruefNachweis>{};
 
     return Column(
       key: const Key('geraete-bereich'),
@@ -134,6 +136,7 @@ class _GeraeteBereichState extends ConsumerState<GeraeteBereich> {
                 kundeAktiv: kundeAktiv,
                 raum: r,
                 anzahl: geraete.where((g) => g.raumUuid == r.uuid).length,
+                bilanz: pruefBilanz(geraete.where((g) => g.raumUuid == r.uuid), nachweise),
                 onTap: () => context.go('/kunden/${widget.kundeUuid}/standort/${widget.standortUuid}/raum/${r.uuid}'),
               ),
             ),
@@ -143,7 +146,15 @@ class _GeraeteBereichState extends ConsumerState<GeraeteBereich> {
 }
 
 class _RaumTile extends ConsumerWidget {
-  const _RaumTile({required this.raum, required this.anzahl, required this.onTap, this.kundeAktiv = false});
+  const _RaumTile({
+    required this.raum,
+    required this.anzahl,
+    required this.bilanz,
+    required this.onTap,
+    this.kundeAktiv = false,
+  });
+
+  final ({int bestanden, int nichtBestanden, int gesamt}) bilanz;
 
   /// Ganzer Kunde gewählt — deckt alle Räume ab.
   final bool kundeAktiv;
@@ -170,7 +181,13 @@ class _RaumTile extends ConsumerWidget {
             onTap: onTap,
             leading: const Icon(Icons.meeting_room_outlined, color: AppColors.secondary),
             title: Text(raum.bezeichnung),
-            subtitle: Text(anzahl == 1 ? '1 Gerät (lokal)' : '$anzahl Geräte (lokal)'),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(anzahl == 1 ? '1 Gerät (lokal)' : '$anzahl Geräte (lokal)'),
+                if (bilanz.gesamt > 0) PruefBilanzAnzeige(bilanz: bilanz),
+              ],
+            ),
             trailing: const Icon(Icons.arrow_forward, size: 16),
           ),
           Padding(
