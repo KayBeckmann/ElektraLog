@@ -184,19 +184,3 @@ void main() {
     });
   });
 }
-
-Future<Map<String, dynamic>> push(TestServer server, String token, List<(String, List)> batches) async {
-  final r = await server.call('POST', '/api/sync', token: token, body: {
-    'batches': [
-      for (final (type, items) in batches) {'type': type, 'items': items},
-    ],
-  });
-  expect(r.status, 200, reason: '${r.body}');
-  return (r.body as Map).cast<String, dynamic>();
-}
-
-Future<Map<String, dynamic>> pull(TestServer server, String token, {String? query}) async {
-  final r = await server.call('GET', query == null ? '/api/sync' : '/api/sync?$query', token: token);
-  expect(r.status, 200, reason: '${r.body}');
-  return (r.body as Map).cast<String, dynamic>();
-}
