@@ -4,6 +4,7 @@ import 'package:sembast/sembast.dart';
 import '../database/isar_service.dart';
 import '../models/geraet.dart';
 import '../models/raum.dart';
+import '../sync/sync_meta.dart';
 import '../sync/sync_service.dart';
 import 'isar_provider.dart';
 
@@ -99,6 +100,14 @@ class GeraeteRepository {
     if (fehler.isNotEmpty) throw ArgumentError(fehler.join(', '));
     await StorageService.geraeteStore.record(geraet.uuid).put(_db, geraet.toJson().cast<String, Object?>());
     SyncService.scheduleSync(_db);
+  }
+
+  /// Speichert ein Gerät mit vom Nutzer bestätigtem Wechsel von Kunde,
+  /// Standort oder Raum. Ohne diese Bestätigung lehnt der Server den
+  /// Ortswechsel als Konflikt ab (Roadmap M3).
+  Future<void> saveUmgehaengt(Geraet geraet) async {
+    await SyncMetaRepository(_db).bestaetigeZuordnung('geraete', geraet.uuid);
+    await save(geraet);
   }
 
   Future<void> delete(String uuid) async {

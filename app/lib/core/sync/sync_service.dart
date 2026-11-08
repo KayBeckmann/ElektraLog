@@ -5,21 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sembast/sembast.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../database/isar_service.dart';
 import '../api/api_service.dart';
-import '../models/kunde.dart';
-import '../models/standort.dart';
-import '../models/verteiler.dart';
-import '../models/verteiler_komponente.dart';
-import '../models/messung.dart';
-import '../models/sichtpruefung.dart';
-import '../models/raum.dart';
-import '../models/geraet.dart';
 import '../providers/app_mode_provider.dart';
 import '../providers/isar_provider.dart';
 import '../providers/pruefprotokoll_provider.dart';
-import '../providers/sync_auswahl_provider.dart';
-import 'sync_revision.dart';
+import 'sync_engine.dart';
 
 enum SyncStatus { idle, syncing, error, success }
 
@@ -38,23 +28,13 @@ enum SyncResult {
 class SyncService {
   static Timer? _pushTimer;
 
-  static const _lastRevisionPrefsKey = 'sync_last_known_revision';
-
-  static Future<int?> _getLastKnownRevision() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_lastRevisionPrefsKey);
-  }
-
-  static Future<void> _storeLastKnownRevision(int revision) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_lastRevisionPrefsKey, revision);
-  }
-
   // ── Pull ──────────────────────────────────────────────────────────────────
 
-  /// Zieht alle Rohdaten vom Backend und speichert sie lokal.
-  /// Server hat Vorrang: Server-Datensatz überschreibt den lokalen —
-  /// AUSSER die Server-Revision ist gegenüber dem zuletzt bekannten Stand
+  /// Zieht alle Rohdaten vom Backend und speichert sie lokal (siehe
+  /// [SyncEngine.pull]): Server-Datensätze überschreiben nur lokal
+  /// unveränderte Datensätze; lokal geänderte warten auf den Push oder
+  /// werden bei abweichender Serverversion zum Konflikt — AUSSER die
+  /// Server-Revision ist gegenüber dem zuletzt bekannten Stand
   /// zurückgesprungen (Roadmap M9.1: Server-Restore-Schutz). In dem Fall
   /// wird der Merge übersprungen, um lokale, dem restaurierten Server noch
   /// unbekannte Daten nicht zu überschreiben.
@@ -71,187 +51,27 @@ class SyncService {
   /// laden deshalb zunächst keinen Aufbau — spart Datenvolumen/Speicher.
   static Future<bool> pullAll(Database db) async {
     try {
-      final auswahl = SyncAuswahlRepository(db);
-      final data = await ApiService.pullAll(
-        standortUuids: await auswahl.getAktivierteStandortUuids(),
-        verteilerUuids: await auswahl.getAktivierteVerteilerUuids(),
-        geraeteStandortUuids: await auswahl.getAktivierteGeraeteStandortUuids(),
-        raumUuids: await auswahl.getAktivierteRaumUuids(),
-      );
-
-      final serverRevision = data['syncRevision'] as int?;
-      if (serverRevision != null) {
-        final lastKnown = await _getLastKnownRevision();
-        final check = evaluateSyncRevision(
-          lastKnown: lastKnown,
-          serverRevision: serverRevision,
-        );
-        if (check == RevisionCheck.rollbackDetected) {
-          debugPrint(
-            'Sync-Rollback erkannt: Server-Revision $serverRevision < '
-            'zuletzt bekannt $lastKnown — Pull-Merge übersprungen.',
-          );
-          return true;
-        }
-        // Baseline nur bei nicht-erkanntem Rollback fortschreiben, damit
-        // ein erkannter Rollback bei jedem weiteren Sync erneut geprüft
-        // wird, bis der Server den alten Stand wieder erreicht/überholt hat.
-        await _storeLastKnownRevision(serverRevision);
-      }
-
-      await _mergeList<Kunde>(
-        db: db,
-        store: StorageService.kundenStore,
-        items: (data['kunden'] as List? ?? [])
-            .map((e) => Kunde.fromJson((e as Map).cast<String, dynamic>()))
-            .toList(),
-      );
-
-      await _mergeList<Standort>(
-        db: db,
-        store: StorageService.standorteStore,
-        items: (data['standorte'] as List? ?? [])
-            .map((e) => Standort.fromJson((e as Map).cast<String, dynamic>()))
-            .toList(),
-      );
-
-      await _mergeList<Verteiler>(
-        db: db,
-        store: StorageService.verteilerStore,
-        items: (data['verteiler'] as List? ?? [])
-            .map((e) => Verteiler.fromJson((e as Map).cast<String, dynamic>()))
-            .toList(),
-      );
-
-      await _mergeList<VerteilerKomponente>(
-        db: db,
-        store: StorageService.komponentenStore,
-        items: (data['komponenten'] as List? ?? [])
-            .map((e) => VerteilerKomponente.fromJson(
-                (e as Map).cast<String, dynamic>()))
-            .toList(),
-      );
-
-      await _mergeList<Messung>(
-        db: db,
-        store: StorageService.messungenStore,
-        items: (data['messungen'] as List? ?? [])
-            .map((e) => Messung.fromJson((e as Map).cast<String, dynamic>()))
-            .toList(),
-      );
-
-      await _mergeList<Sichtpruefung>(
-        db: db,
-        store: StorageService.sichtpruefungStore,
-        items: (data['sichtpruefungen'] as List? ?? [])
-            .map((e) =>
-                Sichtpruefung.fromJson((e as Map).cast<String, dynamic>()))
-            .toList(),
-      );
-
-      await _mergeList<Raum>(
-        db: db,
-        store: StorageService.raeumeStore,
-        items: (data['raeume'] as List? ?? [])
-            .map((e) => Raum.fromJson((e as Map).cast<String, dynamic>()))
-            .toList(),
-      );
-
-      await _mergeList<Geraet>(
-        db: db,
-        store: StorageService.geraeteStore,
-        items: (data['geraete'] as List? ?? [])
-            .map((e) => Geraet.fromJson((e as Map).cast<String, dynamic>()))
-            .toList(),
-      );
-      return false;
+      return await _seriell(() => SyncEngine(db).pull());
     } catch (e) {
       debugPrint('pullAll fehlgeschlagen: $e');
       return false;
     }
   }
 
-  /// Speichert Server-Datensätze lokal — Serverdaten haben IMMER Vorrang
-  /// (siehe Obsidian-Inbox "Synchronisation"-Notiz), unabhängig von
-  /// irgendwelchen Zeitstempeln. Lokale, noch nicht gepushte Änderungen
-  /// werden dadurch beim nächsten Pull überschrieben.
-  static Future<void> _mergeList<T>({
-    required Database db,
-    required StoreRef store,
-    required List<T> items,
-  }) async {
-    for (final item in items) {
-      final json = (item as dynamic).toJson() as Map<String, dynamic>;
-      final uuid = json['uuid'] as String?;
-      if (uuid == null) continue;
+  /// Schiebt alle lokal geänderten Datensätze zum Backend (Roadmap
+  /// Geräteprüfung M3: versioniert, Konflikte landen beim Nutzer statt
+  /// still überschrieben zu werden). Gibt die Anzahl gesendeter zurück.
+  static Future<int> pushAll(Database db) async =>
+      (await _seriell(() => SyncEngine(db).push())).gesendet;
 
-      await store.record(uuid).put(db, json.cast<String, Object?>());
-    }
-  }
+  /// Push und Pull laufen nie gleichzeitig (60-s-Pull vs. entprellter
+  /// Push), sonst könnten sich die Sync-Metadaten gegenseitig überholen.
+  static Future<void> _letzter = Future.value();
 
-  // ── Push ──────────────────────────────────────────────────────────────────
-
-  /// Schiebt alle lokalen Rohdaten zum Backend. Das Backend übernimmt sie
-  /// unconditional (kein Last-Write-Wins per Zeitstempel mehr) — der
-  /// anschließende [pullAll] stellt sicher, dass am Ende immer der
-  /// Serverstand lokal gilt.
-  static Future<int> pushAll(Database db) async {
-    final kunden = (await StorageService.kundenStore.find(db))
-        .map((s) => Kunde.fromJson(s.value.cast<String, dynamic>()).toJson())
-        .toList();
-
-    final standorte = (await StorageService.standorteStore.find(db))
-        .map((s) =>
-            Standort.fromJson(s.value.cast<String, dynamic>()).toJson())
-        .toList();
-
-    final verteiler = (await StorageService.verteilerStore.find(db))
-        .map((s) =>
-            Verteiler.fromJson(s.value.cast<String, dynamic>()).toJson())
-        .toList();
-
-    final komponenten = (await StorageService.komponentenStore.find(db))
-        .map((s) => VerteilerKomponente.fromJson(
-                s.value.cast<String, dynamic>())
-            .toJson())
-        .toList();
-
-    final messungen = (await StorageService.messungenStore.find(db))
-        .map((s) => Messung.fromJson(s.value.cast<String, dynamic>()).toJson())
-        .toList();
-
-    final sichtpruefungen = (await StorageService.sichtpruefungStore.find(db))
-        .map((s) =>
-            Sichtpruefung.fromJson(s.value.cast<String, dynamic>()).toJson())
-        .toList();
-
-    final raeume = (await StorageService.raeumeStore.find(db))
-        .map((s) => Raum.fromJson(s.value.cast<String, dynamic>()).toJson())
-        .toList();
-
-    final geraete = (await StorageService.geraeteStore.find(db))
-        .map((s) => Geraet.fromJson(s.value.cast<String, dynamic>()).toJson())
-        .toList();
-
-    await ApiService.syncAll([
-      {'type': 'kunden', 'items': kunden},
-      {'type': 'standorte', 'items': standorte},
-      {'type': 'verteiler', 'items': verteiler},
-      {'type': 'komponenten', 'items': komponenten},
-      {'type': 'messungen', 'items': messungen},
-      {'type': 'sichtpruefungen', 'items': sichtpruefungen},
-      {'type': 'raeume', 'items': raeume},
-      {'type': 'geraete', 'items': geraete},
-    ]);
-
-    return kunden.length +
-        standorte.length +
-        verteiler.length +
-        komponenten.length +
-        messungen.length +
-        sichtpruefungen.length +
-        raeume.length +
-        geraete.length;
+  static Future<T> _seriell<T>(Future<T> Function() aufgabe) {
+    final ergebnis = _letzter.then((_) => aufgabe());
+    _letzter = ergebnis.then((_) {}, onError: (_) {});
+    return ergebnis;
   }
 
   // ── Ausstehende Protokoll-Uploads (Retry) ───────────────────────────────────

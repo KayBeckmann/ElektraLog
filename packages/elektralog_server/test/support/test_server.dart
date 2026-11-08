@@ -5,6 +5,7 @@ import 'package:elektralog_server/src/app.dart';
 import 'package:elektralog_server/src/migrations.dart';
 import 'package:postgres/postgres.dart';
 import 'package:shelf/shelf.dart';
+import 'package:test/test.dart';
 
 /// Test-Postgres aus `ELEKTRALOG_TEST_DB=host:port:db:user:passwort`,
 /// z. B. `localhost:55434:test:test:test`. Ohne die Variable werden die
@@ -93,4 +94,22 @@ Future<Connection> openEmptyTestDb() async {
   );
   await db.execute('DROP SCHEMA public CASCADE; CREATE SCHEMA public;', queryMode: QueryMode.simple);
   return db;
+}
+
+/// Sync-Push mehrerer Batches; erwartet HTTP 200.
+Future<Map<String, dynamic>> push(TestServer server, String token, List<(String, List)> batches) async {
+  final r = await server.call('POST', '/api/sync', token: token, body: {
+    'batches': [
+      for (final (type, items) in batches) {'type': type, 'items': items},
+    ],
+  });
+  expect(r.status, 200, reason: '${r.body}');
+  return (r.body as Map).cast<String, dynamic>();
+}
+
+/// Sync-Pull, optional mit Auswahl-Query; erwartet HTTP 200.
+Future<Map<String, dynamic>> pull(TestServer server, String token, {String? query}) async {
+  final r = await server.call('GET', query == null ? '/api/sync' : '/api/sync?$query', token: token);
+  expect(r.status, 200, reason: '${r.body}');
+  return (r.body as Map).cast<String, dynamic>();
 }

@@ -111,7 +111,12 @@ class _GeraetFormularState extends ConsumerState<GeraetFormular> {
       }
     }
     setState(() => _speichert = true);
-    await ref.read(geraeteRepositoryProvider).save(geraet);
+    final repo = ref.read(geraeteRepositoryProvider);
+    if (alt != null && !geraet.gleicherOrt(alt)) {
+      await repo.saveUmgehaengt(geraet);
+    } else {
+      await repo.save(geraet);
+    }
     if (mounted) Navigator.pop(context);
   }
 

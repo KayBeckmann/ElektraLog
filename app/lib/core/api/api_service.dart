@@ -196,37 +196,11 @@ class ApiService {
     ]);
   }
 
-  /// Zieht alle Rohdaten vom Backend (GET /api/sync).
-  ///
-  /// [standortUuids]/[verteilerUuids] steuern die selektive Synchronisation
-  /// (Roadmap M9.7): Kunden sowie Basisdaten von Standorten/Verteilern
-  /// liefert der Server immer vollständig, der "Aufbau" eines Verteilers
-  /// (Komponenten/Messungen/Sichtprüfungen) nur für hier übergebene UUIDs
-  /// bzw. für alle Verteiler eines übergebenen Standorts. Werden beide
-  /// Parameter weggelassen (null), verhält sich der Server wie vor M9.7
-  /// (alles liefern) — z.B. für einen expliziten "Alles laden"-Aufruf.
-  static Future<Map<String, dynamic>> pullAll({
-    Set<String>? standortUuids,
-    Set<String>? verteilerUuids,
-    Set<String>? geraeteStandortUuids,
-    Set<String>? raumUuids,
-  }) async {
-    final queryParams = <String, String>{};
-    if (geraeteStandortUuids != null) {
-      queryParams['geraeteStandorte'] = geraeteStandortUuids.join(',');
-    }
-    if (raumUuids != null) {
-      queryParams['raeume'] = raumUuids.join(',');
-    }
-    if (standortUuids != null) {
-      queryParams['standorte'] = standortUuids.join(',');
-    }
-    if (verteilerUuids != null) {
-      queryParams['verteiler'] = verteilerUuids.join(',');
-    }
+  /// Pull mit fertiger Auswahl-Query (SyncEngine, Roadmap Geräteprüfung M3).
+  static Future<Map<String, dynamic>> pullAllQuery(
+      Map<String, String> query) async {
     final resp = await _authGet(
-      Uri.parse('$baseUrl/sync')
-          .replace(queryParameters: queryParams.isEmpty ? null : queryParams),
+      Uri.parse('$baseUrl/sync').replace(queryParameters: query),
       headers: await _headers(auth: true),
       auth: true,
     );

@@ -8,6 +8,7 @@ import '../../core/router.dart';
 import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/isar_provider.dart';
 import '../../core/providers/module_provider.dart';
+import '../../core/sync/sync_meta.dart';
 import '../../core/sync/sync_service.dart';
 // isAdminProvider kommt aus app_mode_provider
 
@@ -98,6 +99,7 @@ class AppScaffold extends ConsumerWidget {
     return Column(
       children: [
         if (sessionExpired) const _SessionExpiredBanner(),
+        const _KonflikteBanner(),
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -152,6 +154,51 @@ class _SessionExpiredBanner extends ConsumerWidget {
                 },
                 style: TextButton.styleFrom(foregroundColor: Colors.white),
                 child: const Text('Jetzt anmelden'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Offene Sync-Konflikte (Roadmap Geräteprüfung M3): betroffene
+/// Datensätze werden weder gesendet noch überschrieben, bis der Nutzer
+/// entschieden hat — deshalb dauerhaft sichtbar statt nur als Snackbar.
+class _KonflikteBanner extends ConsumerWidget {
+  const _KonflikteBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final anzahl = ref.watch(syncKonflikteProvider).valueOrNull?.length ?? 0;
+    if (anzahl == 0) return const SizedBox.shrink();
+    return Material(
+      key: const Key('konflikte-banner'),
+      color: AppColors.warning,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          child: Row(
+            children: [
+              const Icon(Icons.call_split, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  anzahl == 1
+                      ? '1 Sync-Konflikt wartet auf deine Entscheidung.'
+                      : '$anzahl Sync-Konflikte warten auf deine Entscheidung.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.go(AppRoutes.konflikte),
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
+                child: const Text('Ansehen'),
               ),
             ],
           ),
