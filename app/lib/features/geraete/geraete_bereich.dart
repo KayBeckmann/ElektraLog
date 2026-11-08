@@ -52,6 +52,12 @@ class _GeraeteBereichState extends ConsumerState<GeraeteBereich> {
               label: const Text('Raum'),
             ),
             IconButton(
+              key: const Key('scan'),
+              tooltip: 'Etikett scannen',
+              icon: const Icon(Icons.qr_code_scanner),
+              onPressed: () => context.go('/scan'),
+            ),
+            IconButton(
               key: const Key('protokoll-standort'),
               tooltip: 'Geräteprotokoll',
               icon: const Icon(Icons.picture_as_pdf_outlined),

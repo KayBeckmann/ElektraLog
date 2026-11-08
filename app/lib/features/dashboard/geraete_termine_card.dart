@@ -83,6 +83,12 @@ class _GeraeteTermineCardState extends ConsumerState<GeraeteTermineCard> {
           Row(
             children: [
               Expanded(child: Text('Geräteprüfungen (90 Tage)', style: theme.textTheme.titleMedium)),
+              IconButton(
+                key: const Key('dashboard-scan'),
+                tooltip: 'Etikett scannen',
+                icon: const Icon(Icons.qr_code_scanner),
+                onPressed: () => context.go('/scan'),
+              ),
               SegmentedButton<bool>(
                 showSelectedIcon: false,
                 segments: const [
