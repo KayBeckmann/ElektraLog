@@ -14,6 +14,7 @@ import '../models/standort.dart';
 import '../models/verteiler.dart';
 import '../models/verteiler_komponente.dart';
 import '../providers/sync_auswahl_provider.dart';
+import 'sync_bereiche.dart';
 import 'sync_meta.dart';
 import 'sync_revision.dart';
 
@@ -137,6 +138,12 @@ class SyncEngine {
     }
     if (batches.isEmpty) return const PushErgebnis(gesendet: 0, konflikte: 0, abgelehnt: 0);
 
+    // Wo hier gearbeitet wurde, bleibt der Bereich für den Download ausgewählt.
+    await bereicheAuswaehlen(db, [
+      for (final b in batches)
+        for (final item in b['items'] as List<Map<String, dynamic>>) (b['type'] as String, item.cast<String, Object?>()),
+    ]);
+
     final antwort = await transport.push(batches);
     for (final e in (antwort['ergebnisse'] as List? ?? const []).cast<Map>()) {
       final key = syncSchluessel(e['type'] as String, e['uuid'] as String);
@@ -179,6 +186,7 @@ class SyncEngine {
     final auswahl = SyncAuswahlRepository(db);
     String liste(Set<String> s) => s.join(',');
     final data = await transport.pull({
+      'kunden': liste(await auswahl.getAktivierteKundeUuids()),
       'standorte': liste(await auswahl.getAktivierteStandortUuids()),
       'verteiler': liste(await auswahl.getAktivierteVerteilerUuids()),
       'geraeteStandorte': liste(await auswahl.getAktivierteGeraeteStandortUuids()),
@@ -213,6 +221,7 @@ class SyncEngine {
         await _uebernehmen(typ, uuid, json, version, offen.contains(syncSchluessel(typ.name, uuid)));
       }
     }
+    await abgewaehltesEntfernen(db);
     return false;
   }
 

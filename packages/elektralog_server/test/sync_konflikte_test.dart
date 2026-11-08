@@ -253,5 +253,45 @@ void main() {
       ]);
       expect(await aufServer(), containsPair('pruefgeraet', 'Metrel MI 3152'));
     });
+    test('Ganzer Kunde ausgewählt: Aufbau und Geräte aller seiner Standorte, sonst nur Namen', () async {
+      final verteiler = const Uuid().v4();
+      final komponente = const Uuid().v4();
+      final geraet = const Uuid().v4();
+      final andererKunde = const Uuid().v4();
+      final andererStandort = const Uuid().v4();
+      final andererVerteiler = const Uuid().v4();
+      await push(server, token, [
+        ('kunden', [
+          {'uuid': andererKunde, 'name': 'Anderer', '_basisVersion': null},
+        ]),
+        ('standorte', [
+          {'uuid': andererStandort, 'kundeUuid': andererKunde, 'bezeichnung': 'Fremdwerk', '_basisVersion': null},
+        ]),
+        ('verteiler', [
+          {'uuid': verteiler, 'standortUuid': standort, 'bezeichnung': 'UV1', '_basisVersion': null},
+          {'uuid': andererVerteiler, 'standortUuid': andererStandort, 'bezeichnung': 'UV9', '_basisVersion': null},
+        ]),
+        ('komponenten', [
+          {'uuid': komponente, 'verteilerUuid': verteiler, 'typ': 'rcd', 'zielbezeichnung': 'FI', '_basisVersion': null},
+          {'uuid': const Uuid().v4(), 'verteilerUuid': andererVerteiler, 'typ': 'rcd', 'zielbezeichnung': 'FI', '_basisVersion': null},
+        ]),
+        ('messungen', [
+          {'uuid': const Uuid().v4(), 'komponenteUuid': komponente, 'pruefungDatum': '2026-11-08', 'ergebnis': 'bestanden', '_basisVersion': null},
+        ]),
+        ('geraete', [
+          {'uuid': geraet, 'kundeUuid': kunde, 'standortUuid': standort, 'raumUuid': raumA, 'bezeichnung': 'Lampe', '_basisVersion': null},
+        ]),
+      ]);
+
+      final leer = await pull(server, token, query: 'kunden=&standorte=&verteiler=&geraeteStandorte=&raeume=');
+      expect([leer['komponenten'], leer['messungen'], leer['geraete']], everyElement(isEmpty));
+      expect(leer['kunden'], hasLength(2), reason: 'Namen kommen immer, damit man auswählen kann');
+      expect(leer['verteiler'], hasLength(2));
+
+      final mitKunde = await pull(server, token, query: 'kunden=$kunde&standorte=&verteiler=&geraeteStandorte=&raeume=');
+      expect([for (final k in mitKunde['komponenten'] as List) k['verteilerUuid']], [verteiler]);
+      expect(mitKunde['messungen'], hasLength(1));
+      expect([for (final g in mitKunde['geraete'] as List) g['uuid']], [geraet]);
+    });
   });
 }

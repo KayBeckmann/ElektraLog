@@ -19,6 +19,8 @@ class SyncAuswahlRepository {
   const SyncAuswahlRepository(this._db);
   final Database _db;
 
+  /// Ganzer Kunde: alle Standorte samt Anlagen und Geräten.
+  static const _typKunde = 'kunde';
   static const _typStandort = 'standort';
   static const _typVerteiler = 'verteiler';
 
@@ -28,6 +30,14 @@ class SyncAuswahlRepository {
   static const _typRaum = 'raum';
 
   String _key(String typ, String uuid) => '$typ:$uuid';
+
+  Future<bool> istKundeAktiviert(String uuid) => _istAktiviert(_typKunde, uuid);
+
+  Future<void> setKundeAktiviert(String uuid, bool aktiviert) => _setAktiviert(_typKunde, uuid, aktiviert);
+
+  Stream<Set<String>> watchAktivierteKundeUuids() => _watchAktivierteUuids(_typKunde);
+
+  Future<Set<String>> getAktivierteKundeUuids() => _getAktivierteUuids(_typKunde);
 
   Future<bool> istStandortAktiviert(String uuid) =>
       _istAktiviert(_typStandort, uuid);
@@ -174,6 +184,16 @@ final raumSyncAktiviertProvider =
     data: (db) => SyncAuswahlRepository(db)
         .watchAktivierteRaumUuids()
         .map((uuids) => uuids.contains(raumUuid)),
+    loading: () => const Stream.empty(),
+    error: (e, _) => Stream.error(e),
+  );
+});
+
+/// Ganzer Kunde für die Synchronisation ausgewählt?
+final kundeSyncAktiviertProvider = StreamProvider.family<bool, String>((ref, kundeUuid) {
+  final dbAsync = ref.watch(dbProvider);
+  return dbAsync.when(
+    data: (db) => SyncAuswahlRepository(db).watchAktivierteKundeUuids().map((uuids) => uuids.contains(kundeUuid)),
     loading: () => const Stream.empty(),
     error: (e, _) => Stream.error(e),
   );

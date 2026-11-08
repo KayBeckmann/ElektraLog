@@ -113,7 +113,7 @@ class StandortDetailScreen extends ConsumerWidget {
                   ],
                 ),
                 const Divider(height: 24, color: AppColors.outlineVariant),
-                _StandortSyncCheckbox(standortUuid: standortUuid),
+                _StandortSyncCheckbox(kundeUuid: kundeUuid, standortUuid: standortUuid),
               ],
             ),
           );
@@ -620,6 +620,7 @@ class _VerteilerTile extends ConsumerWidget {
             ),
             const Divider(height: 20, color: AppColors.outlineVariant),
             _VerteilerSyncCheckbox(
+              kundeUuid: kundeUuid,
               standortUuid: standortUuid,
               verteilerUuid: verteiler.uuid,
             ),
@@ -634,45 +635,50 @@ class _VerteilerTile extends ConsumerWidget {
 // Sync-Auswahl (Roadmap M9.7 — selektive Standort-/Verteiler-Synchronisation)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Nach jeder Änderung der Auswahl gleich synchronisieren: Anwählen lädt
+/// den Bereich, Abwählen entfernt hochgeladene Daten vom Gerät (ungesendete
+/// Änderungen bleiben). Fehler sind unkritisch, der nächste Sync holt es nach.
+Future<void> _auswahlAnwenden(WidgetRef ref) async {
+  final db = await ref.read(dbProvider.future);
+  unawaited(SyncService.pullAll(db));
+}
+
 /// Checkbox "Diesen Standort synchronisieren" — deckt aktiviert automatisch
 /// den Aufbau (Komponentenbaum/Messungen/Sichtprüfungen) ALLER Verteiler
 /// dieses Standorts ab, unabhängig von deren eigenem Flag. Default: aus,
 /// damit ein frisch eingerichtetes Gerät nicht sofort die komplette
-/// Firmendatenbank lädt.
+/// Firmendatenbank lädt. Ist der ganze Kunde gewählt, ist sie fest angehakt.
 class _StandortSyncCheckbox extends ConsumerWidget {
-  const _StandortSyncCheckbox({required this.standortUuid});
+  const _StandortSyncCheckbox({required this.kundeUuid, required this.standortUuid});
 
+  final String kundeUuid;
   final String standortUuid;
 
   Future<void> _toggle(WidgetRef ref, bool aktiviert) async {
-    final repo = ref.read(syncAuswahlRepositoryProvider);
-    await repo.setStandortAktiviert(standortUuid, aktiviert);
-    if (aktiviert) {
-      final db = await ref.read(dbProvider.future);
-      // Sofort laden statt bis zum nächsten automatischen Sync zu warten —
-      // Fehler hier sind unkritisch, der nächste reguläre Sync holt es nach.
-      unawaited(SyncService.pullAll(db));
-    }
+    await ref.read(syncAuswahlRepositoryProvider).setStandortAktiviert(standortUuid, aktiviert);
+    await _auswahlAnwenden(ref);
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final aktiviert =
-        ref.watch(standortSyncAktiviertProvider(standortUuid)).valueOrNull ??
-            false;
+    final kundeAktiviert = ref.watch(kundeSyncAktiviertProvider(kundeUuid)).valueOrNull ?? false;
+    final aktiviert = ref.watch(standortSyncAktiviertProvider(standortUuid)).valueOrNull ?? false;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => _toggle(ref, !aktiviert),
+      onTap: kundeAktiviert ? null : () => _toggle(ref, !aktiviert),
       child: Row(
         children: [
           Checkbox(
-            value: aktiviert,
-            onChanged: (v) => _toggle(ref, v ?? false),
+            key: const Key('sync-standort'),
+            value: kundeAktiviert || aktiviert,
+            onChanged: kundeAktiviert ? null : (v) => _toggle(ref, v ?? false),
           ),
           Expanded(
             child: Text(
-              'Standort synchronisieren (alle Verteiler inkl. Messdaten)',
+              kundeAktiviert
+                  ? 'Standort synchronisieren (ganzer Kunde gewählt)'
+                  : 'Standort synchronisieren (alle Verteiler inkl. Messdaten)',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.onSurfaceVariant,
                   ),
@@ -685,37 +691,35 @@ class _StandortSyncCheckbox extends ConsumerWidget {
 }
 
 /// Checkbox "Diesen Verteiler synchronisieren" — zeigt den EFFEKTIVEN
-/// Zustand (Standort-Flag ODER eigenes Flag). Ist der übergeordnete
-/// Standort bereits aktiviert, ist die Checkbox ausgegraut/fest angehakt,
-/// da eine individuelle Abwahl in dem Fall nichts bewirken würde.
+/// Zustand (Kunde, Standort oder eigenes Flag). Ist Kunde oder Standort
+/// bereits gewählt, ist sie ausgegraut/fest angehakt, da eine individuelle
+/// Abwahl in dem Fall nichts bewirken würde.
 class _VerteilerSyncCheckbox extends ConsumerWidget {
   const _VerteilerSyncCheckbox({
+    required this.kundeUuid,
     required this.standortUuid,
     required this.verteilerUuid,
   });
 
+  final String kundeUuid;
   final String standortUuid;
   final String verteilerUuid;
 
   Future<void> _toggle(WidgetRef ref, bool aktiviert) async {
-    final repo = ref.read(syncAuswahlRepositoryProvider);
-    await repo.setVerteilerAktiviert(verteilerUuid, aktiviert);
-    if (aktiviert) {
-      final db = await ref.read(dbProvider.future);
-      unawaited(SyncService.pullAll(db));
-    }
+    await ref.read(syncAuswahlRepositoryProvider).setVerteilerAktiviert(verteilerUuid, aktiviert);
+    await _auswahlAnwenden(ref);
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final kundeAktiviert = ref.watch(kundeSyncAktiviertProvider(kundeUuid)).valueOrNull ?? false;
     final standortAktiviert =
         ref.watch(standortSyncAktiviertProvider(standortUuid)).valueOrNull ??
             false;
     final verteilerAktiviert =
         ref.watch(verteilerSyncAktiviertProvider(verteilerUuid)).valueOrNull ??
             false;
-    final effektivAktiviert = standortAktiviert || verteilerAktiviert;
-    final gesperrt = standortAktiviert; // via Standort-Flag bereits erzwungen
+    final gesperrt = kundeAktiviert || standortAktiviert;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -723,13 +727,13 @@ class _VerteilerSyncCheckbox extends ConsumerWidget {
       child: Row(
         children: [
           Checkbox(
-            value: effektivAktiviert,
+            value: gesperrt || verteilerAktiviert,
             onChanged: gesperrt ? null : (v) => _toggle(ref, v ?? false),
           ),
           Expanded(
             child: Text(
               gesperrt
-                  ? 'Verteiler synchronisieren (durch Standort aktiviert)'
+                  ? 'Verteiler synchronisieren (durch ${kundeAktiviert ? 'Kunde' : 'Standort'} aktiviert)'
                   : 'Diesen Verteiler synchronisieren (inkl. Messdaten)',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppColors.onSurfaceVariant,
