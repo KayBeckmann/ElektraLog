@@ -3,6 +3,7 @@ import 'package:sembast/sembast.dart';
 
 import '../database/isar_service.dart';
 import '../models/geraet.dart';
+import '../models/geraete_faelligkeit.dart';
 import '../models/raum.dart';
 import '../sync/sync_meta.dart';
 import '../sync/sync_service.dart';
@@ -168,4 +169,14 @@ final alleRaeumeProvider = StreamProvider<List<Raum>>(
         .onSnapshots(db)
         .map((snaps) => snaps.map((s) => Raum.fromJson(s.value.cast<String, dynamic>())).toList()),
   ),
+);
+
+/// Letzte abgeschlossene Prüfung je Gerät (Basis der Fälligkeit). Bis zur
+/// Prüferfassung (M5) gibt es keine — dann zählt die Angabe am Gerät.
+final geraetePruefNachweiseProvider = StreamProvider<Map<String, PruefNachweis>>(
+  (ref) => Stream.value(const {}),
+);
+
+final geraetPruefNachweisProvider = Provider.family<AsyncValue<PruefNachweis?>, String>(
+  (ref, uuid) => ref.watch(geraetePruefNachweiseProvider).whenData((m) => m[uuid]),
 );

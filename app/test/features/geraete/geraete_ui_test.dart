@@ -98,6 +98,37 @@ void main() {
     expect(find.text('0 Treffer'), findsOneWidget);
   });
 
+  testWidgets('Intervall: Vorauswahl oder frei 1–23, 24 nur über Vorauswahl, Begründung im Verlauf', (tester) async {
+    await RaeumeRepository(db).save(Raum(uuid: 'r1', standortUuid: 's1', bezeichnung: 'Büro'));
+    await pump(tester, const Scaffold(body: SingleChildScrollView(child: GeraeteBereich(kundeUuid: 'k1', standortUuid: 's1'))));
+    await tester.tap(find.byKey(const Key('geraet-neu')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('geraet-bezeichnung')), 'Bohrhammer');
+
+    await tester.tap(find.byKey(const Key('intervall-andere')));
+    await tester.pumpAndSettle();
+    for (final falsch in ['24', '0', '1,5']) {
+      await tester.enterText(find.byKey(const Key('intervall-frei')), falsch);
+      await tester.tap(find.byKey(const Key('geraet-speichern')));
+      await tester.pumpAndSettle();
+      expect(await geraete(), isEmpty, reason: falsch);
+    }
+    expect(find.text('Frei nur unter 24 Monaten — 24 über die Vorauswahl'), findsNothing);
+    await tester.enterText(find.byKey(const Key('intervall-frei')), '24');
+    await tester.tap(find.byKey(const Key('geraet-speichern')));
+    await tester.pumpAndSettle();
+    expect(find.text('Frei nur unter 24 Monaten — 24 über die Vorauswahl'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('intervall-24')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('intervall-begruendung')), 'Büro, geringe Beanspruchung');
+    await tester.tap(find.byKey(const Key('geraet-speichern')));
+    await syncTimerAbwarten(tester);
+    final g = (await geraete()).single;
+    expect((g.pruefintervallMonate, g.intervallBegruendung), (24, 'Büro, geringe Beanspruchung'));
+    expect(g.verlauf.single.art, 'intervall');
+  });
+
   group('Gerätedetail', () {
     late Geraet geraet;
 
@@ -132,7 +163,7 @@ void main() {
       final g = (await geraete()).single;
       expect(g.aktiv, isTrue);
       expect(g.statusHistorie, hasLength(2));
-      expect(find.text('Statusverlauf'), findsOneWidget);
+      expect(find.text('Verlauf'), findsOneWidget);
     });
 
     testWidgets('Raumwechsel nur nach Bestätigung mit altem und neuem Ort', (tester) async {

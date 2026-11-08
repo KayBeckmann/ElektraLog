@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/geraet.dart';
+import '../../core/models/geraete_faelligkeit.dart';
+import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/geraete_provider.dart';
 import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/standorte_provider.dart';
@@ -61,9 +63,34 @@ class _GeraetFormularState extends ConsumerState<GeraetFormular> {
   DateTime? _letztePruefung;
   bool _speichert = false;
 
+  // Intervall: Vorauswahl oder „Andere“ mit freier Zahl 1–23 (M4).
+  late final int? _intervallAlt = _alt?.pruefintervallMonate;
+  late int? _intervallWahl = _intervallAlt == null
+      ? null
+      : intervallVorauswahl.contains(_intervallAlt)
+          ? _intervallAlt
+          : _andere;
+  late final _intervallFrei = TextEditingController(
+    text: _intervallAlt != null && !intervallVorauswahl.contains(_intervallAlt) ? '$_intervallAlt' : '',
+  );
+  late final _begruendung = TextEditingController(text: _alt?.intervallBegruendung);
+  static const _andere = -1;
+
+  int? get _intervall => _intervallWahl == _andere ? int.tryParse(_intervallFrei.text.trim()) : _intervallWahl;
+
   @override
   void dispose() {
-    for (final c in [_bezeichnung, _hersteller, _typ, _seriennummer, _inventarnummer, _schutzart, _bemerkung]) {
+    for (final c in [
+      _bezeichnung,
+      _hersteller,
+      _typ,
+      _seriennummer,
+      _inventarnummer,
+      _schutzart,
+      _bemerkung,
+      _intervallFrei,
+      _begruendung,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -74,6 +101,8 @@ class _GeraetFormularState extends ConsumerState<GeraetFormular> {
   Future<void> _speichern() async {
     if (!_formKey.currentState!.validate()) return;
     final alt = _alt;
+    final benutzer = (await ref.read(currentUserProvider.future))['name'] as String?;
+    if (!mounted) return;
     Geraet geraet;
     if (alt == null) {
       geraet = Geraet.neu(
@@ -89,20 +118,22 @@ class _GeraetFormularState extends ConsumerState<GeraetFormular> {
         schutzklasse: _schutzklasse,
         letztePruefung: _letztePruefung,
         bemerkung: _wert(_bemerkung),
-      );
+      ).mitIntervall(_intervall, begruendung: _wert(_begruendung), benutzer: benutzer);
     } else {
-      geraet = alt.mitStammdaten(
-        bezeichnung: _bezeichnung.text.trim(),
-        hersteller: _wert(_hersteller),
-        typ: _wert(_typ),
-        seriennummer: _wert(_seriennummer),
-        inventarnummer: _wert(_inventarnummer),
-        schutzart: _wert(_schutzart),
-        schutzklasse: _schutzklasse,
-        pruefintervallMonate: alt.pruefintervallMonate,
-        intervallBegruendung: alt.intervallBegruendung,
-        bemerkung: _wert(_bemerkung),
-      );
+      geraet = alt
+          .mitStammdaten(
+            bezeichnung: _bezeichnung.text.trim(),
+            hersteller: _wert(_hersteller),
+            typ: _wert(_typ),
+            seriennummer: _wert(_seriennummer),
+            inventarnummer: _wert(_inventarnummer),
+            schutzart: _wert(_schutzart),
+            schutzklasse: _schutzklasse,
+            pruefintervallMonate: alt.pruefintervallMonate,
+            intervallBegruendung: alt.intervallBegruendung,
+            bemerkung: _wert(_bemerkung),
+          )
+          .mitIntervall(_intervall, begruendung: _wert(_begruendung), benutzer: benutzer);
       final neu = geraet.umgehaengt(kundeUuid: _kunde!, standortUuid: _standort!, raumUuid: _raum!);
       if (!neu.gleicherOrt(alt)) {
         final bestaetigt = await bestaetigeZuordnung(context, ref, alt: alt, neu: neu);
@@ -256,6 +287,54 @@ class _GeraetFormularState extends ConsumerState<GeraetFormular> {
                 selected: {_schutzklasse ?? ''},
                 onSelectionChanged: (s) => setState(() => _schutzklasse = s.first.isEmpty ? null : s.first),
               ),
+              const SizedBox(height: 16),
+              Text('Prüfintervall', style: Theme.of(context).textTheme.titleSmall),
+              Text(
+                'Legt der Messtechniker fest. Die Vorauswahl ist keine gesetzliche Standardfrist.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.onSurfaceVariant),
+              ),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6,
+                children: [
+                  for (final m in intervallVorauswahl)
+                    ChoiceChip(
+                      key: Key('intervall-$m'),
+                      label: Text('$m Monate'),
+                      selected: _intervallWahl == m,
+                      onSelected: (_) => setState(() => _intervallWahl = m),
+                    ),
+                  ChoiceChip(
+                    key: const Key('intervall-andere'),
+                    label: const Text('Andere'),
+                    selected: _intervallWahl == _andere,
+                    onSelected: (_) => setState(() => _intervallWahl = _andere),
+                  ),
+                  if (_intervallWahl != null)
+                    ActionChip(
+                      key: const Key('intervall-offen'),
+                      label: const Text('offen lassen'),
+                      onPressed: () => setState(() => _intervallWahl = null),
+                    ),
+                ],
+              ),
+              if (_intervallWahl == _andere)
+                TextFormField(
+                  key: const Key('intervall-frei'),
+                  controller: _intervallFrei,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Monate (1–23)', suffixText: 'Monate'),
+                  validator: (v) => pruefeFreiesIntervall(v ?? ''),
+                ),
+              if (_intervallWahl != null)
+                TextFormField(
+                  key: const Key('intervall-begruendung'),
+                  controller: _begruendung,
+                  decoration: const InputDecoration(
+                    labelText: 'Begründung',
+                    hintText: 'z.B. Gefährdungsbeurteilung, Beanspruchung',
+                  ),
+                ),
               if (_alt == null) ...[
                 const SizedBox(height: 16),
                 Text('Letzte Prüfung', style: Theme.of(context).textTheme.titleSmall),
