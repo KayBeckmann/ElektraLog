@@ -150,4 +150,17 @@ void main() {
     expect(find.textContaining('keine neue Prüfung'), findsOneWidget);
     await ende(tester);
   });
+  testWidgets('Neue Prüfung übernimmt das Prüfgerät der Geräteprüfung, nicht das der Anlagen', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'einstellungen.pruefer': 'Kay',
+      'einstellungen.pruefgeraet': 'Fluke 1664 FC',
+      'einstellungen.pruefgeraetGeraete': 'SECUTEST PRO #42',
+    });
+    await pump(tester);
+    await tippe(tester, find.byKey(const Key('pruefung-starten')));
+    final entwurf = await tester.runAsync(() => GeraetePruefungenRepository(db).getAlle());
+    expect(entwurf!.single.messgeraet, 'SECUTEST PRO #42');
+    expect(find.widgetWithText(TextField, 'SECUTEST PRO #42'), findsOneWidget);
+    await ende(tester);
+  });
 }

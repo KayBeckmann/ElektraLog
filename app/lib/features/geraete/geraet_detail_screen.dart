@@ -328,7 +328,7 @@ class _Pruefungen extends ConsumerWidget {
     final entwurf = neuerEntwurf(
       geraet,
       prueferName: einstellungen.prueferName ?? benutzer,
-      messgeraet: einstellungen.pruefgeraet,
+      messgeraet: einstellungen.pruefgeraetGeraete,
     );
     await ref.read(geraetePruefungenRepositoryProvider).save(entwurf);
     if (context.mounted) context.go('/geraete/${geraet.uuid}/pruefung/${entwurf.uuid}');

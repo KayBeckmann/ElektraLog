@@ -17,6 +17,11 @@ class Messung {
   final String ergebnis;
 
   final String? bemerkung;
+
+  /// Prüfgerät, mit dem gemessen wurde (Vorgabe: Einstellungen →
+  /// Prüfgerät Anlagenprüfung). Das Protokoll übernimmt es von hier.
+  final String? pruefgeraet;
+
   final DateTime erstelltAm;
   final DateTime aktualisiertAm;
 
@@ -29,6 +34,7 @@ class Messung {
     this.messwertJson,
     required this.ergebnis,
     this.bemerkung,
+    this.pruefgeraet,
     DateTime? erstelltAm,
     DateTime? aktualisiertAm,
   })  : uuid = uuid ?? const Uuid().v4(),
@@ -44,6 +50,7 @@ class Messung {
         'messwertJson': messwertJson,
         'ergebnis': ergebnis,
         'bemerkung': bemerkung,
+        'pruefgeraet': pruefgeraet,
         'erstelltAm': erstelltAm.toUtc().toIso8601String(),
         'aktualisiertAm': aktualisiertAm.toUtc().toIso8601String(),
       };
@@ -57,6 +64,7 @@ class Messung {
         messwertJson: json['messwertJson'] as String?,
         ergebnis: json['ergebnis'] as String,
         bemerkung: json['bemerkung'] as String?,
+        pruefgeraet: json['pruefgeraet'] as String?,
         erstelltAm: DateTime.parse(json['erstelltAm'] as String),
         aktualisiertAm: DateTime.tryParse(
                 json['aktualisiertAm'] as String? ?? '') ??
@@ -69,6 +77,7 @@ class Messung {
     String? messwertJson,
     String? ergebnis,
     String? bemerkung,
+    String? pruefgeraet,
   }) =>
       Messung(
         uuid: uuid,
@@ -79,7 +88,20 @@ class Messung {
         messwertJson: messwertJson ?? this.messwertJson,
         ergebnis: ergebnis ?? this.ergebnis,
         bemerkung: bemerkung ?? this.bemerkung,
+        pruefgeraet: pruefgeraet ?? this.pruefgeraet,
         erstelltAm: erstelltAm,
         aktualisiertAm: DateTime.now().toUtc(),
       );
+}
+
+/// Vorschlag für das Feld „Prüfgerät“ im Protokoll: alle Prüfgeräte der
+/// Messungen (verschiedene mit „ / “ getrennt), sonst [ersatz] aus den
+/// Einstellungen.
+String? pruefgeraeteAusMessungen(Iterable<Messung> messungen, {String? ersatz}) {
+  final geraete = <String>{
+    for (final m in messungen)
+      if (m.pruefgeraet?.trim().isNotEmpty ?? false) m.pruefgeraet!.trim(),
+  };
+  if (geraete.isNotEmpty) return geraete.join(' / ');
+  return ersatz?.trim().isEmpty ?? true ? null : ersatz!.trim();
 }

@@ -251,6 +251,7 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
   final _rcdZeitCtrl = TextEditingController();
   final _erdungCtrl = TextEditingController();
   final _bemerkungCtrl = TextEditingController();
+  final _pruefgeraetCtrl = TextEditingController();
 
   // Pro Phase — L-PE (Pflicht) + L-N (optional) + Isolation
   late final List<TextEditingController> _ikLpeCtrls;
@@ -334,6 +335,17 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
 
     final nennDiff = _nennDifferenzstromFromKomponente;
     if (nennDiff != null) _rcdNennCtrl.text = nennDiff;
+
+    // Prüfgerät: bei Neumessung das bisherige der Messung, sonst das für
+    // die Anlagenprüfung hinterlegte (Einstellungen).
+    _pruefgeraetCtrl.text = widget.existingMessung?.pruefgeraet ?? '';
+    if (_pruefgeraetCtrl.text.isEmpty) {
+      ref.read(einstellungenProvider.future).then((e) {
+        if (mounted && _pruefgeraetCtrl.text.isEmpty) {
+          _pruefgeraetCtrl.text = e.pruefgeraetAnlagen ?? '';
+        }
+      }, onError: (_) {});
+    }
   }
 
   String get _ergebnis {
@@ -378,6 +390,7 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
     _rcdZeitCtrl.dispose();
     _erdungCtrl.dispose();
     _bemerkungCtrl.dispose();
+    _pruefgeraetCtrl.dispose();
     for (final c in _ikLpeCtrls) c.dispose();
     for (final c in _zsLpeCtrls) c.dispose();
     for (final c in _ikLnCtrls) c.dispose();
@@ -708,6 +721,15 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
           decoration: const InputDecoration(labelText: 'Bemerkung'),
           maxLines: 2,
         ),
+        const SizedBox(height: 12),
+        TextFormField(
+          key: const Key('messung-pruefgeraet'),
+          controller: _pruefgeraetCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Prüfgerät',
+            helperText: 'Vorgabe: Prüfgerät Anlagenprüfung aus den Einstellungen',
+          ),
+        ),
         const SizedBox(height: 16),
 
         _ErgebnisBanner(ergebnis: _ergebnis),
@@ -731,6 +753,9 @@ class _Vde0100FormState extends ConsumerState<_Vde0100Form> {
       bemerkung: _bemerkungCtrl.text.trim().isEmpty
           ? null
           : _bemerkungCtrl.text.trim(),
+      pruefgeraet: _pruefgeraetCtrl.text.trim().isEmpty
+          ? null
+          : _pruefgeraetCtrl.text.trim(),
       messwertJson: jsonEncode({
         if (_isLs) ...{
           'eingabemodus': _useIk ? 'kurzschlussstrom' : 'schleifenimpedanz',

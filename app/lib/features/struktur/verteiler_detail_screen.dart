@@ -205,25 +205,27 @@ class _VerteilerDetailScreenState extends ConsumerState<VerteilerDetailScreen> {
         verteilerList.where((v) => v.uuid == widget.verteilerUuid).firstOrNull;
     if (verteiler == null || !mounted) return;
 
+    final kompList = await ref
+        .read(komponentenByVerteilerProvider(widget.verteilerUuid).future);
+    final kompUuids = kompList.map((k) => k.uuid).toList();
+    final messungen = await ref
+        .read(messungenRepositoryProvider)
+        .getByKomponenteUuids(kompUuids);
+    final gefilterteMessungen =
+        PdfService.filterMessungenForProtokoll(messungen);
+    final einstellungen = ref.read(einstellungenProvider).valueOrNull;
+    if (!mounted) return;
+
     final opts = await PdfOptionsSheet.show(
       context,
       titel: verteiler.bezeichnung,
+      pruefgeraet: pruefgeraeteAusMessungen(gefilterteMessungen,
+          ersatz: einstellungen?.pruefgeraetAnlagen),
     );
     if (opts == null || !mounted) return;
 
     setState(() => _pdfLoading = true);
     try {
-      final kompList = await ref
-          .read(komponentenByVerteilerProvider(widget.verteilerUuid).future);
-      final kompUuids = kompList.map((k) => k.uuid).toList();
-      final messungen = await ref
-          .read(messungenRepositoryProvider)
-          .getByKomponenteUuids(kompUuids);
-
-      final gefilterteMessungen =
-          PdfService.filterMessungenForProtokoll(messungen);
-
-      final einstellungen = ref.read(einstellungenProvider).valueOrNull;
 
       final bytes = await PdfService.generateProtokoll(
         prueferName: opts.prueferName,
@@ -345,6 +347,7 @@ class _VerteilerDetailScreenState extends ConsumerState<VerteilerDetailScreen> {
           'ergebnis': m.ergebnis,
           'messwertJson': m.messwertJson,
           'bemerkung': m.bemerkung,
+          'pruefgeraet': m.pruefgeraet,
         });
       }
     }

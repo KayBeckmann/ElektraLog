@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_service.dart';
+import '../../core/models/messung.dart';
 import '../../core/models/verteiler.dart';
 import '../../core/models/verteiler_pruefstatus.dart';
 import '../../core/providers/app_mode_provider.dart';
+import '../../core/providers/einstellungen_provider.dart';
 import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/module_provider.dart';
 import '../../core/providers/pruefprotokoll_provider.dart';
@@ -437,21 +439,27 @@ class StandortDetailScreen extends ConsumerWidget {
     String? kundenName,
     String? standortBezeichnung,
   }) async {
-    final opts = await PdfOptionsSheet.show(context, titel: v.bezeichnung);
+    final kompList =
+        await ref.read(komponentenByVerteilerProvider(v.uuid).future);
+    final kompUuids = kompList.map((k) => k.uuid).toList();
+    final messungen = await ref
+        .read(messungenRepositoryProvider)
+        .getByKomponenteUuids(kompUuids);
+    final gefilterteMessungen =
+        PdfService.filterMessungenForProtokoll(messungen);
+    if (!context.mounted) return;
+
+    final opts = await PdfOptionsSheet.show(
+      context,
+      titel: v.bezeichnung,
+      pruefgeraet: pruefgeraeteAusMessungen(gefilterteMessungen,
+          ersatz: ref.read(einstellungenProvider).valueOrNull?.pruefgeraetAnlagen),
+    );
     if (opts == null || !context.mounted) return;
 
     try {
-      final kompList =
-          await ref.read(komponentenByVerteilerProvider(v.uuid).future);
-      final kompUuids = kompList.map((k) => k.uuid).toList();
-      final messungen = await ref
-          .read(messungenRepositoryProvider)
-          .getByKomponenteUuids(kompUuids);
       final sichtpruefungen =
           await ref.read(sichtpruefungenByVerteilerProvider(v.uuid).future);
-
-      final gefilterteMessungen =
-          PdfService.filterMessungenForProtokoll(messungen);
 
       final bytes = await PdfService.generateProtokoll(
         prueferName: opts.prueferName,
