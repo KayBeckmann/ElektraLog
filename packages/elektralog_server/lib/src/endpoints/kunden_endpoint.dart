@@ -3,6 +3,7 @@ import 'package:shelf/shelf.dart';
 import 'package:uuid/uuid.dart';
 import 'package:postgres/postgres.dart';
 import '../middleware/auth_middleware.dart';
+import 'geraete_sync.dart';
 
 class KundenEndpoint {
   final Connection db;
@@ -276,6 +277,50 @@ class KundenEndpoint {
     }
   }
 
+  // DELETE /api/raeume/:uuid — nur leere Räume (Geräte erst umhängen).
+  Future<Response> deleteRaum(Request request, String uuid) =>
+      _deleteGeraeteDatensatz(request, 'raeume', uuid,
+          belegt: 'Raum enthält noch Geräte — erst umhängen oder löschen.');
+
+  // DELETE /api/geraete/:uuid
+  Future<Response> deleteGeraet(Request request, String uuid) =>
+      _deleteGeraeteDatensatz(request, 'geraete', uuid,
+          belegt: 'Gerät hat Prüfungen — inaktiv setzen statt löschen.');
+
+  Future<Response> _deleteGeraeteDatensatz(
+      Request request, String tabelle, String uuid,
+      {required String belegt}) async {
+    final claims = verifyJwt(request);
+    if (claims == null) {
+      return Response(401,
+          body: jsonEncode({'error': 'Nicht authentifiziert'}),
+          headers: {'Content-Type': 'application/json'});
+    }
+    if (!Uuid.isValidUUID(fromString: uuid)) {
+      return Response(400,
+          body: jsonEncode({'error': 'Ungültige UUID'}),
+          headers: {'Content-Type': 'application/json'});
+    }
+    final firmaId = claims['firmaId'] as String;
+    try {
+      await db.execute(
+        Sql.named('DELETE FROM $tabelle WHERE uuid = @uuid AND firma_id = @fid'),
+        parameters: {'uuid': uuid, 'fid': firmaId},
+      );
+    } on ServerException catch (e) {
+      // 23503 = foreign_key_violation: noch abhängige Datensätze.
+      if (e.code == '23503') {
+        return Response(409,
+            body: jsonEncode({'error': belegt}),
+            headers: {'Content-Type': 'application/json'});
+      }
+      rethrow;
+    }
+    await _bumpRevision(firmaId);
+    return Response.ok(jsonEncode({'success': true}),
+        headers: {'Content-Type': 'application/json'});
+  }
+
   // GET /api/sync — Alle Rohdaten der Firma für Client-Pull.
   //
   // Roadmap M9.7 — selektive Synchronisation: Kunden sowie die Basisdaten
@@ -302,16 +347,30 @@ class KundenEndpoint {
 
       final standorteParam = request.url.queryParameters['standorte'];
       final verteilerParam = request.url.queryParameters['verteiler'];
-      final filterAktiv = standorteParam != null || verteilerParam != null;
+      // Geräteprüfung M2: Geräte-Auswahl getrennt von der Anlagen-Auswahl
+      // (ganzer Standort oder einzelne Räume, lokal pro Arbeitsgerät).
+      final geraeteStandorteParam = request.url.queryParameters['geraeteStandorte'];
+      final raeumeParam = request.url.queryParameters['raeume'];
+      final filterAktiv = standorteParam != null ||
+          verteilerParam != null ||
+          geraeteStandorteParam != null ||
+          raeumeParam != null;
       final angeforderteStandorte = _splitUuidListe(standorteParam);
       final angeforderteVerteiler = _splitUuidListe(verteilerParam);
-      final ungueltig = [...angeforderteStandorte, ...angeforderteVerteiler]
+      final angeforderteGeraeteStandorte = _splitUuidListe(geraeteStandorteParam);
+      final angeforderteRaeume = _splitUuidListe(raeumeParam);
+      final ungueltig = [
+        ...angeforderteStandorte,
+        ...angeforderteVerteiler,
+        ...angeforderteGeraeteStandorte,
+        ...angeforderteRaeume,
+      ]
           .where((id) => !Uuid.isValidUUID(fromString: id))
           .toList();
       if (ungueltig.isNotEmpty) {
         return Response(400,
             body: jsonEncode({
-              'error': 'Ungültige UUID in standorte/verteiler: ${ungueltig.join(', ')}'
+              'error': 'Ungültige UUID in der Sync-Auswahl: ${ungueltig.join(', ')}'
             }),
             headers: {'Content-Type': 'application/json'});
       }
@@ -431,8 +490,16 @@ class KundenEndpoint {
               parameters: {'fid': fid},
             );
 
+      final geraete = await GeraeteSync(db).pull(
+        fid,
+        alle: !filterAktiv,
+        standorte: angeforderteGeraeteStandorte,
+        raeume: angeforderteRaeume,
+      );
+
       return Response.ok(
         jsonEncode({
+          ...geraete,
           // Roadmap M9.1: Client vergleicht diesen Wert mit dem zuletzt
           // gesehenen, um einen Server-Restore auf ein älteres Backup zu
           // erkennen (siehe Migration 008 + SyncService._evaluateRevision).
@@ -531,6 +598,7 @@ class KundenEndpoint {
           jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final firmaId = claims['firmaId'] as String;
       int synced = 0;
+      final abgelehnt = <Map<String, String>>[];
 
       // Normalize to batch list
       final List<Map<String, dynamic>> batches;
@@ -545,7 +613,7 @@ class KundenEndpoint {
       for (final batch in batches) {
         final type = batch['type'] as String?;
         final items = batch['items'] as List<dynamic>? ?? [];
-        synced += await _syncBatch(firmaId, type, items);
+        synced += await _syncBatch(firmaId, type, items, abgelehnt);
       }
 
       // Revision auch bei leerem Batch/0 synced Items erhöhen: der Client
@@ -556,7 +624,7 @@ class KundenEndpoint {
       final revision = await _bumpRevision(firmaId);
 
       return Response.ok(
-          jsonEncode({'synced': synced, 'syncRevision': revision}),
+          jsonEncode({'synced': synced, 'syncRevision': revision, 'abgelehnt': abgelehnt}),
           headers: {'Content-Type': 'application/json'});
     } catch (e, st) {
       print('sync error: $e\n$st');
@@ -566,8 +634,8 @@ class KundenEndpoint {
     }
   }
 
-  Future<int> _syncBatch(
-      String firmaId, String? type, List<dynamic> items) async {
+  Future<int> _syncBatch(String firmaId, String? type, List<dynamic> items,
+      List<Map<String, String>> abgelehnt) async {
     int count = 0;
     for (final raw in items) {
       final item = raw as Map<String, dynamic>;
@@ -585,8 +653,14 @@ class KundenEndpoint {
             await _upsertMessung(firmaId, item);
           case 'sichtpruefungen':
             await _upsertSichtpruefung(firmaId, item);
+          case 'raeume':
+            await GeraeteSync(db).upsertRaum(firmaId, item);
+          case 'geraete':
+            await GeraeteSync(db).upsertGeraet(firmaId, item);
         }
         count++;
+      } on SyncAbgelehnt catch (e) {
+        abgelehnt.add({'type': type ?? '', 'uuid': '${item['uuid']}', 'grund': e.grund});
       } catch (e) {
         // FK-Verletzung (z.B. parent noch nicht auf Server) → überspringen
         print('sync $type ${item['uuid']} übersprungen: $e');
