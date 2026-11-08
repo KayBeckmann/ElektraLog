@@ -6,7 +6,9 @@ import '../../core/api/api_service.dart';
 import '../../core/providers/geraete_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../shared/theme/app_colors.dart';
+import '../../core/models/geraete_protokoll.dart';
 import 'geraet_formular.dart';
+import 'geraete_protokoll_sheet.dart';
 import 'geraete_widgets.dart';
 import 'raum_formular.dart';
 
@@ -36,6 +38,20 @@ class RaumDetailScreen extends ConsumerWidget {
         backgroundColor: AppColors.surface,
         actions: [
           if (raum != null) ...[
+            IconButton(
+              key: const Key('protokoll-raum'),
+              tooltip: 'Geräteprotokoll',
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              onPressed: geraete.isEmpty
+                  ? null
+                  : () => zeigeGeraeteProtokoll(
+                        context,
+                        umfang: ProtokollUmfang.raum,
+                        kundeUuid: kundeUuid,
+                        standortUuid: standortUuid,
+                        raumUuid: raumUuid,
+                      ),
+            ),
             IconButton(
               tooltip: 'Raum bearbeiten',
               icon: const Icon(Icons.edit_outlined),
