@@ -32,7 +32,8 @@ class ProtokollEndpoint {
   // Body: {
   //   "verteilerBezeichnung", "standortBezeichnung", "kundenBezeichnung",
   //   "prueferName", "firmaName", "protokollDatum" (ISO8601),
-  //   "messdatenJson", "pdfBase64", "pdfHash"
+  //   "messdatenJson", "pdfBase64", "pdfHash",
+  //   "art" ('anlage' | 'geraete', ohne Angabe 'anlage')
   // }
   Future<Response> create(Request request) async {
     final claims = verifyJwt(request);
@@ -55,6 +56,13 @@ class ProtokollEndpoint {
             headers: {'Content-Type': 'application/json'});
       }
 
+      final art = body['art'] as String? ?? 'anlage';
+      if (art != 'anlage' && art != 'geraete') {
+        return Response(400,
+            body: jsonEncode({'error': 'Unbekannte Protokollart: $art'}),
+            headers: {'Content-Type': 'application/json'});
+      }
+
       final pdfBytes = base64Decode(pdfBase64);
 
       // Protokolldatum vom Client; Erstellungszeitpunkt kommt vom Server
@@ -71,10 +79,10 @@ class ProtokollEndpoint {
           'INSERT INTO protokolle ('
           '  firma_id, verteiler_bezeichnung, standort_bezeichnung, '
           '  kunden_bezeichnung, pruefer_name, firma_name, '
-          '  protokoll_datum, messdaten_json, pdf_data, pdf_hash'
+          '  protokoll_datum, messdaten_json, pdf_data, pdf_hash, art'
           ') VALUES ('
           '  @firma_id, @vb, @sb, @kb, @pn, @fn, '
-          '  @pd, @mj, @pdf, @hash'
+          '  @pd, @mj, @pdf, @hash, @art'
           ') RETURNING id, erstellt_am',
         ),
         parameters: {
@@ -88,6 +96,7 @@ class ProtokollEndpoint {
           'mj': body['messdatenJson'],
           'pdf': TypedValue(Type.byteArray, pdfBytes),
           'hash': pdfHash,
+          'art': art,
         },
       );
 
@@ -124,7 +133,7 @@ class ProtokollEndpoint {
         Sql.named(
           'SELECT id, verteiler_bezeichnung, standort_bezeichnung, '
           '  kunden_bezeichnung, pruefer_name, protokoll_datum, '
-          '  pdf_hash, erstellt_am '
+          '  pdf_hash, erstellt_am, art '
           'FROM protokolle WHERE firma_id = @fid '
           'ORDER BY erstellt_am DESC',
         ),
@@ -141,6 +150,7 @@ class ProtokollEndpoint {
                 'protokollDatum': r[5].toString(),
                 'pdfHash': r[6],
                 'erstelltAm': r[7].toString(),
+                'art': r[8],
               })
           .toList();
 
@@ -172,7 +182,7 @@ class ProtokollEndpoint {
         Sql.named(
           'SELECT id, verteiler_bezeichnung, standort_bezeichnung, '
           '  kunden_bezeichnung, pruefer_name, firma_name, '
-          '  protokoll_datum, messdaten_json, pdf_hash, erstellt_am '
+          '  protokoll_datum, messdaten_json, pdf_hash, erstellt_am, art '
           'FROM protokolle WHERE id = @id AND firma_id = @fid',
         ),
         parameters: {'id': id, 'fid': firmaId},
@@ -197,6 +207,7 @@ class ProtokollEndpoint {
           'messdatenJson': r[7],
           'pdfHash': r[8],
           'erstelltAm': r[9].toString(),
+          'art': r[10],
         }),
         headers: {'Content-Type': 'application/json'},
       );

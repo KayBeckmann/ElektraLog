@@ -269,6 +269,7 @@ class ApiService {
     String? firmaName,
     required DateTime protokollDatum,
     String? messdatenJson,
+    String art = 'anlage',
   }) async {
     try {
       final token = await _getToken();
@@ -290,6 +291,7 @@ class ApiService {
           'messdatenJson': messdatenJson,
           'pdfBase64': pdfBase64,
           'pdfHash': pdfHash,
+          'art': art,
         }),
         auth: true,
       ).timeout(const Duration(seconds: 30));

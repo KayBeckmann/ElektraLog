@@ -234,6 +234,7 @@ class _ProtokollTile extends StatelessWidget {
     final standort = data['standortBezeichnung'] as String?;
     final datum = _formatDate(data['protokollDatum'] as String?);
     final pruefer = data['prueferName'] as String?;
+    final geraete = data['art'] == 'geraete';
 
     return Card(
       elevation: 0,
@@ -253,8 +254,8 @@ class _ProtokollTile extends StatelessWidget {
                 color: AppColors.secondaryContainer,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(
-                Icons.description,
+              child: Icon(
+                geraete ? Icons.power_outlined : Icons.description,
                 color: AppColors.onSecondaryContainer,
                 size: 22,
               ),
@@ -264,6 +265,13 @@ class _ProtokollTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(
+                    geraete ? 'Geräteprüfung' : 'Anlagenprüfung',
+                    key: Key('protokoll-art-${data['id']}'),
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.outline,
+                        ),
+                  ),
                   Text(
                     verteiler,
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
