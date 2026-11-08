@@ -27,7 +27,21 @@ class ServerConfig {
         dbUser: Platform.environment['POSTGRES_USER'] ?? 'elektralog',
         dbPassword: Platform.environment['POSTGRES_PASSWORD'] ?? '',
         port: int.parse(Platform.environment['SERVERPOD_PORT'] ?? '8080'),
-        jwtSecret:
-            Platform.environment['JWT_SECRET'] ?? 'changeme_jwt_secret',
+        jwtSecret: _requireJwtSecret(),
       );
+
+  /// Ohne JWT_SECRET startet der Server nicht. Früher galt still ein
+  /// bekannter Standardwert — damit hätte jeder gültige Tokens signieren
+  /// können.
+  static String _requireJwtSecret() {
+    final secret = Platform.environment['JWT_SECRET'] ?? '';
+    if (secret.isEmpty) {
+      throw StateError('JWT_SECRET ist nicht gesetzt — Server startet nicht.');
+    }
+    if (secret.length < 32 || secret.startsWith('changeme')) {
+      print('WARNUNG: JWT_SECRET ist kurz oder ein Beispielwert — '
+          'bitte durch einen zufälligen Wert (mind. 32 Zeichen) ersetzen.');
+    }
+    return secret;
+  }
 }

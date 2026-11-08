@@ -66,7 +66,9 @@ Future<void> ensureSuperadmin(Connection conn,
 /// Kompletter HTTP-Handler (Router + Middleware) — von `bin/main.dart`
 /// und den Server-Tests gemeinsam genutzt, damit Tests exakt die
 /// ausgelieferten Routen prüfen.
-Handler buildHandler(Connection conn, {bool logRequests = true}) {
+Handler buildHandler(Connection conn,
+    {required String jwtSecret, bool logRequests = true}) {
+  setJwtSecret(jwtSecret);
   final router = Router()
     // Health check (public)
     ..get(
