@@ -24,6 +24,8 @@ class SyncTyp {
     required this.updateSpalten,
     this.eltern = const [],
     this.zusatzPruefung,
+    this.beimAnlegen,
+    this.vorAenderung,
   });
 
   /// Name im Sync-Protokoll (`type`), z. B. `kunden`.
@@ -45,6 +47,12 @@ class SyncTyp {
 
   /// Typ-spezifische Prüfung mit DB-Zugriff (z. B. Raum ↔ Standort).
   final Future<void> Function(Session tx, String firmaId, Map<String, Object?> werte)? zusatzPruefung;
+
+  /// Nur für neue Datensätze (z. B. keine neue Prüfung für inaktive Geräte).
+  final Future<void> Function(Session tx, String firmaId, Map<String, Object?> werte)? beimAnlegen;
+
+  /// Darf die vorhandene [zeile] überhaupt geändert werden?
+  final void Function(Map<String, dynamic> zeile, Map<String, Object?> werte)? vorAenderung;
 
   Future<void> pruefen(Session tx, String firmaId, Map<String, Object?> w) async {
     for (final (spalte, elternTabelle) in eltern) {
@@ -428,6 +436,125 @@ final geraeteTyp = SyncTyp(
   },
 );
 
+const pruefStatus = {'entwurf', 'abgeschlossen'};
+const pruefErgebnisse = {'bestanden', 'nicht_bestanden'};
+
+final geraetepruefungenTyp = SyncTyp(
+  name: 'geraetepruefungen',
+  tabelle: 'geraetepruefungen',
+  eltern: [('geraet_uuid', 'geraete')],
+  werte: (p) {
+    final status = _pflicht(p, 'status', 'Status');
+    if (!pruefStatus.contains(status)) throw SyncAbgelehnt('Unbekannter Status');
+    final ergebnis = _text(p, 'ergebnis');
+    if (ergebnis != null && !pruefErgebnisse.contains(ergebnis)) throw SyncAbgelehnt('Unbekanntes Ergebnis');
+    final punkte = _pflicht(p, 'punkteJson', 'Prüfpunkte');
+    if (status == 'abgeschlossen') {
+      if (ergebnis == null) throw SyncAbgelehnt('Abgeschlossene Prüfung braucht ein Ergebnis');
+      if (_text(p, 'prueferName') == null) throw SyncAbgelehnt('Abgeschlossene Prüfung braucht einen Prüfer');
+      // Ein nicht in Ordnung bewerteter Punkt kann nie „bestanden“ sein.
+      if (ergebnis == 'bestanden' && RegExp(r'"bewertung"\s*:\s*"nio"').hasMatch(punkte)) {
+        throw SyncAbgelehnt('Bestanden trotz Punkt „nicht in Ordnung“');
+      }
+    }
+    final schutzklasse = _text(p, 'schutzklasse');
+    if (schutzklasse != null && !schutzklassen.contains(schutzklasse)) {
+      throw SyncAbgelehnt('Schutzklasse muss I, II oder III sein');
+    }
+    final intervall = p['intervallMonate'];
+    if (intervall != null && (intervall is! int || intervall < 1 || intervall > 24)) {
+      throw SyncAbgelehnt('Prüfintervall muss 1–24 ganze Monate sein');
+    }
+    return {
+      'uuid': _pflicht(p, 'uuid', 'UUID'),
+      'geraet_uuid': _pflicht(p, 'geraetUuid', 'Gerät'),
+      'pruefart': _pflicht(p, 'pruefart', 'Prüfart'),
+      'pruefart_text': _pflicht(p, 'pruefartText', 'Prüfart-Bezeichnung'),
+      'anlass': _text(p, 'anlass'),
+      'pruefung_datum': _tag(_pflicht(p, 'pruefungDatum', 'Prüfdatum')),
+      'pruefer_name': _text(p, 'prueferName'),
+      'messgeraet': _text(p, 'messgeraet'),
+      'regel_version': _pflicht(p, 'regelVersion', 'Regelversion'),
+      'schutzklasse': schutzklasse,
+      'status': status,
+      'ergebnis': ergebnis,
+      'punkte_json': punkte,
+      'maengel': _text(p, 'maengel'),
+      'bemerkung': _text(p, 'bemerkung'),
+      'ort_snapshot_json': _text(p, 'ortSnapshotJson'),
+      'intervall_monate': intervall,
+      'naechste_pruefung': _tag(_text(p, 'naechstePruefung')),
+      'ersetzt_uuid': _text(p, 'ersetztUuid'),
+      'abgeschlossen_am': TypedValue(
+        Type.timestampTz,
+        status == 'abgeschlossen' ? (DateTime.tryParse('${p['abgeschlossenAm']}')?.toUtc() ?? DateTime.now().toUtc()) : null,
+      ),
+      ..._zeiten(p),
+    };
+  },
+  updateSpalten: [
+    'pruefart',
+    'pruefart_text',
+    'anlass',
+    'pruefung_datum',
+    'pruefer_name',
+    'messgeraet',
+    'regel_version',
+    'schutzklasse',
+    'status',
+    'ergebnis',
+    'punkte_json',
+    'maengel',
+    'bemerkung',
+    'ort_snapshot_json',
+    'intervall_monate',
+    'naechste_pruefung',
+    'ersetzt_uuid',
+    'abgeschlossen_am',
+    'aktualisiert_am',
+  ],
+  beimAnlegen: (tx, fid, w) async {
+    final rows = await tx.execute(
+      Sql.named('SELECT aktiv FROM geraete WHERE uuid = @g AND firma_id = @fid'),
+      parameters: {'g': w['geraet_uuid'], 'fid': fid},
+    );
+    if (rows.isNotEmpty && rows.first[0] == false) {
+      throw SyncAbgelehnt('Inaktives Gerät: keine neue Prüfung');
+    }
+  },
+  vorAenderung: (zeile, w) {
+    if (zeile['status'] == 'abgeschlossen') {
+      throw SyncAbgelehnt('Abgeschlossene Prüfung ist unveränderlich — Korrektur als neue Prüfung anlegen');
+    }
+    if (zeile['geraet_uuid'].toString() != w['geraet_uuid']) {
+      throw SyncAbgelehnt('Prüfung kann keinem anderen Gerät zugeordnet werden');
+    }
+  },
+  zuJson: (z) => {
+    'uuid': z['uuid'].toString(),
+    'geraetUuid': z['geraet_uuid'].toString(),
+    'pruefart': z['pruefart'],
+    'pruefartText': z['pruefart_text'],
+    'anlass': z['anlass'],
+    'pruefungDatum': _datum(z['pruefung_datum']),
+    'prueferName': z['pruefer_name'],
+    'messgeraet': z['messgeraet'],
+    'regelVersion': z['regel_version'],
+    'schutzklasse': z['schutzklasse'],
+    'status': z['status'],
+    'ergebnis': z['ergebnis'],
+    'punkteJson': z['punkte_json'],
+    'maengel': z['maengel'],
+    'bemerkung': z['bemerkung'],
+    'ortSnapshotJson': z['ort_snapshot_json'],
+    'intervallMonate': z['intervall_monate'],
+    'naechstePruefung': _datum(z['naechste_pruefung']),
+    'ersetztUuid': z['ersetzt_uuid']?.toString(),
+    'abgeschlossenAm': z['abgeschlossen_am'] == null ? null : _iso(z['abgeschlossen_am']),
+    ..._zeitenJson(z),
+  },
+);
+
 /// Alle Typen in Push-Reihenfolge (Eltern vor Kindern).
 final syncTypen = <String, SyncTyp>{
   for (final t in [
@@ -439,6 +566,7 @@ final syncTypen = <String, SyncTyp>{
     sichtpruefungenTyp,
     raeumeTyp,
     geraeteTyp,
+    geraetepruefungenTyp,
   ])
     t.name: t,
 };

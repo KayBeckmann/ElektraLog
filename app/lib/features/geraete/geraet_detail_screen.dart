@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_service.dart';
 import '../../core/models/geraet.dart';
 import '../../core/models/geraete_faelligkeit.dart';
+import '../../core/models/pruefmatrix.dart';
+import '../../core/providers/einstellungen_provider.dart';
 import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/geraete_provider.dart';
 import '../../core/providers/kunden_provider.dart';
@@ -85,7 +87,9 @@ class _Menue extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final darfLoeschen = ref.watch(berechtigungenProvider).valueOrNull?.hatVollzugriff ?? false;
+    // Mit Prüfungen nur noch inaktiv setzen — die Historie bleibt (wie Server: 409).
+    final hatPruefungen = ref.watch(pruefungenByGeraetProvider(geraet.uuid)).valueOrNull?.isNotEmpty ?? true;
+    final darfLoeschen = !hatPruefungen && (ref.watch(berechtigungenProvider).valueOrNull?.hatVollzugriff ?? false);
     return PopupMenuButton<String>(
       key: const Key('geraet-menue'),
       itemBuilder: (_) => [
@@ -276,6 +280,7 @@ class _Inhalt extends ConsumerWidget {
           ),
           ('Hinweis', termin.hinweis),
         ]),
+        _Pruefungen(geraet: geraet),
         const SizedBox(height: 12),
         if (geraet.verlauf.isNotEmpty) ...[
           const SizedBox(height: 12),
@@ -292,6 +297,105 @@ class _Inhalt extends ConsumerWidget {
           ]),
         ],
       ],
+    );
+  }
+}
+
+/// Prüfhistorie und Start einer neuen Prüfung (M5).
+class _Pruefungen extends ConsumerWidget {
+  const _Pruefungen({required this.geraet});
+
+  final Geraet geraet;
+
+  Future<void> _starten(BuildContext context, WidgetRef ref) async {
+    final einstellungen = await ref.read(einstellungenProvider.future);
+    final benutzer = (await ref.read(currentUserProvider.future))['name'] as String?;
+    final entwurf = neuerEntwurf(
+      geraet,
+      prueferName: einstellungen.prueferName ?? benutzer,
+      messgeraet: einstellungen.pruefgeraet,
+    );
+    await ref.read(geraetePruefungenRepositoryProvider).save(entwurf);
+    if (context.mounted) context.go('/geraete/${geraet.uuid}/pruefung/${entwurf.uuid}');
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pruefungen = ref.watch(pruefungenByGeraetProvider(geraet.uuid)).valueOrNull ?? const [];
+    final entwurf = pruefungen.where((p) => !p.abgeschlossen).firstOrNull;
+    final ersetzt = {
+      for (final p in pruefungen)
+        if (p.ersetztUuid != null && p.abgeschlossen) p.ersetztUuid!
+    };
+    final theme = Theme.of(context);
+
+    return Material(
+      key: const Key('pruefungen-karte'),
+      color: AppColors.surfaceContainerLowest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: AppColors.outlineVariant),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Prüfungen', style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            if (!geraet.aktiv)
+              Text(
+                'Inaktiv — keine neue Prüfung. Bei Reaktivierung mit überschrittenem Termin ist eine Prüfung fällig.',
+                style: theme.textTheme.bodySmall?.copyWith(color: AppColors.onSurfaceVariant),
+              )
+            else if (entwurf != null)
+              ElevatedButton.icon(
+                key: const Key('pruefung-fortsetzen'),
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Entwurf fortsetzen'),
+                onPressed: () => context.go('/geraete/${geraet.uuid}/pruefung/${entwurf.uuid}'),
+              )
+            else
+              ElevatedButton.icon(
+                key: const Key('pruefung-starten'),
+                icon: const Icon(Icons.fact_check_outlined),
+                label: const Text('Prüfung starten'),
+                onPressed: () => _starten(context, ref),
+              ),
+            if (pruefungen.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text('Noch keine Prüfung in ElektraLog.', style: theme.textTheme.bodySmall),
+              ),
+            for (final p in pruefungen)
+              ListTile(
+                key: Key('pruefung-${p.uuid}'),
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  !p.abgeschlossen
+                      ? Icons.edit_note
+                      : p.bestanden
+                          ? Icons.check_circle
+                          : Icons.cancel,
+                  color: !p.abgeschlossen
+                      ? AppColors.outline
+                      : p.bestanden
+                          ? AppColors.success
+                          : AppColors.error,
+                ),
+                title: Text('${datumDeutsch(p.datum)} · ${pruefarten[p.pruefart] ?? p.pruefart}'),
+                subtitle: Text([
+                  if (!p.abgeschlossen) 'Entwurf' else p.bestanden ? 'bestanden' : 'nicht bestanden',
+                  if (p.prueferName != null) p.prueferName!,
+                  if (ersetzt.contains(p.uuid)) 'durch Korrektur ersetzt',
+                  if (p.ersetztUuid != null) 'Korrektur',
+                ].join(' · ')),
+                trailing: const Icon(Icons.arrow_forward, size: 16),
+                onTap: () => context.go('/geraete/${geraet.uuid}/pruefung/${p.uuid}'),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

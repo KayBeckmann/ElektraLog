@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../api/api_service.dart';
 import '../database/isar_service.dart';
 import '../models/geraet.dart';
+import '../models/geraete_pruefung.dart';
 import '../models/kunde.dart';
 import '../models/messung.dart';
 import '../models/raum.dart';
@@ -36,6 +37,11 @@ final syncTypDefs = <SyncTypDef>[
   SyncTypDef('sichtpruefungen', StorageService.sichtpruefungStore, (j) => Sichtpruefung.fromJson(j).toJson()),
   SyncTypDef('raeume', StorageService.raeumeStore, (j) => Raum.fromJson(j).toJson()),
   SyncTypDef('geraete', StorageService.geraeteStore, (j) => Geraet.fromJson(j).toJson()),
+  SyncTypDef(
+    'geraetepruefungen',
+    StorageService.geraetepruefungenStore,
+    (j) => GeraetePruefung.fromJson(j).toJson(),
+  ),
 ];
 
 SyncTypDef? syncTypDef(String name) => syncTypDefs.where((t) => t.name == name).firstOrNull;

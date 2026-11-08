@@ -16,6 +16,7 @@ import '../features/einstellungen/einstellungen_screen.dart';
 import '../features/team/team_screen.dart';
 import '../features/protokolle/protokolle_screen.dart';
 import '../features/geraete/geraet_detail_screen.dart';
+import '../features/geraete/geraet_pruefung_screen.dart';
 import '../features/geraete/raum_detail_screen.dart';
 import '../features/sync/konflikte_screen.dart';
 import '../shared/widgets/app_scaffold.dart';
@@ -164,6 +165,17 @@ GoRouter router(Ref ref) {
                 geraetUuid: state.pathParameters['geraetUuid']!,
               ),
             ),
+            routes: [
+              GoRoute(
+                path: 'pruefung/:pruefungUuid',
+                pageBuilder: (context, state) => NoTransitionPage(
+                  child: GeraetPruefungScreen(
+                    geraetUuid: state.pathParameters['geraetUuid']!,
+                    pruefungUuid: state.pathParameters['pruefungUuid']!,
+                  ),
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: AppRoutes.konflikte,
