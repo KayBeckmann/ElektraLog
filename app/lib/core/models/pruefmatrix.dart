@@ -218,20 +218,34 @@ GeraetePruefung abschliessen(
   );
 }
 
-/// Letzte gültige abgeschlossene Prüfung je Gerät (ersetzte zählen nicht).
-Map<String, PruefNachweis> pruefNachweise(Iterable<GeraetePruefung> pruefungen) {
-  final abgeschlossen = [for (final p in pruefungen) if (p.abgeschlossen) p];
-  final ersetzt = {for (final p in abgeschlossen) if (p.ersetztUuid != null) p.ersetztUuid!};
-  final letzte = <String, GeraetePruefung>{};
-  for (final p in abgeschlossen) {
-    if (ersetzt.contains(p.uuid)) continue;
-    final bisher = letzte[p.geraetUuid];
-    if (bisher == null ||
-        p.datum.isAfter(bisher.datum) ||
-        (p.datum == bisher.datum &&
-            (p.abgeschlossenAm ?? p.erstelltAm).isAfter(bisher.abgeschlossenAm ?? bisher.erstelltAm))) {
-      letzte[p.geraetUuid] = p;
+/// Letzte gültige abgeschlossene Prüfung (ersetzte und Entwürfe zählen nicht).
+GeraetePruefung? letzteGueltigePruefung(Iterable<GeraetePruefung> pruefungen) {
+  final liste = pruefungen.toList();
+  final ersetzt = {
+    for (final p in liste)
+      if (p.abgeschlossen && p.ersetztUuid != null) p.ersetztUuid!
+  };
+  GeraetePruefung? beste;
+  for (final p in liste) {
+    if (!p.abgeschlossen || ersetzt.contains(p.uuid)) continue;
+    if (beste == null ||
+        p.datum.isAfter(beste.datum) ||
+        (p.datum == beste.datum &&
+            (p.abgeschlossenAm ?? p.erstelltAm).isAfter(beste.abgeschlossenAm ?? beste.erstelltAm))) {
+      beste = p;
     }
   }
-  return {for (final e in letzte.entries) e.key: PruefNachweis(datum: e.value.datum, bestanden: e.value.bestanden)};
+  return beste;
+}
+
+/// Basis der Fälligkeit je Gerät.
+Map<String, PruefNachweis> pruefNachweise(Iterable<GeraetePruefung> pruefungen) {
+  final jeGeraet = <String, List<GeraetePruefung>>{};
+  for (final p in pruefungen) {
+    jeGeraet.putIfAbsent(p.geraetUuid, () => []).add(p);
+  }
+  return {
+    for (final e in jeGeraet.entries)
+      if (letzteGueltigePruefung(e.value) case final p?) e.key: PruefNachweis(datum: p.datum, bestanden: p.bestanden),
+  };
 }

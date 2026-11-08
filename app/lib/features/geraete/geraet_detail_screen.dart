@@ -15,7 +15,9 @@ import '../../core/providers/module_provider.dart';
 import '../../core/providers/permission_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../shared/theme/app_colors.dart';
+import '../../core/models/geraete_protokoll.dart';
 import 'geraet_formular.dart';
+import 'geraete_protokoll_sheet.dart';
 import 'geraete_widgets.dart';
 
 /// Gerätedetail — auch Ziel des Etiketten-Scans (`/geraete/<uuid>`).
@@ -97,6 +99,7 @@ class _Menue extends ConsumerWidget {
           value: 'status',
           child: Text(geraet.aktiv ? 'Inaktiv setzen' : 'Wieder aktiv setzen'),
         ),
+        const PopupMenuItem(value: 'protokoll', child: Text('Protokoll (PDF)')),
         const PopupMenuItem(value: 'uuid', child: Text('UUID kopieren')),
         if (darfLoeschen) const PopupMenuItem(value: 'loeschen', child: Text('Löschen')),
       ],
@@ -104,6 +107,14 @@ class _Menue extends ConsumerWidget {
         switch (v) {
           case 'status':
             await statusWechseln(context, ref, geraet);
+          case 'protokoll':
+            await zeigeGeraeteProtokoll(
+              context,
+              umfang: ProtokollUmfang.geraet,
+              kundeUuid: geraet.kundeUuid,
+              standortUuid: geraet.standortUuid,
+              geraetUuid: geraet.uuid,
+            );
           case 'uuid':
             await Clipboard.setData(ClipboardData(text: geraet.uuid));
           case 'loeschen':

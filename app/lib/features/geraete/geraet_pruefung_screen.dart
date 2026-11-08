@@ -12,6 +12,7 @@ import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/module_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../shared/theme/app_colors.dart';
+import 'geraete_protokoll_sheet.dart';
 import 'geraete_widgets.dart';
 
 /// Prüferfassung eines Geräts (Roadmap M5): Besichtigen → Messen (je
@@ -367,14 +368,21 @@ class _PruefungFormularState extends ConsumerState<_PruefungFormular> {
             ),
           ),
         const SizedBox(height: 16),
-        if (_lesen)
+        if (_lesen) ...[
+          ElevatedButton.icon(
+            key: const Key('pruefung-drucken'),
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            label: const Text('Protokoll ausgeben (historische Fassung)'),
+            onPressed: () => einzelProtokollAusgeben(ref, _p, widget.geraet),
+          ),
+          const SizedBox(height: 8),
           OutlinedButton.icon(
             key: const Key('pruefung-korrektur'),
             icon: const Icon(Icons.edit_note),
             label: const Text('Korrektur als neue Prüfung anlegen'),
             onPressed: _korrektur,
-          )
-        else ...[
+          ),
+        ] else ...[
           ElevatedButton(
             key: const Key('pruefung-abschliessen'),
             onPressed: _abschliessen,

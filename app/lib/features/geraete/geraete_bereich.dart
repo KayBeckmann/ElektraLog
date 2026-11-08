@@ -10,7 +10,9 @@ import '../../core/providers/isar_provider.dart';
 import '../../core/providers/sync_auswahl_provider.dart';
 import '../../core/sync/sync_service.dart';
 import '../../shared/theme/app_colors.dart';
+import '../../core/models/geraete_protokoll.dart';
 import 'geraet_formular.dart';
+import 'geraete_protokoll_sheet.dart';
 import 'geraete_widgets.dart';
 import 'raum_formular.dart';
 
@@ -48,6 +50,19 @@ class _GeraeteBereichState extends ConsumerState<GeraeteBereich> {
               onPressed: () => zeigeRaumFormular(context, standortUuid: widget.standortUuid),
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Raum'),
+            ),
+            IconButton(
+              key: const Key('protokoll-standort'),
+              tooltip: 'Geräteprotokoll',
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              onPressed: geraete.isEmpty
+                  ? null
+                  : () => zeigeGeraeteProtokoll(
+                        context,
+                        umfang: ProtokollUmfang.standort,
+                        kundeUuid: widget.kundeUuid,
+                        standortUuid: widget.standortUuid,
+                      ),
             ),
             const SizedBox(width: 8),
             OutlinedButton.icon(

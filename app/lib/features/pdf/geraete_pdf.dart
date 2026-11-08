@@ -1,0 +1,309 @@
+import 'package:flutter/foundation.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+
+import '../../core/models/geraet.dart';
+import '../../core/models/geraete_protokoll.dart';
+import '../../core/models/geraete_pruefung.dart';
+
+/// Schriften fürs PDF. Inter enthält Ω, ≤, ≥; ohne Netz (erster Abruf)
+/// fällt die Erzeugung auf die eingebauten Schriften zurück, statt zu
+/// scheitern.
+class PdfSchriften {
+  const PdfSchriften(this.regular, this.bold, this.mono);
+  final pw.Font regular;
+  final pw.Font bold;
+  final pw.Font mono;
+
+  static Future<PdfSchriften> laden() async {
+    try {
+      return PdfSchriften(
+        await PdfGoogleFonts.interRegular(),
+        await PdfGoogleFonts.interBold(),
+        await PdfGoogleFonts.jetBrainsMonoRegular(),
+      );
+    } catch (e) {
+      debugPrint('PDF-Schriften nicht ladbar, nutze Standardschriften: $e');
+      return standard();
+    }
+  }
+
+  static PdfSchriften standard() => PdfSchriften(pw.Font.helvetica(), pw.Font.helveticaBold(), pw.Font.courier());
+}
+
+/// Absender/Kopf der Protokolle.
+class ProtokollKopf {
+  const ProtokollKopf({this.firma, this.firmaAdresse, this.kunde, this.standort});
+  final String? firma;
+  final String? firmaAdresse;
+  final String? kunde;
+  final String? standort;
+}
+
+final _primary = PdfColor.fromHex('#091426');
+final _grau = PdfColor.fromHex('#C5C6CD');
+final _flaeche = PdfColor.fromHex('#F5F3F4');
+final _gut = PdfColor.fromHex('#1A6B2E');
+final _schlecht = PdfColor.fromHex('#BA1A1A');
+
+String _datum(DateTime d) => '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
+
+String _zahl(double? v) {
+  if (v == null) return '–';
+  final s = v == v.roundToDouble() ? v.toStringAsFixed(v.abs() < 10 ? 1 : 0) : v.toString();
+  return s.replaceAll('.', ',');
+}
+
+/// Geräteübersicht (immer zuerst) und danach je aktivem, geprüftem Gerät
+/// ein Prüfblatt — inaktive Geräte erscheinen nur in der Übersicht.
+Future<Uint8List> geraeteProtokollPdf(
+  GeraeteProtokollInhalt inhalt, {
+  required ProtokollKopf kopf,
+  PdfSchriften? schriften,
+  DateTime? erstellt,
+}) async {
+  final s = schriften ?? await PdfSchriften.laden();
+  final doc = pw.Document(theme: pw.ThemeData.withFont(base: s.regular, bold: s.bold));
+  final jetzt = erstellt ?? DateTime.now();
+
+  doc.addPage(pw.MultiPage(
+    pageFormat: PdfPageFormat.a4.landscape,
+    margin: const pw.EdgeInsets.all(28),
+    footer: (ctx) => _fuss(ctx, s),
+    build: (ctx) => [
+      _kopfzeile(s, inhalt.titel, kopf, 'Erstellt am ${_datum(jetzt)} · Auswahl: ${inhalt.filter.bezeichnung}'),
+      pw.SizedBox(height: 12),
+      _uebersicht(inhalt.zeilen, s),
+      pw.SizedBox(height: 8),
+      pw.Text(
+        '${inhalt.zeilen.length} Geräte, davon ${inhalt.blaetter.length} mit Prüfprotokoll. '
+        'Inaktive Geräte sind mit Grund aufgeführt und erhalten kein Prüfprotokoll; '
+        'aktive Geräte ohne abgeschlossene Prüfung sind als „nicht geprüft“ gekennzeichnet.',
+        style: const pw.TextStyle(fontSize: 8),
+      ),
+    ],
+  ));
+
+  for (final b in inhalt.blaetter) {
+    _blatt(doc, s, kopf, b.geraet, b.pruefung);
+  }
+  return doc.save();
+}
+
+/// Nachdruck eines einzelnen, historischen Prüfprotokolls — ausschließlich
+/// aus dem bei Abschluss gespeicherten Snapshot.
+Future<Uint8List> einzelProtokollPdf(GeraetePruefung p, Geraet geraet,
+    {required ProtokollKopf kopf, PdfSchriften? schriften}) async {
+  final s = schriften ?? await PdfSchriften.laden();
+  final doc = pw.Document(theme: pw.ThemeData.withFont(base: s.regular, bold: s.bold));
+  _blatt(doc, s, kopf, geraet, p);
+  return doc.save();
+}
+
+pw.Widget _kopfzeile(PdfSchriften s, String titel, ProtokollKopf kopf, String unterzeile) => pw.Container(
+      padding: const pw.EdgeInsets.only(bottom: 8),
+      decoration: pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: _primary, width: 1.5))),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Expanded(
+            child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+              pw.Text(titel, style: pw.TextStyle(font: s.bold, fontSize: 15, color: _primary)),
+              if (kopf.kunde != null || kopf.standort != null)
+                pw.Text([kopf.kunde, kopf.standort].whereType<String>().join(' · '),
+                    style: const pw.TextStyle(fontSize: 10)),
+              pw.Text(unterzeile, style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey700)),
+            ]),
+          ),
+          if (kopf.firma != null)
+            pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.end, children: [
+              pw.Text(kopf.firma!, style: pw.TextStyle(font: s.bold, fontSize: 10)),
+              if (kopf.firmaAdresse != null && kopf.firmaAdresse!.isNotEmpty)
+                pw.Text(kopf.firmaAdresse!, style: const pw.TextStyle(fontSize: 8)),
+            ]),
+        ],
+      ),
+    );
+
+pw.Widget _fuss(pw.Context ctx, PdfSchriften s) => pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text('Generiert von ElektraLog', style: pw.TextStyle(font: s.mono, fontSize: 7, color: PdfColors.grey)),
+        pw.Text('Seite ${ctx.pageNumber} / ${ctx.pagesCount}',
+            style: pw.TextStyle(font: s.mono, fontSize: 7, color: PdfColors.grey)),
+      ],
+    );
+
+pw.Widget _zelle(String text, {pw.Font? font, PdfColor? farbe, double size = 8}) => pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+      child: pw.Text(text, style: pw.TextStyle(font: font, fontSize: size, color: farbe)),
+    );
+
+pw.Widget _tabelle(PdfSchriften s, List<String> kopf, List<List<pw.Widget>> zeilen,
+        {Map<int, pw.TableColumnWidth>? breiten}) =>
+    pw.Table(
+      border: pw.TableBorder.all(color: _grau, width: 0.5),
+      columnWidths: breiten,
+      children: [
+        pw.TableRow(
+          decoration: pw.BoxDecoration(color: _flaeche),
+          children: [for (final k in kopf) _zelle(k, font: s.bold)],
+        ),
+        for (final z in zeilen) pw.TableRow(children: z),
+      ],
+    );
+
+pw.Widget _uebersicht(List<UebersichtZeile> zeilen, PdfSchriften s) => _tabelle(
+      s,
+      ['Nr.', 'Gerät', 'Inventar-/Seriennr.', 'SK', 'Raum', 'Status', 'Letzte Prüfung', 'Nächste Prüfung'],
+      [
+        for (final (i, z) in zeilen.indexed)
+          [
+            _zelle('${i + 1}'),
+            _zelle([z.geraet.bezeichnung, z.geraet.hersteller, z.geraet.typ].whereType<String>().join(' · ')),
+            _zelle([z.geraet.inventarnummer, z.geraet.seriennummer].whereType<String>().join(' / ')),
+            _zelle(z.geraet.schutzklasse ?? '–'),
+            _zelle(z.raum),
+            _zelle(z.status, farbe: z.geraet.aktiv ? null : PdfColors.grey700),
+            _zelle(z.letztePruefung == null
+                ? (z.geraet.aktiv ? 'nicht geprüft' : '–')
+                : '${_datum(z.letztePruefung!.datum)} · ${pruefartKurz(z.letztePruefung!)} · '
+                    '${z.letztePruefung!.bestanden ? 'bestanden' : 'nicht bestanden'}'),
+            _zelle(z.naechstePruefung == null ? '–' : _datum(z.naechstePruefung!)),
+          ],
+      ],
+      breiten: const {0: pw.FixedColumnWidth(24), 3: pw.FixedColumnWidth(26)},
+    );
+
+void _blatt(pw.Document doc, PdfSchriften s, ProtokollKopf kopf, Geraet aktuell, GeraetePruefung p) {
+  final snap = p.ortSnapshot ?? const {};
+  final stamm = (snap['geraet'] as Map?)?.cast<String, dynamic>() ?? aktuell.toJson();
+  String? ort(String k, String f) => (snap[k] as Map?)?[f] as String?;
+  final ortKopf = ProtokollKopf(
+    firma: kopf.firma,
+    firmaAdresse: kopf.firmaAdresse,
+    kunde: ort('kunde', 'name') ?? kopf.kunde,
+    standort: [ort('standort', 'bezeichnung'), ort('raum', 'bezeichnung')].whereType<String>().join(' › '),
+  );
+
+  List<List<pw.Widget>> bewertungen(String schritt) => [
+        for (final x in p.punkte)
+          if (x.schritt == schritt)
+            [
+              _zelle(x.bezeichnung),
+              _zelle(bewertungText(x.bewertung), font: s.bold, farbe: x.bewertung == 'nio' ? _schlecht : null),
+              _zelle(x.begruendung ?? ''),
+            ],
+      ];
+
+  doc.addPage(pw.MultiPage(
+    pageFormat: PdfPageFormat.a4,
+    margin: const pw.EdgeInsets.all(32),
+    footer: (ctx) => _fuss(ctx, s),
+    build: (ctx) => [
+      _kopfzeile(s, 'Prüfprotokoll: ${stamm['bezeichnung']}', ortKopf, 'Gerät ${p.geraetUuid}'),
+      pw.SizedBox(height: 10),
+      // Tatsächliche Prüfart, gut sichtbar (Praxisanforderung).
+      pw.Container(
+        width: double.infinity,
+        padding: const pw.EdgeInsets.all(8),
+        color: _flaeche,
+        child: pw.Text(p.pruefartText, style: pw.TextStyle(font: s.bold, fontSize: 11, color: _primary)),
+      ),
+      if (p.ersetztUuid != null)
+        pw.Padding(
+          padding: const pw.EdgeInsets.only(top: 4),
+          child: pw.Text('${p.anlass ?? 'Korrektur'} — ersetzt die frühere Fassung.',
+              style: const pw.TextStyle(fontSize: 8)),
+        ),
+      pw.SizedBox(height: 10),
+      _tabelle(s, [
+        'Angabe',
+        'Wert'
+      ], [
+        for (final (k, v) in [
+          ('Prüfdatum', _datum(p.datum)),
+          ('Prüfer', p.prueferName ?? '–'),
+          ('Messgerät', p.messgeraet ?? '–'),
+          ('Schutzklasse', p.schutzklasse ?? '–'),
+          ('Hersteller / Type', [stamm['hersteller'], stamm['typ']].whereType<String>().join(' / ')),
+          ('Seriennummer', '${stamm['seriennummer'] ?? '–'}'),
+          ('Inventarnummer', '${stamm['inventarnummer'] ?? '–'}'),
+          ('Schutzart', '${stamm['schutzart'] ?? '–'}'),
+          ('Regelwerk / Grenzwerte', p.regelVersion),
+        ])
+          [_zelle(k), _zelle(v)],
+      ], breiten: const {
+        0: pw.FixedColumnWidth(130)
+      }),
+      pw.SizedBox(height: 12),
+      pw.Text('1 · Besichtigen', style: pw.TextStyle(font: s.bold, fontSize: 10)),
+      pw.SizedBox(height: 4),
+      _tabelle(s, ['Prüfpunkt', 'Bewertung', 'Befund / Begründung'], bewertungen('besichtigen'),
+          breiten: const {1: pw.FixedColumnWidth(60)}),
+      pw.SizedBox(height: 10),
+      pw.Text('2 · Messen', style: pw.TextStyle(font: s.bold, fontSize: 10)),
+      pw.SizedBox(height: 4),
+      if (p.punkte.every((x) => !x.istMessung))
+        pw.Text('Kein vorgegebener Messablauf (Schutzklasse ${p.schutzklasse ?? '–'}).',
+            style: const pw.TextStyle(fontSize: 8))
+      else
+        _tabelle(s, [
+          'Messgröße',
+          'Messwert',
+          'Grenzwert',
+          'Verfahren',
+          'Bewertung',
+          'Begründung'
+        ], [
+          for (final x in p.punkte)
+            if (x.istMessung)
+              [
+                _zelle(x.bezeichnung),
+                _zelle(x.bewertung == 'na' ? '–' : '${_zahl(x.messwert)} ${x.einheit ?? ''}', font: s.mono),
+                _zelle('${x.vergleich == '<=' ? '≤' : '≥'} ${_zahl(x.grenzwert)} ${x.einheit ?? ''}', font: s.mono),
+                _zelle(x.methode ?? ''),
+                _zelle(bewertungText(x.bewertung), font: s.bold, farbe: x.bewertung == 'nio' ? _schlecht : null),
+                _zelle(x.begruendung ?? ''),
+              ],
+        ]),
+      pw.SizedBox(height: 10),
+      pw.Text('3 · Erproben', style: pw.TextStyle(font: s.bold, fontSize: 10)),
+      pw.SizedBox(height: 4),
+      _tabelle(s, ['Prüfpunkt', 'Bewertung', 'Befund / Begründung'], bewertungen('erproben'),
+          breiten: const {1: pw.FixedColumnWidth(60)}),
+      pw.SizedBox(height: 12),
+      pw.Container(
+        padding: const pw.EdgeInsets.all(8),
+        decoration: pw.BoxDecoration(border: pw.Border.all(color: p.bestanden ? _gut : _schlecht, width: 1.5)),
+        child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          pw.Text(
+            'Ergebnis: ${p.bestanden ? 'bestanden' : 'nicht bestanden'}',
+            style: pw.TextStyle(font: s.bold, fontSize: 12, color: p.bestanden ? _gut : _schlecht),
+          ),
+          if ((p.maengel ?? '').isNotEmpty) pw.Text('Mängel: ${p.maengel}', style: const pw.TextStyle(fontSize: 9)),
+          if ((p.bemerkung ?? '').isNotEmpty)
+            pw.Text('Bemerkung: ${p.bemerkung}', style: const pw.TextStyle(fontSize: 9)),
+          pw.Text(
+            'Prüfintervall: ${p.intervallMonate == null ? '–' : '${p.intervallMonate} Monate'} · '
+            'Nächste Prüfung: ${p.naechstePruefung == null ? (p.bestanden ? '–' : 'nach Mängelbeseitigung') : _datum(textAlsTag(p.naechstePruefung!))}',
+            style: const pw.TextStyle(fontSize: 9),
+          ),
+        ]),
+      ),
+      pw.SizedBox(height: 36),
+      pw.Row(children: [
+        pw.Expanded(
+          child: pw.Container(
+            decoration: const pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 0.5))),
+            padding: const pw.EdgeInsets.only(top: 2),
+            child:
+                pw.Text('Datum, Unterschrift Prüfer (${p.prueferName ?? ''})', style: const pw.TextStyle(fontSize: 8)),
+          ),
+        ),
+        pw.SizedBox(width: 120),
+      ]),
+    ],
+  ));
+}
