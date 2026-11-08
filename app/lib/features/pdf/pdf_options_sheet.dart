@@ -29,14 +29,19 @@ class PdfOptions {
 // ── Bottom-Sheet ──────────────────────────────────────────────────────────────
 
 class PdfOptionsSheet extends ConsumerStatefulWidget {
-  const PdfOptionsSheet({super.key, required this.titel});
+  const PdfOptionsSheet({super.key, required this.titel, this.pruefgeraet});
 
   final String titel;
+
+  /// Prüfgerät(e) aus den Messungen; ohne Angabe gilt das Prüfgerät
+  /// für die Anlagenprüfung aus den Einstellungen.
+  final String? pruefgeraet;
 
   /// Öffnet das Sheet und gibt [PdfOptions] zurück, oder null bei Abbruch.
   static Future<PdfOptions?> show(
     BuildContext context, {
     required String titel,
+    String? pruefgeraet,
   }) =>
       showModalBottomSheet<PdfOptions>(
         context: context,
@@ -46,7 +51,7 @@ class PdfOptionsSheet extends ConsumerStatefulWidget {
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
-        builder: (_) => PdfOptionsSheet(titel: titel),
+        builder: (_) => PdfOptionsSheet(titel: titel, pruefgeraet: pruefgeraet),
       );
 
   @override
@@ -68,9 +73,14 @@ class _PdfOptionsSheetState extends ConsumerState<PdfOptionsSheet> {
     final now = DateTime.now();
     _datumOrtCtrl.text =
         '${now.day.toString().padLeft(2, '0')}.${now.month.toString().padLeft(2, '0')}.${now.year}';
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final einstellungen = ref.read(einstellungenProvider).valueOrNull;
-      if (einstellungen == null) return;
+    _pruefgeraetCtrl.text = widget.pruefgeraet ?? '';
+    // Auf die Einstellungen warten — beim ersten Öffnen sind sie evtl.
+    // noch nicht geladen, dann blieben die Felder sonst leer.
+    ref.read(einstellungenProvider.future).then((einstellungen) {
+      if (!mounted) return;
+      if (_pruefgeraetCtrl.text.isEmpty) {
+        _pruefgeraetCtrl.text = einstellungen.pruefgeraetAnlagen ?? '';
+      }
       if (_prueferCtrl.text.isEmpty &&
           (einstellungen.prueferName?.isNotEmpty ?? false)) {
         _prueferCtrl.text = einstellungen.prueferName!;
@@ -79,11 +89,7 @@ class _PdfOptionsSheetState extends ConsumerState<PdfOptionsSheet> {
           (einstellungen.firma?.isNotEmpty ?? false)) {
         _firmaCtrl.text = einstellungen.firma!;
       }
-      if (_pruefgeraetCtrl.text.isEmpty &&
-          (einstellungen.pruefgeraet?.isNotEmpty ?? false)) {
-        _pruefgeraetCtrl.text = einstellungen.pruefgeraet!;
-      }
-    });
+    }, onError: (_) {});
   }
 
   @override

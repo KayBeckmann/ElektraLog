@@ -225,7 +225,7 @@ void _blatt(pw.Document doc, PdfSchriften s, ProtokollKopf kopf, Geraet aktuell,
         for (final (k, v) in [
           ('Prüfdatum', _datum(p.datum)),
           ('Prüfer', p.prueferName ?? '–'),
-          ('Messgerät', p.messgeraet ?? '–'),
+          ('Prüfgerät', p.messgeraet ?? '–'),
           ('Schutzklasse', p.schutzklasse ?? '–'),
           ('Hersteller / Type', [stamm['hersteller'], stamm['typ']].whereType<String>().join(' / ')),
           ('Seriennummer', '${stamm['seriennummer'] ?? '–'}'),

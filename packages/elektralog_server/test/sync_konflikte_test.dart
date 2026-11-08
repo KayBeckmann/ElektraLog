@@ -211,5 +211,47 @@ void main() {
       expect(r.status, 200);
       expect(await kundeAufServer(), containsPair('version', 2));
     });
+    test('Prüfgerät je Messung: übernommen, ältere Clients löschen es nicht', () async {
+      final verteiler = const Uuid().v4();
+      final komponente = const Uuid().v4();
+      final messung = const Uuid().v4();
+      Map<String, dynamic> m(Map<String, Object?> extra) => {
+            'uuid': messung,
+            'komponenteUuid': komponente,
+            'pruefungDatum': '2026-11-08',
+            'ergebnis': 'bestanden',
+            ...extra,
+          };
+      Future<Map> aufServer() async => ((await pull(server, token))['messungen'] as List).single as Map;
+      await push(server, token, [
+        ('verteiler', [
+          {'uuid': verteiler, 'standortUuid': standort, 'bezeichnung': 'UV1', '_basisVersion': null},
+        ]),
+        ('komponenten', [
+          {'uuid': komponente, 'verteilerUuid': verteiler, 'typ': 'rcd', 'zielbezeichnung': 'FI', '_basisVersion': null},
+        ]),
+        ('messungen', [
+          m({'pruefgeraet': 'Fluke 1664 FC #123', '_basisVersion': null}),
+        ]),
+      ]);
+      expect(await aufServer(), containsPair('pruefgeraet', 'Fluke 1664 FC #123'));
+
+      // Älterer Client ohne Feld (und ohne _basisVersion): Bemerkung neu, Prüfgerät bleibt.
+      await push(server, token, [
+        ('messungen', [
+          m({'bemerkung': 'nachgetragen', 'aktualisiertAm': DateTime.now().toUtc().add(const Duration(minutes: 1)).toIso8601String()}),
+        ]),
+      ]);
+      final nachAlt = await aufServer();
+      expect((nachAlt['bemerkung'], nachAlt['pruefgeraet']), ('nachgetragen', 'Fluke 1664 FC #123'));
+
+      // Neuer Client darf es ändern.
+      await push(server, token, [
+        ('messungen', [
+          m({'bemerkung': 'nachgetragen', 'pruefgeraet': 'Metrel MI 3152', '_basisVersion': nachAlt['version']}),
+        ]),
+      ]);
+      expect(await aufServer(), containsPair('pruefgeraet', 'Metrel MI 3152'));
+    });
   });
 }

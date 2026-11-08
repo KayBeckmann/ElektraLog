@@ -23,7 +23,8 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
   final _strasseCtrl      = TextEditingController();
   final _plzCtrl          = TextEditingController();
   final _ortCtrl          = TextEditingController();
-  final _pruefgeraetCtrl  = TextEditingController();
+  final _pruefgeraetAnlagenCtrl = TextEditingController();
+  final _pruefgeraetGeraeteCtrl = TextEditingController();
   final _serverUrlCtrl    = TextEditingController();
   final _altesPasswortCtrl = TextEditingController();
   final _neuesPasswortCtrl = TextEditingController();
@@ -39,7 +40,8 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
     _strasseCtrl.text     = e.firmaStrasse  ?? '';
     _plzCtrl.text         = e.firmaPlz      ?? '';
     _ortCtrl.text         = e.firmaOrt      ?? '';
-    _pruefgeraetCtrl.text = e.pruefgeraet   ?? '';
+    _pruefgeraetAnlagenCtrl.text = e.pruefgeraetAnlagen ?? '';
+    _pruefgeraetGeraeteCtrl.text = e.pruefgeraetGeraete ?? '';
     _serverUrlCtrl.text   = e.serverUrl     ?? '';
     _prefilled = true;
   }
@@ -61,7 +63,8 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
     _strasseCtrl.dispose();
     _plzCtrl.dispose();
     _ortCtrl.dispose();
-    _pruefgeraetCtrl.dispose();
+    _pruefgeraetAnlagenCtrl.dispose();
+    _pruefgeraetGeraeteCtrl.dispose();
     _serverUrlCtrl.dispose();
     _altesPasswortCtrl.dispose();
     _neuesPasswortCtrl.dispose();
@@ -83,7 +86,8 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
       firmaStrasse:  _strasseCtrl.text.trim(),
       firmaPlz:      _plzCtrl.text.trim(),
       firmaOrt:      _ortCtrl.text.trim(),
-      pruefgeraet:   _pruefgeraetCtrl.text.trim(),
+      pruefgeraetAnlagen: _pruefgeraetAnlagenCtrl.text.trim(),
+      pruefgeraetGeraete: _pruefgeraetGeraeteCtrl.text.trim(),
       serverUrl:     _serverUrlCtrl.text.trim(),
     );
     if (mounted) {
@@ -373,25 +377,25 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
             const ModuleEinstellungen(),
             const SizedBox(height: 16),
 
-            // ── Prüfgerät ────────────────────────────────────────────────
-            _SectionLabel('PRÜFGERÄT'),
+            // ── Prüfgeräte ───────────────────────────────────────────────
+            _SectionLabel('PRÜFGERÄTE'),
             const SizedBox(height: 8),
-            TextField(
-              controller: _pruefgeraetCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Prüfgerät',
-                hintText: 'z.B. Metrel MI 3152 / Fluke 1664 FC',
-                prefixIcon: Icon(Icons.device_hub_outlined, size: 18),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.outlineVariant),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.primary),
-                ),
-                border: OutlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.outlineVariant),
-                ),
-              ),
+            _PruefgeraetFeld(
+              key: const Key('pruefgeraet-anlagen'),
+              controller: _pruefgeraetAnlagenCtrl,
+              label: 'Prüfgerät Anlagenprüfung',
+              hint: 'z.B. Metrel MI 3152 / Fluke 1664 FC',
+              helper: 'Wird in neue Messungen und Verteiler-Protokolle übernommen',
+              icon: Icons.electrical_services_outlined,
+            ),
+            const SizedBox(height: 12),
+            _PruefgeraetFeld(
+              key: const Key('pruefgeraet-geraete'),
+              controller: _pruefgeraetGeraeteCtrl,
+              label: 'Prüfgerät Geräteprüfung',
+              hint: 'z.B. Gossen Metrawatt SECUTEST PRO',
+              helper: 'Wird in neue Geräteprüfungen und deren Protokolle übernommen',
+              icon: Icons.power_outlined,
             ),
             const SizedBox(height: 16),
 
@@ -646,5 +650,42 @@ class _SectionLabel extends StatelessWidget {
               letterSpacing: 0.8,
               fontWeight: FontWeight.w700,
             ),
+      );
+}
+
+class _PruefgeraetFeld extends StatelessWidget {
+  const _PruefgeraetFeld({
+    super.key,
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.helper,
+    required this.icon,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final String helper;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          hintText: hint,
+          helperText: helper,
+          prefixIcon: Icon(icon, size: 18),
+          enabledBorder: const OutlineInputBorder(
+            borderSide: BorderSide(color: AppColors.outlineVariant),
+          ),
+          focusedBorder: const OutlineInputBorder(
+            borderSide: BorderSide(color: AppColors.primary),
+          ),
+          border: const OutlineInputBorder(
+            borderSide: BorderSide(color: AppColors.outlineVariant),
+          ),
+        ),
       );
 }

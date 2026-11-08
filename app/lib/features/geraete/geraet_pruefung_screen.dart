@@ -242,7 +242,7 @@ class _PruefungFormularState extends ConsumerState<_PruefungFormular> {
           TextField(
             controller: _messgeraet,
             enabled: !_lesen,
-            decoration: const InputDecoration(labelText: 'Messgerät (Typ, Kennung, Kalibrierung)'),
+            decoration: const InputDecoration(labelText: 'Prüfgerät (Typ, Kennung, Kalibrierung)'),
             onChanged: (v) => _aendern(_p.kopie(messgeraet: v.trim())),
           ),
           const SizedBox(height: 12),

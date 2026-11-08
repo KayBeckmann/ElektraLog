@@ -11,7 +11,8 @@ class Einstellungen {
     this.firmaStrasse,
     this.firmaPlz,
     this.firmaOrt,
-    this.pruefgeraet,
+    this.pruefgeraetAnlagen,
+    this.pruefgeraetGeraete,
     this.serverUrl,
   });
 
@@ -20,7 +21,12 @@ class Einstellungen {
   final String? firmaStrasse;
   final String? firmaPlz;
   final String? firmaOrt;
-  final String? pruefgeraet;
+  /// Prüfgerät für die Anlagenprüfung (Messungen, Verteiler-Protokolle).
+  final String? pruefgeraetAnlagen;
+
+  /// Prüfgerät für die Geräteprüfung (DGUV V3 / VDE 0701-0702).
+  final String? pruefgeraetGeraete;
+
   /// Backend-URL für die Android-App (z.B. https://meinserver.de:8080)
   final String? serverUrl;
 
@@ -44,7 +50,10 @@ const _kFirma      = 'einstellungen.firma';
 const _kStrasse    = 'einstellungen.firmaStrasse';
 const _kPlz        = 'einstellungen.firmaPlz';
 const _kOrt        = 'einstellungen.firmaOrt';
-const _kPruefgeraet = 'einstellungen.pruefgeraet';
+// Alter Schlüssel des einzigen Prüfgeräts: war für die Anlagenprüfung
+// gedacht, deshalb wird er dort weiterverwendet.
+const _kPruefgeraetAnlagen = 'einstellungen.pruefgeraet';
+const _kPruefgeraetGeraete = 'einstellungen.pruefgeraetGeraete';
 const _kServerUrl  = 'einstellungen.serverUrl';
 
 // ── Notifier ──────────────────────────────────────────────────────────────────
@@ -106,7 +115,8 @@ class EinstellungenNotifier extends AsyncNotifier<Einstellungen> {
       firmaStrasse: strasse,
       firmaPlz:    plz,
       firmaOrt:    ort,
-      pruefgeraet: prefs.getString(_kPruefgeraet),
+      pruefgeraetAnlagen: prefs.getString(_kPruefgeraetAnlagen),
+      pruefgeraetGeraete: prefs.getString(_kPruefgeraetGeraete),
       serverUrl:   serverUrl,
     );
   }
@@ -117,7 +127,8 @@ class EinstellungenNotifier extends AsyncNotifier<Einstellungen> {
     required String firmaStrasse,
     required String firmaPlz,
     required String firmaOrt,
-    required String pruefgeraet,
+    required String pruefgeraetAnlagen,
+    required String pruefgeraetGeraete,
     required String serverUrl,
   }) async {
     final prefs = await SharedPreferences.getInstance();
@@ -139,7 +150,8 @@ class EinstellungenNotifier extends AsyncNotifier<Einstellungen> {
     await prefs.setString(_kStrasse, firmaStrasse);
     await prefs.setString(_kPlz, firmaPlz);
     await prefs.setString(_kOrt, firmaOrt);
-    await prefs.setString(_kPruefgeraet, pruefgeraet);
+    await prefs.setString(_kPruefgeraetAnlagen, pruefgeraetAnlagen);
+    await prefs.setString(_kPruefgeraetGeraete, pruefgeraetGeraete);
     await prefs.setString(_kServerUrl, serverUrl);
     ApiService.setServerUrl(serverUrl.isEmpty ? null : serverUrl);
     state = AsyncData(Einstellungen(
@@ -148,7 +160,8 @@ class EinstellungenNotifier extends AsyncNotifier<Einstellungen> {
       firmaStrasse: firmaStrasse.isEmpty ? null : firmaStrasse,
       firmaPlz:     firmaPlz.isEmpty     ? null : firmaPlz,
       firmaOrt:     firmaOrt.isEmpty     ? null : firmaOrt,
-      pruefgeraet:  pruefgeraet.isEmpty  ? null : pruefgeraet,
+      pruefgeraetAnlagen: pruefgeraetAnlagen.isEmpty ? null : pruefgeraetAnlagen,
+      pruefgeraetGeraete: pruefgeraetGeraete.isEmpty ? null : pruefgeraetGeraete,
       serverUrl:    serverUrl.isEmpty    ? null : serverUrl,
     ));
   }
