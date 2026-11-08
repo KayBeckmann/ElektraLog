@@ -393,7 +393,11 @@ class FirmaEndpoint {
 
     try {
       final rows = await db.execute(
-        Sql.named('SELECT id, name, strasse, plz, ort FROM firmen WHERE id = @id'),
+        Sql.named(
+          'SELECT id, name, strasse, plz, ort, '
+          'modul_anlagenpruefung, modul_geraetepruefung '
+          'FROM firmen WHERE id = @id',
+        ),
         parameters: {'id': firmaId},
       );
       if (rows.isEmpty) {
@@ -409,6 +413,10 @@ class FirmaEndpoint {
           'strasse': r[2] ?? '',
           'plz': r[3] ?? '',
           'ort': r[4] ?? '',
+          'module': {
+            'anlagenpruefung': r[5] as bool,
+            'geraetepruefung': r[6] as bool,
+          },
         }),
         headers: {'Content-Type': 'application/json'},
       );
@@ -475,6 +483,82 @@ class FirmaEndpoint {
       );
     }
   }
+
+  // PUT /api/firma/module — Prüfmodule ein-/ausschalten
+  // Body: { "anlagenpruefung"?: bool, "geraetepruefung"?: bool }
+  // Nur Firmenadmin (nicht Projektleiter, obwohl der 'firma:settings' hat).
+  // Abschalten blendet nur aus — keine Daten werden gelöscht.
+  Future<Response> updateModule(Request request) async {
+    final claims = verifyJwt(request);
+    if (claims == null) return _unauthorized();
+    final firmaId = claims['firmaId'] as String;
+
+    // Rolle aus der Datenbank statt aus dem bis zu 30 Tage alten Token —
+    // ein zurückgestufter Admin darf nicht mehr umschalten.
+    final admin = await db.execute(
+      Sql.named(
+        'SELECT 1 FROM benutzer b '
+        'JOIN benutzer_rollen br ON br.benutzer_id = b.id '
+        'JOIN rollen r ON r.id = br.rollen_id '
+        "WHERE b.id = @bid AND b.firma_id = @fid AND b.status = 'aktiv' "
+        'AND r.firma_id = @fid AND r.ist_vorlage = true',
+      ),
+      parameters: {'bid': claims['sub'], 'fid': firmaId},
+    );
+    if (admin.isEmpty) {
+      return Response(403,
+          body: jsonEncode({'error': 'Nur der Firmenadmin kann Module umschalten'}),
+          headers: {'Content-Type': 'application/json'});
+    }
+
+    final Map<String, dynamic> body;
+    try {
+      body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+    } catch (_) {
+      return _badRequest('Ungültiger JSON-Body');
+    }
+    final anlagen = body['anlagenpruefung'];
+    final geraete = body['geraetepruefung'];
+    if ((anlagen != null && anlagen is! bool) ||
+        (geraete != null && geraete is! bool) ||
+        (anlagen == null && geraete == null)) {
+      return _badRequest('anlagenpruefung/geraetepruefung als true/false erwartet');
+    }
+
+    try {
+      final rows = await db.execute(
+        Sql.named(
+          'UPDATE firmen SET '
+          'modul_anlagenpruefung = COALESCE(@anlagen, modul_anlagenpruefung), '
+          'modul_geraetepruefung = COALESCE(@geraete, modul_geraetepruefung) '
+          'WHERE id = @id '
+          'RETURNING modul_anlagenpruefung, modul_geraetepruefung',
+        ),
+        parameters: {
+          'id': firmaId,
+          'anlagen': TypedValue(Type.boolean, anlagen),
+          'geraete': TypedValue(Type.boolean, geraete),
+        },
+      );
+      return Response.ok(
+        jsonEncode({
+          'anlagenpruefung': rows.first[0] as bool,
+          'geraetepruefung': rows.first[1] as bool,
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, st) {
+      print('firma.updateModule error: $e\n$st');
+      return Response.internalServerError(
+        body: jsonEncode({'error': e.toString()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    }
+  }
+
+  Response _badRequest(String message) => Response(400,
+      body: jsonEncode({'error': message}),
+      headers: {'Content-Type': 'application/json'});
 
   Response _unauthorized() => Response(
         401,

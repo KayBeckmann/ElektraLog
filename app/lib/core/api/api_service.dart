@@ -524,4 +524,27 @@ class ApiService {
       throw Exception(msg);
     }
   }
+
+  /// Schaltet die Prüfmodule der eigenen Firma (nur Firmenadmin, siehe
+  /// Server `PUT /api/firma/module`). Liefert den neuen Stand.
+  static Future<Map<String, dynamic>> updateModule({
+    bool? anlagenpruefung,
+    bool? geraetepruefung,
+  }) async {
+    final resp = await _authPut(
+      Uri.parse('$baseUrl/firma/module'),
+      headers: await _headers(auth: true),
+      body: jsonEncode({
+        if (anlagenpruefung != null) 'anlagenpruefung': anlagenpruefung,
+        if (geraetepruefung != null) 'geraetepruefung': geraetepruefung,
+      }),
+      auth: true,
+    );
+    final body = _decodeJsonObject(resp);
+    if (resp.statusCode != 200) {
+      throw ApiException(resp.statusCode,
+          body['error'] as String? ?? 'Module konnten nicht geändert werden');
+    }
+    return body;
+  }
 }

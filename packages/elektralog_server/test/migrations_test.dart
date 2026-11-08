@@ -59,8 +59,11 @@ void main() {
       await db.execute(File('${dir.path}/006_default_rollen.sql').readAsStringSync(), queryMode: QueryMode.simple);
       final rollenVorher = await anzahl('SELECT count(*)::int FROM rollen');
 
-      // Nur die idempotente 006 läuft erneut, sonst nichts.
-      expect(await migrator().run(), ['006_default_rollen']);
+      // Die idempotente 006 läuft erneut, danach nur, was nach dem
+      // Läufer dazukam.
+      final angewendet = await migrator().run();
+      expect(angewendet.first, '006_default_rollen');
+      expect(angewendet.skip(1).where((v) => v.compareTo('008_sync_revision') <= 0), isEmpty);
       expect(await versionen(), alle());
       expect(await anzahl('SELECT count(*)::int FROM rollen'), rollenVorher, reason: 'keine doppelten Rollen');
       expect(await anzahl('SELECT count(*)::int FROM firmen'), 1);
@@ -75,6 +78,20 @@ void main() {
       expect(angewendet, isNot(contains('005_aktualisiert_am')));
       expect(await anzahl('SELECT sync_revision::int FROM firmen'), 0);
       expect(await versionen(), alle());
+    });
+
+    test('009 Firmenmodule: Bestand nur Anlagenprüfung, neue Firmen beide', () async {
+      await altbestand('008_sync_revision');
+      await db.execute("INSERT INTO firmen (name) VALUES ('Bestand')");
+      await migrator().run();
+      await db.execute("INSERT INTO firmen (name) VALUES ('Neu')");
+
+      final rows = await db.execute(
+          'SELECT name, modul_anlagenpruefung, modul_geraetepruefung FROM firmen ORDER BY name');
+      expect([for (final r in rows) [r[0], r[1], r[2]]], [
+        ['Bestand', true, false],
+        ['Neu', true, true],
+      ]);
     });
 
     test('Fehlgeschlagene Migration: Datenbank unverändert, später reparierte Datei läuft', () async {

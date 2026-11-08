@@ -9,6 +9,7 @@ import '../../core/models/verteiler.dart';
 import '../../core/models/verteiler_pruefstatus.dart';
 import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/kunden_provider.dart';
+import '../../core/providers/module_provider.dart';
 import '../../core/providers/pruefprotokoll_provider.dart';
 import '../../core/providers/permission_provider.dart';
 import '../../core/providers/standorte_provider.dart';
@@ -61,6 +62,128 @@ class StandortDetailScreen extends ConsumerWidget {
       hatAbhaengigeDaten: hatVerteiler,
     );
 
+    final module = ref.watch(aktiveModuleProvider);
+
+    final Widget? infoKarte = standort == null
+        ? null
+        : Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.outlineVariant),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined,
+                        size: 20, color: AppColors.secondary),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            standort.bezeichnung,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          if (standort.ort != null || standort.strasse != null)
+                            Text(
+                              [
+                                if (standort.strasse != null) standort.strasse!,
+                                if (standort.plz != null &&
+                                    standort.ort != null)
+                                  '${standort.plz} ${standort.ort}'
+                                else if (standort.ort != null)
+                                  standort.ort!,
+                              ].join(', '),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: AppColors.onSurfaceVariant),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24, color: AppColors.outlineVariant),
+                _StandortSyncCheckbox(standortUuid: standortUuid),
+              ],
+            ),
+          );
+
+    final Widget anlagen = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Verteiler ─────────────────────────────────────────────────
+        Row(
+          children: [
+            Text(
+              'Verteiler',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const Spacer(),
+            OutlinedButton.icon(
+              onPressed: () => _showVerteilerFormular(context, ref, null),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Neu'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        verteilerAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Text('Fehler: $e'),
+          data: (verteilerList) {
+            if (verteilerList.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.outlineVariant),
+                ),
+                child: Column(
+                  children: [
+                    const Icon(Icons.electrical_services_outlined,
+                        size: 48, color: AppColors.outlineVariant),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Noch keine Verteiler',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(color: AppColors.onSurfaceVariant),
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: verteilerList.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (_, i) => _VerteilerTile(
+                verteiler: verteilerList[i],
+                kundeUuid: kundeUuid,
+                standortUuid: standortUuid,
+                onEdit: () =>
+                    _showVerteilerFormular(context, ref, verteilerList[i]),
+                onDelete: () =>
+                    _deleteVerteiler(context, ref, verteilerList[i]),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -71,16 +194,17 @@ class StandortDetailScreen extends ConsumerWidget {
         backgroundColor: AppColors.surface,
         actions: [
           // ── Protokoll-Auswahl für Verteiler dieses Standorts ──────────
-          Tooltip(
-            message: 'Protokoll generieren',
-            child: IconButton(
-              icon: const Icon(Icons.picture_as_pdf_outlined),
-              onPressed: () => _showProtokollAuswahl(
-                  context, ref, verteilerAsync.value ?? [],
-                  kundenName: kundenName,
-                  standortBezeichnung: standort?.bezeichnung),
+          if (module.anlagenpruefung)
+            Tooltip(
+              message: 'Protokoll generieren',
+              child: IconButton(
+                icon: const Icon(Icons.picture_as_pdf_outlined),
+                onPressed: () => _showProtokollAuswahl(
+                    context, ref, verteilerAsync.value ?? [],
+                    kundenName: kundenName,
+                    standortBezeichnung: standort?.bezeichnung),
+              ),
             ),
-          ),
           if (standort != null && standortBearbeitbar) ...[
             IconButton(
               icon: const Icon(Icons.edit_outlined),
@@ -105,139 +229,66 @@ class StandortDetailScreen extends ConsumerWidget {
           ],
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showVerteilerFormular(context, ref, null),
-        icon: const Icon(Icons.add),
-        label: const Text('Verteiler'),
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.onPrimary,
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Standortinfo ──────────────────────────────────────────────
-            if (standort != null)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.outlineVariant),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on_outlined,
-                            size: 20, color: AppColors.secondary),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                standort.bezeichnung,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              if (standort.ort != null ||
-                                  standort.strasse != null)
-                                Text(
-                                  [
-                                    if (standort.strasse != null)
-                                      standort.strasse!,
-                                    if (standort.plz != null &&
-                                        standort.ort != null)
-                                      '${standort.plz} ${standort.ort}'
-                                    else if (standort.ort != null)
-                                      standort.ort!,
-                                  ].join(', '),
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.copyWith(
-                                          color: AppColors.onSurfaceVariant),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Divider(height: 24, color: AppColors.outlineVariant),
-                    _StandortSyncCheckbox(standortUuid: standortUuid),
+      floatingActionButton: module.anlagenpruefung && !module.beide
+          ? FloatingActionButton.extended(
+              onPressed: () => _showVerteilerFormular(context, ref, null),
+              icon: const Icon(Icons.add),
+              label: const Text('Verteiler'),
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.onPrimary,
+            )
+          : null,
+      body: switch (module) {
+        // Beide Module: Reiter. Kein FAB, der Anlagen-Reiter hat „Neu“.
+        FirmenModule(anlagenpruefung: true, geraetepruefung: true) =>
+          DefaultTabController(
+            length: 2,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (infoKarte != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                    child: infoKarte,
+                  ),
+                const TabBar(
+                  tabs: [
+                    Tab(key: Key('tab-anlagen'), text: 'Anlagen'),
+                    Tab(key: Key('tab-geraete'), text: 'Geräte'),
                   ],
                 ),
-              ),
-            const SizedBox(height: 24),
-
-            // ── Verteiler ─────────────────────────────────────────────────
-            Row(
-              children: [
-                Text(
-                  'Verteiler',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const Spacer(),
-                OutlinedButton.icon(
-                  onPressed: () => _showVerteilerFormular(context, ref, null),
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Neu'),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(24),
+                        child: anlagen,
+                      ),
+                      const SingleChildScrollView(
+                        padding: EdgeInsets.all(24),
+                        child: _GeraeteBereich(),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-
-            verteilerAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Text('Fehler: $e'),
-              data: (verteilerList) {
-                if (verteilerList.isEmpty) {
-                  return Container(
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerLowest,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.outlineVariant),
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.electrical_services_outlined,
-                            size: 48, color: AppColors.outlineVariant),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Noch keine Verteiler',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(color: AppColors.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: verteilerList.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (_, i) => _VerteilerTile(
-                    verteiler: verteilerList[i],
-                    kundeUuid: kundeUuid,
-                    standortUuid: standortUuid,
-                    onEdit: () =>
-                        _showVerteilerFormular(context, ref, verteilerList[i]),
-                    onDelete: () =>
-                        _deleteVerteiler(context, ref, verteilerList[i]),
-                  ),
-                );
-              },
+          ),
+        // Ein oder kein Modul: Inhalt direkt, Standort bleibt erreichbar.
+        _ => SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (infoKarte != null) infoKarte,
+                const SizedBox(height: 24),
+                if (module.anlagenpruefung) anlagen,
+                if (module.geraetepruefung) const _GeraeteBereich(),
+                if (module.keines) const _KeinModulHinweis(),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+      },
     );
   }
 
@@ -736,4 +787,73 @@ class _PruefstatusZeile extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Platzhalter bis M2 (Räume/Geräte): zeigt ehrlich, dass das Modul aktiv
+/// ist, aber noch keine Funktionen hat — keine vorgetäuschte Geräteprüfung.
+class _GeraeteBereich extends StatelessWidget {
+  const _GeraeteBereich();
+
+  @override
+  Widget build(BuildContext context) => const _Hinweis(
+        key: Key('geraete-platzhalter'),
+        icon: Icons.devices_other_outlined,
+        titel: 'Geräteprüfung in Vorbereitung',
+        text: 'Räume und Geräte dieses Standorts lassen sich in einer der '
+            'nächsten Versionen erfassen.',
+      );
+}
+
+class _KeinModulHinweis extends StatelessWidget {
+  const _KeinModulHinweis();
+
+  @override
+  Widget build(BuildContext context) => const _Hinweis(
+        key: Key('kein-modul-hinweis'),
+        icon: Icons.toggle_off_outlined,
+        titel: 'Kein Prüfmodul aktiv',
+        text: 'Anlagen- und Geräteprüfung sind für diese Firma ausgeschaltet. '
+            'Der Firmenadmin kann sie unter Einstellungen → Module wieder '
+            'einschalten; vorhandene Daten bleiben erhalten.',
+      );
+}
+
+class _Hinweis extends StatelessWidget {
+  const _Hinweis({
+    super.key,
+    required this.icon,
+    required this.titel,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String titel;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.outlineVariant),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 48, color: AppColors.outlineVariant),
+            const SizedBox(height: 8),
+            Text(titel, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              text,
+              textAlign: TextAlign.center,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: AppColors.onSurfaceVariant),
+            ),
+          ],
+        ),
+      );
 }

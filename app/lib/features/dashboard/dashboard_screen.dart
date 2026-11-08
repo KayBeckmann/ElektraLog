@@ -15,6 +15,7 @@ import '../../core/models/verteiler.dart';
 import '../../core/models/standort.dart';
 import '../../core/models/kunde.dart';
 import '../../core/models/messung.dart';
+import '../../core/providers/module_provider.dart';
 import '../../core/router.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
@@ -384,10 +385,14 @@ class _StatistikSection extends StatelessWidget {
   const _StatistikSection({
     required this.messungenAsync,
     required this.kundenAsync,
+    this.anlagenAktiv = true,
   });
 
   final AsyncValue<dynamic> messungenAsync;
   final AsyncValue<dynamic> kundenAsync;
+
+  /// Prüfquote/Fehlerrate beziehen sich auf Anlagenmessungen.
+  final bool anlagenAktiv;
 
   @override
   Widget build(BuildContext context) {
@@ -432,6 +437,7 @@ class _StatistikSection extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
+              if (anlagenAktiv) ...[
               _StatCard(
                 label: 'Prüfquote',
                 value: '$quotePercent%',
@@ -452,6 +458,7 @@ class _StatistikSection extends StatelessWidget {
                     : AppColors.success,
               ),
               const SizedBox(width: 12),
+              ],
               _StatCard(
                 label: 'Kunden',
                 value: '$kundenCount',
@@ -570,21 +577,26 @@ class DashboardScreen extends ConsumerWidget {
     final messungenAsync = ref.watch(alleMessungenProvider);
     final appModusAsync = ref.watch(appModusProvider);
     final isCompany = appModusAsync.valueOrNull == AppModus.company;
+    // Abgeschaltete Module ausblenden, Daten bleiben unangetastet (M1).
+    final anlagen = ref.watch(aktiveModuleProvider).anlagenpruefung;
 
     return Scaffold(
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _KpiLaufendePruefungCard(kundenAsync: kundenAsync),
-            const SizedBox(height: 12),
-            _TermineCard(),
-            const SizedBox(height: 20),
+            if (anlagen) ...[
+              _KpiLaufendePruefungCard(kundenAsync: kundenAsync),
+              const SizedBox(height: 12),
+              _TermineCard(),
+              const SizedBox(height: 20),
+            ],
             _StatistikSection(
               messungenAsync: messungenAsync,
               kundenAsync: kundenAsync,
+              anlagenAktiv: anlagen,
             ),
-            if (isCompany) ...[
+            if (isCompany && anlagen) ...[
               const SizedBox(height: 20),
               _ProtokollCard(),
             ],

@@ -65,4 +65,30 @@ void main() {
       expect(tester.takeException(), isNull, reason: route);
     }
   });
+
+  testWidgets('Abgeschaltete Anlagenprüfung blendet den Struktur-Editor aus',
+      (tester) async {
+    String? chosen;
+    Future<void> pump({required bool anlagenAktiv}) => tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              bottomNavigationBar: MobileAppNavigation(
+                location: '/',
+                isCompany: true,
+                isAdmin: false,
+                anlagenAktiv: anlagenAktiv,
+                onNavigate: (route) => chosen = route,
+              ),
+            ),
+          ),
+        );
+    await pump(anlagenAktiv: true);
+    expect(find.byIcon(Icons.account_tree_outlined), findsOneWidget);
+
+    await pump(anlagenAktiv: false);
+    expect(find.byIcon(Icons.account_tree_outlined), findsNothing);
+    expect(find.byType(NavigationDestination), findsNWidgets(3));
+    await tester.tap(find.byIcon(Icons.settings_outlined));
+    expect(chosen, '/einstellungen');
+  });
 }

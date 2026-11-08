@@ -7,6 +7,7 @@ import '../theme/app_colors.dart';
 import '../../core/router.dart';
 import '../../core/providers/app_mode_provider.dart';
 import '../../core/providers/isar_provider.dart';
+import '../../core/providers/module_provider.dart';
 import '../../core/sync/sync_service.dart';
 // isAdminProvider kommt aus app_mode_provider
 
@@ -65,14 +66,17 @@ const _teamNavItem = _NavItem(
 );
 
 List<_NavItem> _buildNavItems(
-    {required bool isCompany, required bool isAdmin}) {
-  if (!isCompany || !isAdmin) return _baseNavItems;
-  // Im Company-Modus als Admin: Team vor Einstellungen einfügen
+    {required bool isCompany,
+    required bool isAdmin,
+    bool anlagenAktiv = true}) {
   return [
     _baseNavItems[0],
     _baseNavItems[1],
-    _baseNavItems[2],
-    _teamNavItem,
+    // Struktur-Editor (Verteiler) gehört zur Anlagenprüfung — bei
+    // abgeschaltetem Modul ausblenden (Daten bleiben erhalten).
+    if (anlagenAktiv) _baseNavItems[2],
+    // Im Company-Modus als Admin: Team vor Einstellungen einfügen
+    if (isCompany && isAdmin) _teamNavItem,
     _baseNavItems[3],
   ];
 }
@@ -223,7 +227,10 @@ class _DesktopDrawerState extends ConsumerState<_DesktopDrawer> {
     final isCompany =
         ref.watch(appModusProvider).valueOrNull == AppModus.company;
     final isAdmin = ref.watch(isAdminProvider).valueOrNull ?? false;
-    final navItems = _buildNavItems(isCompany: isCompany, isAdmin: isAdmin);
+    final navItems = _buildNavItems(
+        isCompany: isCompany,
+        isAdmin: isAdmin,
+        anlagenAktiv: ref.watch(aktiveModuleProvider).anlagenpruefung);
 
     return SizedBox(
       width: _kDrawerWidth,
@@ -506,6 +513,7 @@ class _MobileShell extends ConsumerWidget {
         location: location,
         isCompany: isCompany,
         isAdmin: isAdmin,
+        anlagenAktiv: ref.watch(aktiveModuleProvider).anlagenpruefung,
         onNavigate: (route) => context.go(route),
       ),
     );
@@ -518,17 +526,20 @@ class MobileAppNavigation extends StatelessWidget {
     required this.location,
     required this.isCompany,
     required this.isAdmin,
+    this.anlagenAktiv = true,
     required this.onNavigate,
   });
 
   final String location;
   final bool isCompany;
   final bool isAdmin;
+  final bool anlagenAktiv;
   final ValueChanged<String> onNavigate;
 
   @override
   Widget build(BuildContext context) {
-    final navItems = _buildNavItems(isCompany: isCompany, isAdmin: isAdmin);
+    final navItems = _buildNavItems(
+        isCompany: isCompany, isAdmin: isAdmin, anlagenAktiv: anlagenAktiv);
     return NavigationBar(
       selectedIndex: _selectedIndex(location, navItems),
       labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
