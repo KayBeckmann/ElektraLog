@@ -98,6 +98,17 @@ void main() {
         ]),
       ]);
       expect(r['abgelehnt'], hasLength(3));
+      // Umgehungsversuch über JSON-Escapes und kaputtes JSON.
+      final umgehung = await push(server, token, [
+        ('geraetepruefungen', [
+          {
+            ...pruefung(const Uuid().v4(), status: 'abgeschlossen', ergebnis: 'bestanden'),
+            'punkteJson': r'[{"id":"riso","bewertung":"\u006eio"}]',
+          },
+          {...pruefung(const Uuid().v4()), 'punkteJson': '[{kaputt'},
+        ]),
+      ]);
+      expect(umgehung['abgelehnt'], hasLength(2));
       final nichtBestanden = await sende(pruefung(const Uuid().v4(), status: 'abgeschlossen', ergebnis: 'nicht_bestanden', punkte: [
         {'id': 'riso', 'bewertung': 'nio'},
       ]));
