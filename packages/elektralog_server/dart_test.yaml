@@ -1,0 +1,6 @@
+# Alle Postgres-Tests teilen sich eine Test-Datenbank, die jeder Test
+# leert — Testdateien daher nacheinander statt parallel ausführen.
+concurrency: 1
+
+tags:
+  postgres:

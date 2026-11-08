@@ -3,11 +3,15 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import '../lib/src/app.dart';
 import '../lib/src/config.dart';
 import '../lib/src/db.dart';
+import '../lib/src/migrations.dart';
 
 void main() async {
   final config = ServerConfig.fromEnv();
   final conn = await openDb(config);
 
+  // Schema vor allem anderen nachziehen — schlägt eine Migration fehl,
+  // startet der Server nicht (Datenbank bleibt auf dem alten Stand).
+  await Migrator(conn).run();
   await ensureSuperadmin(conn);
 
   final handler = buildHandler(conn, jwtSecret: config.jwtSecret);

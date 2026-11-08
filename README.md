@@ -174,6 +174,34 @@ ELEKTRALOG_TEST_DB=localhost:55434:test:test:test dart test
 
 Ohne `ELEKTRALOG_TEST_DB` werden die Server-Tests übersprungen.
 
+### Datenbank-Migrationen
+
+Der Server spielt `packages/elektralog_server/migrations/*.sql` **beim
+Start selbst** ein (`lib/src/migrations.dart`) und merkt sich in der
+Tabelle `schema_migrations`, was angewendet ist — auf neuen **und**
+bestehenden Datenbanken. Postgres' `docker-entrypoint-initdb.d` legt nur
+noch die Wiki-Datenbank an.
+
+- Neue Schemaänderung = **neue Datei** mit der nächsten Nummer
+  (`009_….sql`). Angewendete Dateien nie ändern: Der Server erkennt das
+  an der Prüfsumme und startet dann nicht.
+- Jede Datei läuft in einer eigenen Transaktion. Schlägt sie fehl, bleibt
+  die Datenbank auf dem alten Stand und der Server startet nicht.
+- Datenbanken aus der Zeit vor dem Läufer werden beim ersten Start anhand
+  des vorhandenen Schemas übernommen; die idempotente `006` läuft dabei
+  einmal erneut (legt fehlende Standardrollen nach).
+- **Rückweg ist das Backup**, es gibt keine Down-Skripte. Vor jedem
+  Server-Update mit neuer Migration:
+
+```bash
+docker compose exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' \
+  | gzip > "backup_vor_update_$(date +%Y%m%d_%H%M%S).sql.gz"
+docker compose up -d --build serverpod
+docker compose logs serverpod | grep -i migration
+```
+
+`JWT_SECRET` ist Pflicht — ohne startet der Server nicht.
+
 ---
 
 ## Dokumentation

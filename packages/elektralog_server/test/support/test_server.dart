@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:elektralog_server/src/app.dart';
+import 'package:elektralog_server/src/migrations.dart';
 import 'package:postgres/postgres.dart';
 import 'package:shelf/shelf.dart';
 
@@ -25,19 +26,8 @@ class TestServer {
   late Handler handler;
 
   Future<void> start() async {
-    final parts = testDbSpec!.split(':');
-    db = await Connection.open(
-      Endpoint(
-        host: parts[0],
-        port: int.parse(parts[1]),
-        database: parts[2],
-        username: parts[3],
-        password: parts[4],
-      ),
-      settings: const ConnectionSettings(sslMode: SslMode.disable),
-    );
-    await db.execute('DROP SCHEMA public CASCADE; CREATE SCHEMA public;', queryMode: QueryMode.simple);
-    await applyMigrations(db);
+    db = await openEmptyTestDb();
+    await Migrator(db, log: (_) {}).run();
     await ensureSuperadmin(db, email: superadminEmail, password: superadminPassword);
     handler = buildHandler(db, jwtSecret: testJwtSecret, logRequests: false);
   }
@@ -88,12 +78,19 @@ class TestServer {
   }
 }
 
-/// Spielt alle SQL-Migrationen in Dateireihenfolge ein — dieselben
-/// Dateien, die `docker-compose.yml` beim ersten Start der Datenbank lädt.
-Future<void> applyMigrations(Connection db) async {
-  final files = Directory('migrations').listSync().whereType<File>().where((f) => f.path.endsWith('.sql')).toList()
-    ..sort((a, b) => a.path.compareTo(b.path));
-  for (final file in files) {
-    await db.execute(file.readAsStringSync(), queryMode: QueryMode.simple);
-  }
+/// Verbindung zur Test-Datenbank mit komplett geleertem Schema.
+Future<Connection> openEmptyTestDb() async {
+  final parts = testDbSpec!.split(':');
+  final db = await Connection.open(
+    Endpoint(
+      host: parts[0],
+      port: int.parse(parts[1]),
+      database: parts[2],
+      username: parts[3],
+      password: parts[4],
+    ),
+    settings: const ConnectionSettings(sslMode: SslMode.disable),
+  );
+  await db.execute('DROP SCHEMA public CASCADE; CREATE SCHEMA public;', queryMode: QueryMode.simple);
+  return db;
 }
