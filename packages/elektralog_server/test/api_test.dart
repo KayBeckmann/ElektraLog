@@ -1,6 +1,10 @@
 @Tags(['postgres'])
 library;
 
+import 'dart:async';
+
+import 'package:elektralog_server/src/app.dart';
+import 'package:shelf/shelf.dart';
 import 'package:test/test.dart';
 import 'package:uuid/uuid.dart';
 
@@ -131,6 +135,28 @@ void main() {
       final a = await server.firmaMitBenutzer('Firma A', 'a@test.invalid');
       final r = await server.call('GET', '/api/sync?standorte=keine-uuid', token: a.token);
       expect(r.status, 400, reason: '${r.body}');
+    });
+
+    test('Logs enthalten nie Header oder Token', () async {
+      final a = await server.firmaMitBenutzer('Firma A', 'a@test.invalid');
+      final logs = <String>[];
+      // Wie im Betrieb: mit Request-Logging.
+      final handler = buildHandler(server.db, jwtSecret: testJwtSecret);
+      await runZoned(
+        () async {
+          for (final token in [a.token, 'kaputt.${a.token}', 'kein.gueltiges.token']) {
+            await handler(Request('GET', Uri.parse('http://localhost/api/sync'),
+                headers: {'authorization': 'Bearer $token'}));
+          }
+        },
+        zoneSpecification: ZoneSpecification(print: (_, __, ___, line) => logs.add(line)),
+      );
+      expect(logs, isNotEmpty, reason: 'Request-Logging läuft');
+      for (final line in logs) {
+        expect(line, isNot(contains(a.token)));
+        expect(line, isNot(contains('kein.gueltiges.token')));
+        expect(line.toLowerCase(), isNot(contains('authorization')));
+      }
     });
 
     test('Gesperrte Firma: gültiges Token bekommt 403', () async {

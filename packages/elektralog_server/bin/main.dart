@@ -10,7 +10,7 @@ void main() async {
 
   await ensureSuperadmin(conn);
 
-  final handler = buildHandler(conn);
+  final handler = buildHandler(conn, jwtSecret: config.jwtSecret);
 
   final server = await shelf_io.serve(
     handler,

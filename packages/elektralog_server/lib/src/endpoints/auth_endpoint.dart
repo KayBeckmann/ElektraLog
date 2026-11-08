@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:shelf/shelf.dart';
 import 'package:postgres/postgres.dart';
 import 'package:bcrypt/bcrypt.dart';
@@ -182,8 +181,6 @@ class AuthEndpoint {
   String _issueToken(
       String id, String firmaId, String email, String name,
       bool istSuperadmin, bool istAdmin, String rolle) {
-    final secret =
-        Platform.environment['JWT_SECRET'] ?? 'changeme_jwt_secret';
     return JWT({
       'sub': id,
       'firmaId': firmaId,
@@ -193,6 +190,6 @@ class AuthEndpoint {
       'istAdmin': istAdmin,
       'rolle': rolle,
       'iat': DateTime.now().millisecondsSinceEpoch ~/ 1000,
-    }).sign(SecretKey(secret), expiresIn: const Duration(days: 30));
+    }).sign(SecretKey(jwtSecret), expiresIn: const Duration(days: 30));
   }
 }

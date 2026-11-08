@@ -13,6 +13,7 @@ final String? testDbSpec = Platform.environment['ELEKTRALOG_TEST_DB'];
 /// Grund zum Überspringen (für `group(..., skip: ...)`), `false` = laufen.
 Object get skipWithoutDb => testDbSpec == null ? 'ELEKTRALOG_TEST_DB nicht gesetzt' : false;
 
+const testJwtSecret = 'test-jwt-secret-nur-fuer-tests-0123456789';
 const superadminEmail = 'superadmin@test.invalid';
 const superadminPassword = 'superadmin-passwort';
 
@@ -38,7 +39,7 @@ class TestServer {
     await db.execute('DROP SCHEMA public CASCADE; CREATE SCHEMA public;', queryMode: QueryMode.simple);
     await applyMigrations(db);
     await ensureSuperadmin(db, email: superadminEmail, password: superadminPassword);
-    handler = buildHandler(db, logRequests: false);
+    handler = buildHandler(db, jwtSecret: testJwtSecret, logRequests: false);
   }
 
   Future<void> stop() => db.close();

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:shelf/shelf.dart';
 import 'package:dart_jsonwebtoken/dart_jsonwebtoken.dart';
 import 'package:postgres/postgres.dart';
@@ -18,24 +17,31 @@ const _corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
+String? _jwtSecret;
+
+/// Schlüssel zum Signieren und Prüfen der JWTs. Wird einmal beim Start
+/// aus [ServerConfig] gesetzt (siehe [buildHandler]) — kein Fallback auf
+/// einen bekannten Standardwert, sonst könnte jeder Tokens fälschen.
+String get jwtSecret =>
+    _jwtSecret ?? (throw StateError('JWT-Secret nicht konfiguriert'));
+void setJwtSecret(String value) {
+  if (value.isEmpty) throw ArgumentError('JWT-Secret darf nicht leer sein');
+  _jwtSecret = value;
+}
+
 /// Verifiziert den JWT aus dem Authorization-Header.
 /// Gibt die Claims zurück oder null bei ungültigem Token.
+///
+/// Loggt bewusst nichts: Header und Token gehören nie ins Log, wer die
+/// Container-Logs lesen kann, könnte sich sonst als jeder Nutzer anmelden.
 Map<String, dynamic>? verifyJwt(Request request) {
-  print('verifyJwt: request path = ${request.url.path}');
-  print('verifyJwt: request headers = ${request.headers}');
-  final auth = request.headers['authorization'] ?? request.headers['Authorization'];
-  if (auth == null || !auth.startsWith('Bearer ')) {
-    print('verifyJwt: auth header missing or invalid: $auth');
-    return null;
-  }
-  final token = auth.substring(7);
+  final auth = request.headers['authorization'];
+  if (auth == null || !auth.startsWith('Bearer ')) return null;
   try {
-    final secret =
-        Platform.environment['JWT_SECRET'] ?? 'changeme_jwt_secret';
-    final jwt = JWT.verify(token, SecretKey(secret));
+    final jwt = JWT.verify(auth.substring(7), SecretKey(jwtSecret));
     return jwt.payload as Map<String, dynamic>;
-  } catch (e) {
-    print('verifyJwt: verification failed: $e');
+  } catch (_) {
+    // Ungültig, abgelaufen oder kaputt formatiert — Grund nicht loggen.
     return null;
   }
 }
