@@ -302,6 +302,17 @@ class KundenEndpoint {
           headers: {'Content-Type': 'application/json'});
     }
     final firmaId = claims['firmaId'] as String;
+    if (tabelle == 'geraete') {
+      final pruefungen = await db.execute(
+        Sql.named('SELECT 1 FROM geraetepruefungen WHERE geraet_uuid = @uuid AND firma_id = @fid LIMIT 1'),
+        parameters: {'uuid': uuid, 'fid': firmaId},
+      );
+      if (pruefungen.isNotEmpty) {
+        return Response(409,
+            body: jsonEncode({'error': belegt}),
+            headers: {'Content-Type': 'application/json'});
+      }
+    }
     try {
       await db.execute(
         Sql.named('DELETE FROM $tabelle WHERE uuid = @uuid AND firma_id = @fid'),

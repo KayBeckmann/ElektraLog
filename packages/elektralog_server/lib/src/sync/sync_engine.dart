@@ -69,11 +69,18 @@ class SyncEngine {
     Map<String, dynamic> ok(int version) => {'type': typ.name, 'uuid': w['uuid'], 'version': version};
 
     if (rows.isEmpty) {
+      await typ.beimAnlegen?.call(tx, firmaId, w);
       await typ.schreiben(tx, firmaId, w);
       return ok(1);
     }
     final zeile = rows.first.toColumnMap();
     if (zeile['firma_id'].toString() != firmaId) throw SyncAbgelehnt('Datensatz unbekannt');
+    // Unveränderte Wiederholung (z. B. erneuter Push nach Verbindungsabbruch)
+    // ist kein Änderungsversuch.
+    if (item['_basisVersion'] == (zeile['version'] as num).toInt() && _gleich(typ, zeile, w)) {
+      return ok((zeile['version'] as num).toInt());
+    }
+    typ.vorAenderung?.call(zeile, w);
     final serverVersion = (zeile['version'] as num).toInt();
 
     if (!item.containsKey('_basisVersion')) {
@@ -122,6 +129,20 @@ class SyncEngine {
     return ok(serverVersion + 1);
   }
 
+  /// Inhalt gleich (ohne Zeitstempel)? Vergleich über die JSON-Abbildung,
+  /// damit Datums-/UUID-Typen keine Rolle spielen.
+  bool _gleich(SyncTyp typ, Map<String, dynamic> zeile, Map<String, Object?> w) {
+    final neu = <String, dynamic>{...zeile};
+    for (final e in w.entries) {
+      final v = e.value;
+      neu[e.key] = v is TypedValue ? v.value : v;
+    }
+    Map<String, dynamic> ohneZeit(Map<String, dynamic> m) =>
+        typ.zuJson(m)..removeWhere((k, _) => k == 'aktualisiertAm' || k == 'erstelltAm' || k == 'abgeschlossenAm');
+    String text(Map<String, dynamic> m) => ohneZeit(m).entries.map((e) => '${e.key}=${e.value}').join('|');
+    return text(zeile) == text(neu);
+  }
+
   /// Pull mit Versionen. Kunden, Standorte, Verteiler (Basisdaten) und
   /// Räume immer vollständig; Verteiler-Aufbau und Geräte nur für die
   /// Auswahl, sofern [auswahl] gesetzt ist (`null` = älterer Client, alles).
@@ -153,6 +174,10 @@ class SyncEngine {
       verteiler = [for (final r in rows) r[0].toString()];
     }
     final vFilter = {'v': TypedValue(Type.uuidArray, verteiler)};
+    final gFilter = {
+      'gs': TypedValue(Type.uuidArray, auswahl?.geraeteStandorte ?? const <String>[]),
+      'r': TypedValue(Type.uuidArray, auswahl?.raeume ?? const <String>[]),
+    };
 
     return {
       'kunden': await lade(kundenTyp),
@@ -175,13 +200,14 @@ class SyncEngine {
       'raeume': await lade(raeumeTyp),
       'geraete': auswahl == null
           ? await lade(geraeteTyp)
+          : await lade(geraeteTyp, filter: 'AND (t.standort_uuid = ANY(@gs) OR t.raum_uuid = ANY(@r))', p: gFilter),
+      'geraetepruefungen': auswahl == null
+          ? await lade(geraetepruefungenTyp)
           : await lade(
-              geraeteTyp,
-              filter: 'AND (t.standort_uuid = ANY(@gs) OR t.raum_uuid = ANY(@r))',
-              p: {
-                'gs': TypedValue(Type.uuidArray, auswahl.geraeteStandorte),
-                'r': TypedValue(Type.uuidArray, auswahl.raeume),
-              },
+              geraetepruefungenTyp,
+              filter: 'AND t.geraet_uuid IN '
+                  '(SELECT uuid FROM geraete WHERE standort_uuid = ANY(@gs) OR raum_uuid = ANY(@r))',
+              p: gFilter,
             ),
     };
   }
