@@ -12,6 +12,7 @@ import '../../core/providers/kunden_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../core/providers/sync_auswahl_provider.dart';
 import '../../core/sync/sync_service.dart';
+import '../../shared/widgets/kontakt_zeile.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
 import '../struktur/standort_formular.dart';
@@ -105,6 +106,9 @@ class KundenDetailScreen extends ConsumerWidget {
                         ],
                       ),
                     ],
+                    if (kunde.ansprechpartner != null)
+                      KontaktZeile(Icons.person_outline, kunde.ansprechpartner!,
+                          key: const Key('kunde-info-ansprechpartner')),
                     if (kunde.kontaktEmail != null) ...[
                       const SizedBox(height: 4),
                       Row(

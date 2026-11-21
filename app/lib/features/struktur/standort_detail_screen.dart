@@ -17,6 +17,7 @@ import '../../core/providers/pruefprotokoll_provider.dart';
 import '../../core/providers/permission_provider.dart';
 import '../../core/providers/standorte_provider.dart';
 import '../../core/providers/verteiler_provider.dart';
+import '../../shared/widgets/kontakt_zeile.dart';
 import '../../shared/theme/app_colors.dart';
 import 'package:printing/printing.dart';
 import '../../core/providers/komponenten_provider.dart';
@@ -108,6 +109,14 @@ class StandortDetailScreen extends ConsumerWidget {
                                   .bodySmall
                                   ?.copyWith(color: AppColors.onSurfaceVariant),
                             ),
+                          if (standort.kontaktPerson != null)
+                            KontaktZeile(Icons.person_outline, standort.kontaktPerson!,
+                                key: const Key('standort-info-kontakt-person')),
+                          if (standort.kontaktEmail != null)
+                            KontaktZeile(Icons.email_outlined, standort.kontaktEmail!,
+                                key: const Key('standort-info-kontakt-email')),
+                          if (standort.kontaktTelefon != null)
+                            KontaktZeile(Icons.phone_outlined, standort.kontaktTelefon!),
                         ],
                       ),
                     ),

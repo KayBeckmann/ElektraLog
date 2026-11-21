@@ -99,6 +99,8 @@ const _feldNamen = {
   'ort': 'Ort',
   'kontaktEmail': 'E-Mail',
   'kontaktTelefon': 'Telefon',
+  'ansprechpartner': 'Ansprechpartner',
+  'kontaktPerson': 'Kontaktperson',
   'bemerkung': 'Bemerkung',
   'kundeUuid': 'Kunde',
   'standortUuid': 'Standort',
