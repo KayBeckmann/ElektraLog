@@ -12,6 +12,8 @@ import 'endpoints/kunden_endpoint.dart';
 import 'endpoints/mandanten_endpoint.dart';
 import 'endpoints/protokoll_endpoint.dart';
 import 'endpoints/firma_endpoint.dart';
+import 'endpoints/versand_endpoint.dart';
+import 'mail/mail_versand.dart';
 
 /// Legt den Superadmin beim ersten Start an, falls noch keiner existiert.
 /// Ohne [email]/[password] aus den Env-Vars SUPERADMIN_EMAIL /
@@ -70,9 +72,19 @@ Future<void> ensureSuperadmin(Connection conn,
 /// [conn] ist ein Verbindungspool: Eine einzelne Verbindung nimmt
 /// während einer Transaktion (Sync, Firmenanlage) keine weiteren Anfragen
 /// an — parallele Nutzer bekämen sonst 500er.
+/// [mailVersand] ersetzen Tests durch eine Attrappe; [smtpSchluessel]
+/// verschlüsselt SMTP-Passwörter (ohne Angabe aus `SMTP_SCHLUESSEL` bzw.
+/// dem JWT-Secret abgeleitet).
 Handler buildHandler(Pool conn,
-    {required String jwtSecret, bool logRequests = true}) {
+    {required String jwtSecret,
+    bool logRequests = true,
+    MailVersand mailVersand = const SmtpMailVersand(),
+    String? smtpSchluessel}) {
   setJwtSecret(jwtSecret);
+  final schluessel = smtpSchluessel ?? Platform.environment['SMTP_SCHLUESSEL'];
+  final geheimnis =
+      SmtpGeheimnis(schluessel == null || schluessel.isEmpty ? jwtSecret : schluessel);
+  VersandEndpoint versand() => VersandEndpoint(conn, mailVersand, geheimnis);
   final router = Router()
     // Health check (public)
     ..get(
@@ -145,13 +157,20 @@ Handler buildHandler(Pool conn,
     ..get('/api/firma', (req) => FirmaEndpoint(conn).getFirma(req))
     ..put('/api/firma', (req) => FirmaEndpoint(conn).updateFirma(req))
     ..put('/api/firma/module', (req) => FirmaEndpoint(conn).updateModule(req))
+    // SMTP-Zugang für den Protokollversand (Firmenadmin)
+    ..get('/api/firma/smtp', (req) => versand().getSmtp(req))
+    ..put('/api/firma/smtp', (req) => versand().putSmtp(req))
+    ..delete('/api/firma/smtp', (req) => versand().deleteSmtp(req))
+    ..post('/api/firma/smtp/test', (req) => versand().testSmtp(req))
     // Protokoll-Archiv (append-only, rechtssicher)
     ..post('/api/protokolle', (req) => ProtokollEndpoint(conn).create(req))
     ..get('/api/protokolle', (req) => ProtokollEndpoint(conn).list(req))
     ..get('/api/protokolle/<id>',
         (req, id) => ProtokollEndpoint(conn).get(req, id))
     ..get('/api/protokolle/<id>/pdf',
-        (req, id) => ProtokollEndpoint(conn).getPdf(req, id));
+        (req, id) => ProtokollEndpoint(conn).getPdf(req, id))
+    ..get('/api/protokolle/<id>/versand', (req, id) => versand().info(req, id))
+    ..post('/api/protokolle/<id>/versand', (req, id) => versand().senden(req, id));
 
   return Pipeline()
       .addMiddleware(logRequests ? shelf.logRequests() : (h) => h)
