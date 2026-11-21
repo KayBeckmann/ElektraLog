@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:elektralog_server/src/app.dart';
+import 'package:elektralog_server/src/mail/mail_versand.dart';
 import 'package:elektralog_server/src/migrations.dart';
 import 'package:postgres/postgres.dart';
 import 'package:shelf/shelf.dart';
@@ -23,6 +24,8 @@ const superadminPassword = 'superadmin-passwort';
 /// Die Datenbank wird bei [start] komplett geleert — nie auf eine
 /// produktive Datenbank zeigen lassen.
 class TestServer {
+  /// Tests verschicken nie echte E-Mails, sondern sammeln sie hier.
+  final mail = TestMail();
   late Connection db;
   late Pool pool;
   late Handler handler;
@@ -33,7 +36,10 @@ class TestServer {
     await ensureSuperadmin(db, email: superadminEmail, password: superadminPassword);
     // Wie im Betrieb: Handler über einen Pool (parallele Anfragen).
     pool = Pool.withEndpoints([_endpoint()], settings: const PoolSettings(sslMode: SslMode.disable));
-    handler = buildHandler(pool, jwtSecret: testJwtSecret, logRequests: false);
+    handler = buildHandler(pool,
+        jwtSecret: testJwtSecret, logRequests: false, mailVersand: mail, smtpSchluessel: 'test-smtp-schluessel');
+    mail.gesendet.clear();
+    mail.fehler = null;
   }
 
   Future<void> stop() async {
@@ -116,4 +122,17 @@ Future<Map<String, dynamic>> pull(TestServer server, String token, {String? quer
   final r = await server.call('GET', query == null ? '/api/sync' : '/api/sync?$query', token: token);
   expect(r.status, 200, reason: '${r.body}');
   return (r.body as Map).cast<String, dynamic>();
+}
+
+/// Mail-Attrappe: merkt sich Zugang und Nachricht; [fehler] simuliert
+/// einen abgelehnten Versand.
+class TestMail implements MailVersand {
+  final gesendet = <(SmtpZugang, MailNachricht)>[];
+  String? fehler;
+
+  @override
+  Future<void> senden(SmtpZugang zugang, MailNachricht nachricht) async {
+    if (fehler case final f?) throw MailVersandFehler(f);
+    gesendet.add((zugang, nachricht));
+  }
 }

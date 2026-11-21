@@ -576,4 +576,98 @@ class ApiService {
     }
     return body;
   }
+
+  // ── SMTP-Zugang und Protokollversand (Roadmap 20./21.11.2026) ─────────────
+
+  static Map<String, dynamic> _ergebnis(http.Response resp, String fehler) {
+    final body = _decodeJsonObject(resp);
+    if (resp.statusCode != 200) {
+      throw ApiException(resp.statusCode, body['error'] as String? ?? fehler);
+    }
+    return body;
+  }
+
+  /// SMTP-Zugang der Firma ohne Passwort (`konfiguriert`, `passwortGesetzt`).
+  static Future<Map<String, dynamic>> getSmtp() async => _ergebnis(
+        await _authGet(Uri.parse('$baseUrl/firma/smtp'),
+            headers: await _headers(auth: true), auth: true),
+        'SMTP-Einstellungen konnten nicht geladen werden',
+      );
+
+  /// [passwort] `null` lässt das gespeicherte Passwort unverändert, ein
+  /// leerer Text entfernt es.
+  static Future<Map<String, dynamic>> putSmtp({
+    required String host,
+    required int port,
+    required String tlsModus,
+    required String absenderEmail,
+    String? absenderName,
+    String? benutzer,
+    String? passwort,
+  }) async =>
+      _ergebnis(
+        await _authPut(
+          Uri.parse('$baseUrl/firma/smtp'),
+          headers: await _headers(auth: true),
+          body: jsonEncode({
+            'host': host,
+            'port': port,
+            'tlsModus': tlsModus,
+            'absenderEmail': absenderEmail,
+            'absenderName': absenderName,
+            'benutzer': benutzer,
+            if (passwort != null) 'passwort': passwort,
+          }),
+          auth: true,
+        ),
+        'SMTP-Einstellungen konnten nicht gespeichert werden',
+      );
+
+  static Future<void> deleteSmtp() async => _ergebnis(
+        await _authDelete(Uri.parse('$baseUrl/firma/smtp'),
+            headers: await _headers(auth: true), auth: true),
+        'SMTP-Zugang konnte nicht entfernt werden',
+      );
+
+  static Future<void> testSmtp(String empfaenger) async => _ergebnis(
+        await _authPost(
+          Uri.parse('$baseUrl/firma/smtp/test'),
+          headers: await _headers(auth: true),
+          body: jsonEncode({'empfaenger': empfaenger}),
+          auth: true,
+        ),
+        'Testnachricht konnte nicht gesendet werden',
+      );
+
+  /// Empfängervorschlag (Standort/Kunde des Protokolls), archivierte
+  /// Fassung (`pdfHash`, `dateiname`) und bisheriger Versandverlauf.
+  static Future<Map<String, dynamic>> getVersandInfo(String protokollId) async => _ergebnis(
+        await _authGet(Uri.parse('$baseUrl/protokolle/$protokollId/versand'),
+            headers: await _headers(auth: true), auth: true),
+        'Versanddaten konnten nicht geladen werden',
+      );
+
+  /// Versendet das archivierte PDF. Dieselbe [anfrageId] bei einer
+  /// Wiederholung (z. B. nach Timeout) verschickt nichts doppelt.
+  static Future<Map<String, dynamic>> sendeProtokoll({
+    required String protokollId,
+    required String anfrageId,
+    required String empfaenger,
+    List<String> cc = const [],
+    required String pdfHash,
+  }) async =>
+      _ergebnis(
+        await _authPost(
+          Uri.parse('$baseUrl/protokolle/$protokollId/versand'),
+          headers: await _headers(auth: true),
+          body: jsonEncode({
+            'anfrageId': anfrageId,
+            'empfaenger': empfaenger,
+            'cc': cc,
+            'pdfHash': pdfHash,
+          }),
+          auth: true,
+        ),
+        'Protokoll konnte nicht versendet werden',
+      );
 }

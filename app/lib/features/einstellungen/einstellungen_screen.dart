@@ -8,6 +8,7 @@ import '../../core/providers/einstellungen_provider.dart';
 import '../../core/router.dart';
 import '../../shared/theme/app_colors.dart';
 import 'module_einstellungen.dart';
+import 'smtp_einstellungen.dart';
 
 class EinstellungenScreen extends ConsumerStatefulWidget {
   const EinstellungenScreen({super.key});
@@ -375,6 +376,12 @@ class _EinstellungenScreenState extends ConsumerState<EinstellungenScreen> {
             const _SectionLabel('MODULE'),
             const SizedBox(height: 8),
             const ModuleEinstellungen(),
+            const SizedBox(height: 16),
+
+            // ── Protokollversand ─────────────────────────────────────────
+            const _SectionLabel('PROTOKOLLVERSAND (E-MAIL)'),
+            const SizedBox(height: 8),
+            const SmtpEinstellungen(),
             const SizedBox(height: 16),
 
             // ── Prüfgeräte ───────────────────────────────────────────────

@@ -9,6 +9,7 @@ import '../../core/providers/pruefprotokoll_provider.dart';
 import '../../core/sync/sync_service.dart';
 import '../../shared/theme/app_colors.dart';
 import '../../shared/theme/app_theme.dart';
+import 'protokoll_versand_dialog.dart';
 
 // ── Provider ──────────────────────────────────────────────────────────────────
 
@@ -215,6 +216,23 @@ class _ProtokollTile extends StatelessWidget {
     }
   }
 
+  Future<void> _versenden(BuildContext context) async {
+    final id = data['id'] as String?;
+    if (id == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final an = await showDialog<String>(
+      context: context,
+      builder: (_) => ProtokollVersandDialog(
+        protokollId: id,
+        titel: '${data['art'] == 'geraete' ? 'Geräteprüfung' : 'Anlagenprüfung'} — '
+            '${data['verteilerBezeichnung'] ?? 'Protokoll'} vom ${_formatDate(data['protokollDatum'] as String?)}',
+      ),
+    );
+    if (an != null) {
+      messenger.showSnackBar(SnackBar(content: Text('Protokoll an $an gesendet.')));
+    }
+  }
+
   String _formatDate(String? iso) {
     if (iso == null) return '–';
     try {
@@ -323,13 +341,28 @@ class _ProtokollTile extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 4),
-                IconButton(
-                  icon: const Icon(Icons.download_outlined,
-                      size: 18, color: AppColors.primary),
-                  tooltip: 'PDF herunterladen',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                  onPressed: () => _downloadPdf(context),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      key: Key('protokoll-versenden-${data['id']}'),
+                      icon: const Icon(Icons.forward_to_inbox_outlined,
+                          size: 18, color: AppColors.primary),
+                      tooltip: 'Per E-Mail versenden',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _versenden(context),
+                    ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      icon: const Icon(Icons.download_outlined,
+                          size: 18, color: AppColors.primary),
+                      tooltip: 'PDF herunterladen',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () => _downloadPdf(context),
+                    ),
+                  ],
                 ),
               ],
             ),

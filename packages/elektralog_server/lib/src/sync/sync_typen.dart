@@ -14,6 +14,10 @@ class SyncAbgelehnt implements Exception {
 
 const schutzklassen = {'I', 'II', 'III'};
 
+/// Bewusst einfache Prüfung (ein @, Domain mit Punkt, keine Leerzeichen) —
+/// die eigentliche Zustellbarkeit entscheidet der Mailserver.
+bool emailGueltig(String s) => RegExp(r'^[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+$').hasMatch(s);
+
 /// Beschreibung eines synchronisierten Datensatztyps: Tabelle, Abbildung
 /// Zeile → JSON (gleiches Format wie die App-Modelle), Validierung samt
 /// Mandantengrenze der Elterndatensätze und die zu schreibenden Spalten.
@@ -97,6 +101,13 @@ String? _text(Map<String, dynamic> m, String key) {
   return s.isEmpty ? null : s;
 }
 
+/// Optionale E-Mail-Adresse: leer → null, sonst Format prüfen.
+String? _email(Map<String, dynamic> m, String key, String name) {
+  final v = _text(m, key);
+  if (v != null && !emailGueltig(v)) throw SyncAbgelehnt('$name ungültig: $v');
+  return v;
+}
+
 String _pflicht(Map<String, dynamic> m, String key, String name) =>
     _text(m, key) ?? (throw SyncAbgelehnt('$name fehlt'));
 
@@ -141,9 +152,11 @@ final kundenTyp = SyncTyp(
     'ort': k['ort'],
     'kontakt_email': k['kontaktEmail'],
     'kontakt_telefon': k['kontaktTelefon'],
+    // Ältere Clients kennen das Feld nicht — dann bleibt es unverändert.
+    if (k.containsKey('ansprechpartner')) 'ansprechpartner': _text(k, 'ansprechpartner'),
     ..._zeiten(k),
   },
-  updateSpalten: ['name', 'strasse', 'plz', 'ort', 'kontakt_email', 'kontakt_telefon', 'aktualisiert_am'],
+  updateSpalten: ['name', 'strasse', 'plz', 'ort', 'kontakt_email', 'kontakt_telefon', 'ansprechpartner', 'aktualisiert_am'],
   zuJson: (z) => {
     'uuid': z['uuid'].toString(),
     'name': z['name'],
@@ -152,6 +165,7 @@ final kundenTyp = SyncTyp(
     'ort': z['ort'],
     'kontaktEmail': z['kontakt_email'],
     'kontaktTelefon': z['kontakt_telefon'],
+    'ansprechpartner': z['ansprechpartner'],
     ..._zeitenJson(z),
   },
 );
@@ -167,9 +181,17 @@ final standorteTyp = SyncTyp(
     'strasse': s['strasse'],
     'plz': s['plz'],
     'ort': s['ort'],
+    // Eigener Standort-Kontakt (Roadmap 21.11.2026); ältere Clients ohne
+    // die Felder lassen ihn unverändert.
+    if (s.containsKey('kontaktPerson')) 'kontakt_person': _text(s, 'kontaktPerson'),
+    if (s.containsKey('kontaktEmail')) 'kontakt_email': _email(s, 'kontaktEmail', 'Standort-E-Mail'),
+    if (s.containsKey('kontaktTelefon')) 'kontakt_telefon': _text(s, 'kontaktTelefon'),
     ..._zeiten(s),
   },
-  updateSpalten: ['bezeichnung', 'strasse', 'plz', 'ort', 'aktualisiert_am'],
+  updateSpalten: [
+    'bezeichnung', 'strasse', 'plz', 'ort',
+    'kontakt_person', 'kontakt_email', 'kontakt_telefon', 'aktualisiert_am',
+  ],
   zuJson: (z) => {
     'uuid': z['uuid'].toString(),
     'kundeUuid': z['kunde_uuid'].toString(),
@@ -177,6 +199,9 @@ final standorteTyp = SyncTyp(
     'strasse': z['strasse'],
     'plz': z['plz'],
     'ort': z['ort'],
+    'kontaktPerson': z['kontakt_person'],
+    'kontaktEmail': z['kontakt_email'],
+    'kontaktTelefon': z['kontakt_telefon'],
     ..._zeitenJson(z),
   },
 );

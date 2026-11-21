@@ -49,7 +49,8 @@ class KundenEndpoint {
       final rows = await db.execute(
         Sql.named(
           'SELECT uuid, firma_id, name, strasse, plz, ort, '
-          'kontakt_email, kontakt_telefon, erstellt_am, aktualisiert_am '
+          'kontakt_email, kontakt_telefon, erstellt_am, aktualisiert_am, '
+          'ansprechpartner '
           'FROM kunden WHERE firma_id = @fid ORDER BY name',
         ),
         parameters: {'fid': firmaId},
@@ -66,6 +67,7 @@ class KundenEndpoint {
                 'kontaktTelefon': r[7],
                 'erstelltAm': r[8].toString(),
                 'aktualisiertAm': r[9].toString(),
+                'ansprechpartner': r[10],
               })
           .toList();
       return Response.ok(jsonEncode(result),
@@ -93,8 +95,8 @@ class KundenEndpoint {
       final rows = await db.execute(
         Sql.named(
           'INSERT INTO kunden (firma_id, name, strasse, plz, ort, '
-          'kontakt_email, kontakt_telefon) '
-          'VALUES (@fid, @name, @strasse, @plz, @ort, @email, @tel) '
+          'kontakt_email, kontakt_telefon, ansprechpartner) '
+          'VALUES (@fid, @name, @strasse, @plz, @ort, @email, @tel, @ap) '
           'RETURNING uuid, erstellt_am, aktualisiert_am',
         ),
         parameters: {
@@ -105,6 +107,7 @@ class KundenEndpoint {
           'ort': body['ort'],
           'email': body['kontaktEmail'],
           'tel': body['kontaktTelefon'],
+          'ap': body['ansprechpartner'],
         },
       );
       final row = rows.first;
@@ -118,6 +121,7 @@ class KundenEndpoint {
           'ort': body['ort'],
           'kontaktEmail': body['kontaktEmail'],
           'kontaktTelefon': body['kontaktTelefon'],
+          'ansprechpartner': body['ansprechpartner'],
           'erstelltAm': row[1].toString(),
           'aktualisiertAm': row[2].toString(),
         }),
@@ -149,6 +153,7 @@ class KundenEndpoint {
           'name = COALESCE(@name, name), '
           'strasse = @strasse, plz = @plz, ort = @ort, '
           'kontakt_email = @email, kontakt_telefon = @tel, '
+          '${body.containsKey('ansprechpartner') ? 'ansprechpartner = @ap, ' : ''}'
           'aktualisiert_am = NOW(), version = version + 1 '
           'WHERE uuid = @uuid AND firma_id = @fid',
         ),
@@ -159,6 +164,7 @@ class KundenEndpoint {
           'ort': body['ort'],
           'email': body['kontaktEmail'],
           'tel': body['kontaktTelefon'],
+          if (body.containsKey('ansprechpartner')) 'ap': body['ansprechpartner'],
           'uuid': uuid,
           'fid': firmaId,
         },

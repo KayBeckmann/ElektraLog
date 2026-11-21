@@ -8,6 +8,9 @@ class Kunde {
   final String? ort;
   final String? kontaktEmail;
   final String? kontaktTelefon;
+
+  /// Ein Ansprechpartner (Name) zu E-Mail/Telefon (Roadmap 20.11.2026).
+  final String? ansprechpartner;
   final DateTime erstelltAm;
   final DateTime aktualisiertAm;
 
@@ -19,6 +22,7 @@ class Kunde {
     this.ort,
     this.kontaktEmail,
     this.kontaktTelefon,
+    this.ansprechpartner,
     DateTime? erstelltAm,
     DateTime? aktualisiertAm,
   })  : uuid = uuid ?? const Uuid().v4(),
@@ -33,6 +37,7 @@ class Kunde {
         'ort': ort,
         'kontaktEmail': kontaktEmail,
         'kontaktTelefon': kontaktTelefon,
+        'ansprechpartner': ansprechpartner,
         'erstelltAm': erstelltAm.toUtc().toIso8601String(),
         'aktualisiertAm': aktualisiertAm.toUtc().toIso8601String(),
       };
@@ -45,6 +50,7 @@ class Kunde {
         ort: json['ort'] as String?,
         kontaktEmail: json['kontaktEmail'] as String?,
         kontaktTelefon: json['kontaktTelefon'] as String?,
+        ansprechpartner: json['ansprechpartner'] as String?,
         erstelltAm: DateTime.parse(json['erstelltAm'] as String),
         aktualisiertAm: DateTime.tryParse(
                 json['aktualisiertAm'] as String? ?? '') ??
@@ -58,6 +64,7 @@ class Kunde {
     String? ort,
     String? kontaktEmail,
     String? kontaktTelefon,
+    String? ansprechpartner,
   }) =>
       Kunde(
         uuid: uuid,
@@ -67,6 +74,7 @@ class Kunde {
         ort: ort ?? this.ort,
         kontaktEmail: kontaktEmail ?? this.kontaktEmail,
         kontaktTelefon: kontaktTelefon ?? this.kontaktTelefon,
+        ansprechpartner: ansprechpartner ?? this.ansprechpartner,
         erstelltAm: erstelltAm,
         aktualisiertAm: DateTime.now().toUtc(),
       );

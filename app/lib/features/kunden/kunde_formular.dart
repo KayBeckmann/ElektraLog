@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/kunde.dart';
 import '../../core/providers/kunden_provider.dart';
+import '../../shared/email.dart';
 import '../../shared/theme/app_colors.dart';
 
 class KundeFormular extends ConsumerStatefulWidget {
@@ -20,6 +21,7 @@ class _KundeFormularState extends ConsumerState<KundeFormular> {
   final _strasseCtrl = TextEditingController();
   final _plzCtrl = TextEditingController();
   final _ortCtrl = TextEditingController();
+  final _ansprechpartnerCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _telefonCtrl = TextEditingController();
 
@@ -34,6 +36,7 @@ class _KundeFormularState extends ConsumerState<KundeFormular> {
       _strasseCtrl.text = k.strasse ?? '';
       _plzCtrl.text = k.plz ?? '';
       _ortCtrl.text = k.ort ?? '';
+      _ansprechpartnerCtrl.text = k.ansprechpartner ?? '';
       _emailCtrl.text = k.kontaktEmail ?? '';
       _telefonCtrl.text = k.kontaktTelefon ?? '';
     }
@@ -45,6 +48,7 @@ class _KundeFormularState extends ConsumerState<KundeFormular> {
     _strasseCtrl.dispose();
     _plzCtrl.dispose();
     _ortCtrl.dispose();
+    _ansprechpartnerCtrl.dispose();
     _emailCtrl.dispose();
     _telefonCtrl.dispose();
     super.dispose();
@@ -54,135 +58,152 @@ class _KundeFormularState extends ConsumerState<KundeFormular> {
   Widget build(BuildContext context) {
     final isEditing = widget.existingKunde != null;
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
-        top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              children: [
-                Text(
-                  isEditing ? 'Kunde bearbeiten' : 'Neuer Kunde',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Name (Pflicht)
-            TextFormField(
-              controller: _nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Name *',
-                hintText: 'Firmenname oder Kundenname',
-              ),
-              textInputAction: TextInputAction.next,
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) {
-                  return 'Name ist ein Pflichtfeld';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-
-            // Adresse
-            TextFormField(
-              controller: _strasseCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Straße',
-                hintText: 'Musterstraße 1',
-              ),
-              textInputAction: TextInputAction.next,
-            ),
-            const SizedBox(height: 12),
-
-            Row(
-              children: [
-                SizedBox(
-                  width: 120,
-                  child: TextFormField(
-                    controller: _plzCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'PLZ',
-                      hintText: '12345',
-                    ),
-                    textInputAction: TextInputAction.next,
-                    keyboardType: TextInputType.number,
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Text(
+                    isEditing ? 'Kunde bearbeiten' : 'Neuer Kunde',
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _ortCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Ort',
-                      hintText: 'Berlin',
-                    ),
-                    textInputAction: TextInputAction.next,
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
                   ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Name (Pflicht)
+              TextFormField(
+                controller: _nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Name *',
+                  hintText: 'Firmenname oder Kundenname',
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Kontakt
-            TextFormField(
-              controller: _emailCtrl,
-              decoration: const InputDecoration(
-                labelText: 'E-Mail',
-                prefixIcon: Icon(Icons.email_outlined, size: 18),
-                hintText: 'kontakt@example.de',
+                textInputAction: TextInputAction.next,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) {
+                    return 'Name ist ein Pflichtfeld';
+                  }
+                  return null;
+                },
               ),
-              textInputAction: TextInputAction.next,
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-            TextFormField(
-              controller: _telefonCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Telefon',
-                prefixIcon: Icon(Icons.phone_outlined, size: 18),
-                hintText: '+49 30 123456',
+              // Adresse
+              TextFormField(
+                controller: _strasseCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Straße',
+                  hintText: 'Musterstraße 1',
+                ),
+                textInputAction: TextInputAction.next,
               ),
-              textInputAction: TextInputAction.done,
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 12),
 
-            // Save button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isSaving ? null : _save,
-                child: _isSaving
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.onPrimary,
-                        ),
-                      )
-                    : Text(isEditing ? 'Speichern' : 'Kunde anlegen'),
+              Row(
+                children: [
+                  SizedBox(
+                    width: 120,
+                    child: TextFormField(
+                      controller: _plzCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'PLZ',
+                        hintText: '12345',
+                      ),
+                      textInputAction: TextInputAction.next,
+                      keyboardType: TextInputType.number,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _ortCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Ort',
+                        hintText: 'Berlin',
+                      ),
+                      textInputAction: TextInputAction.next,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+
+              // Kontakt
+              TextFormField(
+                key: const Key('kunde-ansprechpartner'),
+                controller: _ansprechpartnerCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Ansprechpartner',
+                  prefixIcon: Icon(Icons.person_outline, size: 18),
+                  hintText: 'Vor- und Nachname',
+                ),
+                textInputAction: TextInputAction.next,
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 12),
+
+              TextFormField(
+                key: const Key('kunde-email'),
+                controller: _emailCtrl,
+                validator: optionaleEmailPruefen,
+                decoration: const InputDecoration(
+                  labelText: 'E-Mail',
+                  prefixIcon: Icon(Icons.email_outlined, size: 18),
+                  hintText: 'kontakt@example.de',
+                ),
+                textInputAction: TextInputAction.next,
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 12),
+
+              TextFormField(
+                controller: _telefonCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Telefon',
+                  prefixIcon: Icon(Icons.phone_outlined, size: 18),
+                  hintText: '+49 30 123456',
+                ),
+                textInputAction: TextInputAction.done,
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 24),
+
+              // Save button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isSaving ? null : _save,
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.onPrimary,
+                          ),
+                        )
+                      : Text(isEditing ? 'Speichern' : 'Kunde anlegen'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -197,10 +218,11 @@ class _KundeFormularState extends ConsumerState<KundeFormular> {
     final name = _nameCtrl.text.trim();
     final strasse =
         _strasseCtrl.text.trim().isEmpty ? null : _strasseCtrl.text.trim();
-    final plz =
-        _plzCtrl.text.trim().isEmpty ? null : _plzCtrl.text.trim();
-    final ort =
-        _ortCtrl.text.trim().isEmpty ? null : _ortCtrl.text.trim();
+    final plz = _plzCtrl.text.trim().isEmpty ? null : _plzCtrl.text.trim();
+    final ort = _ortCtrl.text.trim().isEmpty ? null : _ortCtrl.text.trim();
+    final ansprechpartner = _ansprechpartnerCtrl.text.trim().isEmpty
+        ? null
+        : _ansprechpartnerCtrl.text.trim();
     final kontaktEmail =
         _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim();
     final kontaktTelefon =
@@ -216,6 +238,7 @@ class _KundeFormularState extends ConsumerState<KundeFormular> {
         ort: ort,
         kontaktEmail: kontaktEmail,
         kontaktTelefon: kontaktTelefon,
+        ansprechpartner: ansprechpartner,
         erstelltAm: existing.erstelltAm,
       );
     } else {
@@ -226,6 +249,7 @@ class _KundeFormularState extends ConsumerState<KundeFormular> {
         ort: ort,
         kontaktEmail: kontaktEmail,
         kontaktTelefon: kontaktTelefon,
+        ansprechpartner: ansprechpartner,
       );
     }
 
