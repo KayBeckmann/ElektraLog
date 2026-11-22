@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:printing/printing.dart';
 
 import '../../core/providers/verteiler_provider.dart';
 import '../../core/providers/standorte_provider.dart';
@@ -20,6 +19,7 @@ import '../../core/providers/pruefprotokoll_provider.dart';
 import '../../core/sync/sync_service.dart';
 import '../../features/pdf/pdf_options_sheet.dart';
 import '../../features/pdf/pdf_service.dart';
+import '../../features/protokolle/protokoll_ergebnis_dialog.dart';
 import '../../shared/theme/app_colors.dart';
 import 'komponenten_baum_widget.dart';
 import 'komponente_formular.dart';
@@ -270,20 +270,26 @@ class _VerteilerDetailScreenState extends ConsumerState<VerteilerDetailScreen> {
       );
       // Endgeräte: lokal speichern, Upload im Hintergrund (offline per
       // Retry nachgeholt). Web-App: direkt in die Dokumentenablage.
+      ProtokollAblage? ablage;
+      String? ablageFehler;
       try {
-        await ref.read(pruefprotokollRepositoryProvider).ablegen(protokoll, bytes);
+        ablage = await ref.read(pruefprotokollRepositoryProvider).ablegen(protokoll, bytes);
       } catch (fehler) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Nicht in der Dokumentenablage gespeichert: $fehler'),
-          ));
-        }
+        ablageFehler = 'Nicht in der Dokumentenablage gespeichert: $fehler';
       }
 
-      await Printing.layoutPdf(
-        onLayout: (_) async => bytes,
-        name: 'Protokoll_${verteiler.bezeichnung}',
-      );
+      // Ergebnis: ansehen, teilen oder direkt per E-Mail (Roadmap 22.11.).
+      if (context.mounted) {
+        await zeigeProtokollErgebnis(
+          context,
+          titel: 'Anlagenprüfung — ${verteiler.bezeichnung}',
+          dateiname: 'Protokoll_${verteiler.bezeichnung}.pdf'.replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_'),
+          bytes: bytes,
+          protokoll: protokoll,
+          ablage: ablage,
+          ablageFehler: ablageFehler,
+        );
+      }
 
       // Daten nach PDF-Erstellung synchronisieren (für kleine Displays ohne Sync-Button)
       if (mounted) {

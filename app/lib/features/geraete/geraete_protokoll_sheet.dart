@@ -1,8 +1,6 @@
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:printing/printing.dart';
 
 import '../../core/models/geraet.dart';
 import '../../core/models/geraete_protokoll.dart';
@@ -15,13 +13,11 @@ import '../../core/providers/standorte_provider.dart';
 import '../../shared/theme/app_colors.dart';
 import '../pdf/geraete_pdf.dart';
 import '../pdf/pdf_options_sheet.dart';
+import '../protokolle/protokoll_ergebnis_dialog.dart';
 import 'geraete_ablage.dart';
 import 'geraete_widgets.dart';
 
-/// Wird in Tests ersetzt, damit kein Druck-/Teilen-Dialog nötig ist.
-typedef PdfAusgabe = Future<void> Function(Uint8List bytes, String dateiname);
-
-Future<void> _teilen(Uint8List bytes, String dateiname) => Printing.sharePdf(bytes: bytes, filename: dateiname);
+export '../protokolle/protokoll_ergebnis_dialog.dart' show PdfAusgabe;
 
 /// Fragt vor dem PDF Prüfer, Datum/Ort, Prüfgerät und Unterschrift ab
 /// (dasselbe Formular wie bei der Anlagenprüfung). In Tests ersetzbar.
@@ -59,6 +55,7 @@ Future<void> zeigeGeraeteProtokoll(
   String? raumUuid,
   String? geraetUuid,
   PdfAusgabe? ausgabe,
+  PdfAusgabe? ansehen,
   PdfSchriften? schriften,
   UnterschriftAbfrage? unterschrift,
 }) =>
@@ -73,7 +70,8 @@ Future<void> zeigeGeraeteProtokoll(
         standortUuid: standortUuid,
         raumUuid: raumUuid,
         geraetUuid: geraetUuid,
-        ausgabe: ausgabe ?? _teilen,
+        ausgabe: ausgabe ?? pdfTeilen,
+        ansehen: ansehen ?? pdfVorschau,
         schriften: schriften,
         unterschrift: unterschrift ?? _unterschreiben,
       ),
@@ -88,6 +86,7 @@ class GeraeteProtokollSheet extends ConsumerStatefulWidget {
     this.raumUuid,
     this.geraetUuid,
     required this.ausgabe,
+    this.ansehen = pdfVorschau,
     this.schriften,
     this.unterschrift = _unterschreiben,
   });
@@ -97,7 +96,9 @@ class GeraeteProtokollSheet extends ConsumerStatefulWidget {
   final String standortUuid;
   final String? raumUuid;
   final String? geraetUuid;
+  /// „PDF teilen“ im Ergebnisdialog.
   final PdfAusgabe ausgabe;
+  final PdfAusgabe ansehen;
   final PdfSchriften? schriften;
   final UnterschriftAbfrage unterschrift;
 
@@ -299,54 +300,60 @@ class _GeraeteProtokollSheetState extends ConsumerState<GeraeteProtokollSheet> {
       schriften: widget.schriften,
       unterschrift: _unterschrift(optionen),
     );
-    String? ablageFehler;
-    try {
-      await geraeteProtokollAblegen(
-        ref.read(pruefprotokollRepositoryProvider),
-        bezugUuid: switch (widget.umfang) {
-          ProtokollUmfang.standort => widget.standortUuid,
-          ProtokollUmfang.raum => widget.raumUuid ?? widget.standortUuid,
-          ProtokollUmfang.geraet => widget.geraetUuid ?? widget.standortUuid,
-        },
+    final protokoll = geraeteProtokoll(
+      bezugUuid: switch (widget.umfang) {
+        ProtokollUmfang.standort => widget.standortUuid,
+        ProtokollUmfang.raum => widget.raumUuid ?? widget.standortUuid,
+        ProtokollUmfang.geraet => widget.geraetUuid ?? widget.standortUuid,
+      },
+      titel: inhalt.titel,
+      bytes: bytes,
+      snapshot: geraeteSnapshot(
         titel: inhalt.titel,
-        bytes: bytes,
-        snapshot: geraeteSnapshot(
-          titel: inhalt.titel,
-          filter: inhalt.filter,
-          zeilen: inhalt.zeilen,
-          pruefungen: [for (final b in inhalt.blaetter) b.pruefung],
-        ),
-        kunde: kunde?.name,
-        standort: standort?.bezeichnung,
-        pruefer: optionen.prueferName,
-        firma: optionen.firma ?? e.firma,
-      );
+        filter: inhalt.filter,
+        zeilen: inhalt.zeilen,
+        pruefungen: [for (final b in inhalt.blaetter) b.pruefung],
+      ),
+      kunde: kunde?.name,
+      standort: standort?.bezeichnung,
+      pruefer: optionen.prueferName,
+      firma: optionen.firma ?? e.firma,
+    );
+    String? ablageFehler;
+    ProtokollAblage? ablage;
+    try {
+      ablage = await ref.read(pruefprotokollRepositoryProvider).ablegen(protokoll, bytes);
     } catch (fehler) {
       // Web-App: Upload direkt — das PDF bekommt der Nutzer trotzdem.
       ablageFehler = 'Nicht in der Dokumentenablage gespeichert: $fehler';
     }
     final datum = DateTime.now();
-    await widget.ausgabe(
-      bytes,
-      'Geraetepruefung_${standort?.bezeichnung ?? 'Standort'}_${datum.year}-${datum.month}-${datum.day}.pdf'
-          .replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_'),
-    );
     if (!mounted) return;
     setState(() => _erzeugt = ablageFehler == null);
-    if (ablageFehler != null) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(ablageFehler)));
-    }
+    await zeigeProtokollErgebnis(
+      context,
+      titel: inhalt.titel,
+      dateiname: 'Geraetepruefung_${standort?.bezeichnung ?? 'Standort'}_${datum.year}-${datum.month}-${datum.day}.pdf'
+          .replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_'),
+      bytes: bytes,
+      protokoll: protokoll,
+      ablage: ablage,
+      ablageFehler: ablageFehler,
+      ansehen: widget.ansehen,
+      teilen: widget.ausgabe,
+    );
   }
 }
 
 /// Einzelprotokoll einer abgeschlossenen Prüfung (aus dem Snapshot):
-/// unterschreiben, ablegen, ausgeben.
+/// unterschreiben, ablegen, Ergebnisdialog (ansehen, teilen, E-Mail).
 Future<void> einzelProtokollAusgeben(
   BuildContext context,
   WidgetRef ref,
   GeraetePruefung p,
   Geraet geraet, {
   PdfAusgabe? ausgabe,
+  PdfAusgabe? ansehen,
   PdfSchriften? schriften,
   UnterschriftAbfrage? unterschrift,
 }) async {
@@ -362,8 +369,7 @@ Future<void> einzelProtokollAusgeben(
     schriften: schriften,
     unterschrift: _unterschrift(optionen),
   );
-  await geraeteProtokollAblegen(
-    ref.read(pruefprotokollRepositoryProvider),
+  final protokoll = geraeteProtokoll(
     bezugUuid: geraet.uuid,
     titel: titel,
     bytes: bytes,
@@ -373,5 +379,23 @@ Future<void> einzelProtokollAusgeben(
     pruefer: optionen.prueferName,
     firma: optionen.firma ?? e.firma,
   );
-  await (ausgabe ?? _teilen)(bytes, 'Pruefprotokoll_${p.pruefungDatum}_${p.uuid.substring(0, 8)}.pdf');
+  String? ablageFehler;
+  ProtokollAblage? ablage;
+  try {
+    ablage = await ref.read(pruefprotokollRepositoryProvider).ablegen(protokoll, bytes);
+  } catch (fehler) {
+    ablageFehler = 'Nicht in der Dokumentenablage gespeichert: $fehler';
+  }
+  if (!context.mounted) return;
+  await zeigeProtokollErgebnis(
+    context,
+    titel: titel,
+    dateiname: 'Pruefprotokoll_${p.pruefungDatum}_${p.uuid.substring(0, 8)}.pdf',
+    bytes: bytes,
+    protokoll: protokoll,
+    ablage: ablage,
+    ablageFehler: ablageFehler,
+    ansehen: ansehen ?? pdfVorschau,
+    teilen: ausgabe ?? pdfTeilen,
+  );
 }

@@ -30,11 +30,16 @@ class ProtokollVersandDialog extends ConsumerStatefulWidget {
     required this.protokollId,
     required this.titel,
     this.pdfAnzeigen = _pdfZeigen,
+    this.erwarteterPdfHash,
   });
 
   final String protokollId;
   final String titel;
   final Future<void> Function(Uint8List bytes, String dateiname) pdfAnzeigen;
+
+  /// Prüfsumme des gerade erzeugten PDFs (Versand direkt aus der
+  /// Erstellung): weicht die archivierte Fassung ab, bleibt Senden gesperrt.
+  final String? erwarteterPdfHash;
 
   @override
   ConsumerState<ProtokollVersandDialog> createState() => _ProtokollVersandDialogState();
@@ -60,6 +65,9 @@ class _ProtokollVersandDialogState extends ConsumerState<ProtokollVersandDialog>
   Map<String, dynamic>? get _standort => _info?['standort'] as Map<String, dynamic>?;
   Map<String, dynamic>? get _kunde => _info?['kunde'] as Map<String, dynamic>?;
   String? get _standortEmail => _standort?['kontaktEmail'] as String?;
+  bool get _hashAbweichung =>
+      widget.erwarteterPdfHash != null && _info?['pdfHash'] != widget.erwarteterPdfHash;
+
   String? get _kundeEmail {
     final e = _kunde?['kontaktEmail'] as String?;
     return e == null || e == _standortEmail ? null : e;
@@ -214,7 +222,9 @@ class _ProtokollVersandDialogState extends ConsumerState<ProtokollVersandDialog>
         if (_info != null)
           FilledButton.icon(
             key: const Key('versand-senden'),
-            onPressed: _sendet || _info!['smtpKonfiguriert'] != true || _wahl == null ? null : _senden,
+            onPressed: _sendet || _info!['smtpKonfiguriert'] != true || _wahl == null || _hashAbweichung
+                ? null
+                : _senden,
             icon: _sendet
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.send_outlined, size: 18),
@@ -247,6 +257,12 @@ class _ProtokollVersandDialogState extends ConsumerState<ProtokollVersandDialog>
             ),
           ],
         ),
+        if (_hashAbweichung)
+          const _Hinweis(
+            key: Key('versand-hash-abweichung'),
+            text: 'Die archivierte Fassung entspricht nicht dem gerade erzeugten PDF — '
+                'Versand gesperrt. Bitte das Protokoll in der Dokumentenablage prüfen.',
+          ),
         if (_info!['smtpKonfiguriert'] != true)
           const _Hinweis(
             key: Key('versand-kein-smtp'),

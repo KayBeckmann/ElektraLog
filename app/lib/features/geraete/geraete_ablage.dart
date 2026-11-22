@@ -31,6 +31,31 @@ String geraeteSnapshot({
       'pruefungen': [for (final p in pruefungen) p.toJson()],
     });
 
+/// Verlaufseintrag eines Geräteprotokolls samt PDF (für Ablage und
+/// späteren Upload).
+Pruefprotokoll geraeteProtokoll({
+  required String bezugUuid,
+  required String titel,
+  required Uint8List bytes,
+  required String snapshot,
+  String? kunde,
+  String? standort,
+  String? pruefer,
+  String? firma,
+}) =>
+    Pruefprotokoll(
+      verteilerUuid: bezugUuid,
+      art: 'geraete',
+      protokollDatum: DateTime.now(),
+      prueferName: pruefer?.isEmpty ?? true ? null : pruefer,
+      firma: firma?.isEmpty ?? true ? null : firma,
+      verteilerBezeichnung: titel,
+      standortBezeichnung: standort,
+      kundenBezeichnung: kunde,
+      messdatenSnapshot: snapshot,
+      pdfBase64: base64Encode(bytes),
+    );
+
 /// Legt ein unterschriebenes Geräteprotokoll ab (wie bei der
 /// Anlagenprüfung, siehe [PruefprotokollRepository.ablegen]): Endgeräte
 /// speichern zuerst lokal samt PDF und laden im Hintergrund hoch — offline
@@ -49,17 +74,15 @@ Future<ProtokollAblage> geraeteProtokollAblegen(
   ProtokollUpload? upload,
 }) =>
     repo.ablegen(
-      Pruefprotokoll(
-        verteilerUuid: bezugUuid,
-        art: 'geraete',
-        protokollDatum: DateTime.now(),
-        prueferName: pruefer?.isEmpty ?? true ? null : pruefer,
-        firma: firma?.isEmpty ?? true ? null : firma,
-        verteilerBezeichnung: titel,
-        standortBezeichnung: standort,
-        kundenBezeichnung: kunde,
-        messdatenSnapshot: snapshot,
-        pdfBase64: base64Encode(bytes),
+      geraeteProtokoll(
+        bezugUuid: bezugUuid,
+        titel: titel,
+        bytes: bytes,
+        snapshot: snapshot,
+        kunde: kunde,
+        standort: standort,
+        pruefer: pruefer,
+        firma: firma,
       ),
       bytes,
       upload: upload,
