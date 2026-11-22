@@ -88,11 +88,15 @@ void main() {
 
     await tester.tap(find.byKey(const Key('pdf-erzeugen')));
     // PDF-Erzeugung und Ablage brauchen echte Zeit, die Datenbank-Sperre
-    // aber auch Frames — abwechselnd beides, bis die Ausgabe da ist.
-    for (var i = 0; i < 50 && ausgaben.isEmpty; i++) {
+    // aber auch Frames — abwechselnd beides, bis der Ergebnisdialog da ist.
+    for (var i = 0; i < 50 && find.byKey(const Key('ergebnis-teilen')).evaluate().isEmpty; i++) {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
       await tester.pump();
     }
+    await tester.pumpAndSettle();
+    expect(ausgaben, isEmpty, reason: 'erst der Ergebnisdialog, keine automatische Ausgabe');
+    expect(find.byKey(const Key('ergebnis-email')), findsNothing, reason: 'Solo-Modus: kein E-Mail-Versand');
+    await tester.tap(find.byKey(const Key('ergebnis-teilen')));
     await tester.pumpAndSettle();
     expect(ausgaben, hasLength(1));
     expect(find.byKey(const Key('pdf-erzeugt')), findsOneWidget);
